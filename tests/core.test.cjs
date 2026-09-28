@@ -2,16 +2,17 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const C = require('../core.js');
 const wrap = (value, finish='STOP') => ({candidates:[{finishReason:finish,content:{parts:[{thought:true,text:'private'},{text:JSON.stringify(value)}]}}]});
-const analysis={speak:true,summary:'道を進んでいる',comment:'景色がいいね'};
+const profiles=[{id:'p1',name:'友達1',personality:'明るい'},{id:'p2',name:'友達2',personality:'落ち着いている'}];
+const analysis={speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね'}]};
 test('response parsing excludes thoughts and rejects incomplete output',()=>{
-  assert.deepEqual(C.parseAnalysis(wrap(analysis)),analysis);
-  assert.throws(()=>C.parseAnalysis(wrap(analysis,'MAX_TOKENS')));
+  assert.deepEqual(C.parseAnalysis(wrap(analysis),profiles),analysis);
+  assert.throws(()=>C.parseAnalysis(wrap(analysis,'MAX_TOKENS'),profiles));
   assert.throws(()=>C.parseAnalysis(wrap({speak:'true'})));
   assert.equal(C.parseAnalysis({promptFeedback:{blockReason:'SAFETY'}}).speak,false);
 });
 test('fixed endpoint, ordered JPEG parts and opaque key in header only',async()=>{
   const frames=[{data:'data:image/jpeg;base64,AQ=='},{data:'data:image/jpeg;base64,Ag=='}];
-  const payload=C.makePayload(...frames,{persona:'相方',talkativeness:2},[],[]);let calls=0;
+  const payload=C.makePayload(...frames,{persona:'相方',talkativeness:2,profiles},[],[]);let calls=0;
   await C.gemini(' \uFEFFtest.token+/=\n',payload,new AbortController().signal,async(url,options)=>{
     calls++;assert.equal(url,'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent');
     assert.equal(options.headers['x-goog-api-key'],'test.token+/=');assert.equal(options.redirect,'error');
@@ -41,7 +42,7 @@ test('minimum API interval overrides motion and quiet-scene interval',()=>{
 test('stale comments are rejected at the boundary even if model says speak',()=>{
   const s={freshness:15,speechInterval:20};assert.equal(C.fresh(1000,15999,15),true);assert.equal(C.fresh(1000,16000,15),false);
   assert.equal(C.skipReason(analysis,15000,s,99999,[]),'鮮度上限を超過');assert.equal(C.skipReason(analysis,14999,s,99999,[]),'');
-  assert.equal(C.skipReason(analysis,1000,s,99999,[analysis.comment]),'直近と同じ発言');
+  assert.equal(C.skipReason(analysis,1000,s,99999,[analysis.turns[0].text]),'直近と同じ発言');
 });
 test('freshness deadline aborts outstanding network work',async()=>{
   let aborted=false;await assert.rejects(C.deadline(token=>new Promise((_,reject)=>token.addEventListener('abort',()=>{aborted=true;reject(C.abortError());})),10,undefined,'stale','STALE'),e=>e.code==='STALE');assert.equal(aborted,true);
@@ -50,12 +51,37 @@ test('user stop stays cancellation, including during recovery sleep',async()=>{
   const ac=new AbortController();const p=C.deadline(token=>C.sleep(10000,token),10000,ac.signal,'timeout');ac.abort();await assert.rejects(p,{name:'AbortError'});
   const ac2=new AbortController();const waiting=C.sleep(30000,ac2.signal);ac2.abort();await assert.rejects(waiting,{name:'AbortError'});
 });
-test('503 resume is opt-in, bounded, budgeted, and respects API interval',()=>{
-  assert.equal(C.recoveryDelay(false,1,30,1,20),null);assert.equal(C.recoveryDelay(true,1,30,1,20),30000);
-  assert.equal(C.recoveryDelay(true,2,30,2,20),60000);assert.equal(C.recoveryDelay(true,3,30,3,20),null);
-  assert.equal(C.recoveryDelay(true,1,120,1,20),120000);assert.equal(C.recoveryDelay(true,1,30,20,20),null);
+test('recovery has no error-count stop; respects server delays and API interval',()=>{
+  assert.equal(C.recoveryDelay({code:'503'},1,30),30000);
+  assert.equal(C.recoveryDelay({code:'503'},2,30),60000);
+  assert.equal(C.recoveryDelay({code:'503'},100,30),300000);
+  assert.equal(C.recoveryDelay({code:'429',retryAfter:3600000},9,30),3600000);
+  assert.equal(C.recoveryDelay({code:'503'},1,120),120000);
+  assert.equal(C.needsSettings({code:'AUTH'}),true);
+  assert.equal(C.needsSettings({code:'503'}),false);
+});
+test('speaker subset is accepted; inactive speakers, long text and oversized exchanges are rejected',()=>{
+  assert.equal(C.parseAnalysis(wrap(analysis),profiles).turns.length,1);
+  for(const turns of [[{speakerId:'p3',text:'こんにちは'}],[{speakerId:'p1',text:'x'.repeat(81)}],Array(7).fill(analysis.turns[0])])
+    assert.throws(()=>C.parseAnalysis(wrap({...analysis,turns}),profiles));
+  assert.throws(()=>C.parseAnalysis(wrap({...analysis,speak:false}),profiles));
+});
+test('429 reads Retry-After and RetryInfo without echoing response details',async()=>{
+  await assert.rejects(C.gemini('test',{},undefined,async()=>({status:429,ok:false,headers:{get:()=> '1200'},json:async()=>({error:{details:[{'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay:'1500s'}]}})})),e=>e.code==='429'&&e.retryAfter===1500000);
 });
 test('plain speech strips executable tag and plugin syntax',()=>{
   assert.equal(C.plainSpeech('v)（音声ファイル C:\\evil.wav）<script>'), 'v音声ファイル Cevil.wavscript');
   assert.equal(C.plainSpeech('景色がいいね！'),'景色がいいね!');
+});
+
+const V=require('../vault.js');
+test('encrypted vault round trip, random salts, wrong passphrase and tampering',async()=>{
+ const clear={apiKey:'test-secret-api',obsPassword:'test-secret-obs'},pass='twelve-or-more-characters';
+ const a=await V.seal(clear,pass),b=await V.seal(clear,pass);
+ assert.notEqual(a.ciphertext,b.ciphertext);assert.notEqual(a.salt,b.salt);
+ assert.ok(!JSON.stringify(a).includes(clear.apiKey));assert.ok(!JSON.stringify(a).includes(pass));
+ assert.deepEqual(await V.open(a,pass),clear);
+ await assert.rejects(V.open(a,'wrong-passphrase'));
+ await assert.rejects(V.open({...a,ciphertext:(a.ciphertext[0]==='A'?'B':'A')+a.ciphertext.slice(1)},pass));
+ await assert.rejects(V.open({...a,iterations:1},pass));await assert.rejects(V.seal(clear,'short'));
 });
