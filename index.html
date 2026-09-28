@@ -5,47 +5,76 @@
 <meta name="referrer" content="no-referrer">
 <title>AI Live Commentator — ブラウザ版</title>
 <link rel="stylesheet" href="style.css">
-<script src="core.js" defer></script><script src="app.js" defer></script>
+<script src="core.js" defer></script><script src="vault.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
-<header><div class="brand"><span class="mark" aria-hidden="true">◖</span><div><h1>AI Live Commentator</h1><p>映像を見て、ひとこと添える。</p></div></div><span class="badge">BROWSER · v1.0</span></header>
+<header><div class="brand"><span class="mark" aria-hidden="true">◖</span><div><h1>AI Live Commentator</h1><p>いつものゲームに、友達のひとこと。</p></div></div><span class="badge">BROWSER · v2.0</span></header>
 <main>
-<section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="stop" disabled>■ 停止</button></div></section>
+<section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="stop" disabled>■ 停止</button></div></section>
 <div class="workspace">
 <div class="monitor-column">
-<section class="card preview-card"><div class="card-head"><h2>取得した映像</h2><span id="imageInfo">OBSから静止画を取得</span></div><div class="preview"><img id="preview" alt="OBSから取得したゲーム映像" hidden><div id="placeholder"><span aria-hidden="true">▣</span><p>ゲームの映像を確認しましょう</p><small>「映像確認」で取得します。Geminiへの送信はありません。</small></div></div><div class="metrics"><div><small>今回の送信</small><strong id="usage">0 / 20</strong></div><div><small>直近のAPI応答</small><strong id="latency">—</strong></div><div><small>鮮度切れ</small><strong id="staleCount">0</strong></div></div></section>
+<section class="card preview-card"><div class="card-head"><h2>取得した映像</h2><span id="imageInfo">OBSから静止画を取得</span></div><div class="preview"><img id="preview" alt="OBSから取得したゲーム映像" hidden><div id="placeholder"><span aria-hidden="true">▣</span><p>ゲームの映像を確認しましょう</p><small>「映像確認」で取得します。Geminiへの送信はありません。</small></div></div><div class="metrics"><div><small>今回の送信</small><strong id="usage">0 回</strong></div><div><small>直近のAPI応答</small><strong id="latency">—</strong></div><div><small>鮮度切れ</small><strong id="staleCount">0</strong></div></div></section>
 <section class="card"><div class="card-head"><h2>直近のコメント</h2><span id="commentTime">まだ発言していません</span></div><p id="lastComment" class="quote">相方のひとことが、ここに表示されます。</p><p id="delivery" class="hint">棒読みちゃんはPC側、VOICEVOX直接はこのブラウザで再生します。</p></section>
-<section class="card"><div class="card-head"><h2>実行履歴</h2><button id="clearLog" class="subtle">クリア</button></div><ol id="log" aria-label="実行履歴"></ol></section>
 </div>
 <div class="settings-column">
+<nav class="tabs" role="tablist" aria-label="操作パネル">
+<button id="tab-settings" role="tab" aria-controls="panel-settings" aria-selected="true">設定</button>
+<button id="tab-friends" role="tab" aria-controls="panel-friends" aria-selected="false" tabindex="-1">友達</button>
+<button id="tab-history" role="tab" aria-controls="panel-history" aria-selected="false" tabindex="-1">履歴</button>
+<button id="tab-help" role="tab" aria-controls="panel-help" aria-selected="false" tabindex="-1">ヘルプ</button>
+</nav><div class="panel-scroll">
+<div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings">
 <form id="settings" autocomplete="off">
 <section class="card"><div class="card-head"><h2><span class="step">01</span> 映像</h2><span class="hint">OBS WebSocket 5.x</span></div>
 <label>接続先<input id="obsUrl" type="url" value="ws://127.0.0.1:4455" required></label>
-<div class="fields"><label>OBSパスワード<input id="obsPassword" type="password" autocomplete="new-password" placeholder="保存されません"></label><label>映像ソース名<input id="sourceName" value="PS Remote Play" required maxlength="200"></label></div>
+<div class="fields"><label>OBSパスワード<input id="obsPassword" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます"></label><label>映像ソース名<input id="sourceName" value="PS Remote Play" required maxlength="200"></label></div>
 <button type="button" id="testObs">映像確認</button><p class="hint">OBSに登録したソース名を指定してください。ゲームだけが映るソースを選びます。</p></section>
 <section class="card"><div class="card-head"><h2><span class="step">02</span> AI</h2><span class="badge small">Gemini 3.1 Flash-Lite</span></div>
-<label>Gemini APIキー<input id="apiKey" type="password" autocomplete="new-password" placeholder="このタブ内でのみ保持します" required></label>
+<label>Gemini APIキー<input id="apiKey" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます" required></label>
 <label class="check"><input id="freeTier" type="checkbox">このキーのプロジェクトが Free Tier・課金未設定だと確認しました</label>
 <p class="hint">アプリは課金状態を判定できません。画像・文章はGoogleへ送信されます。無料枠では製品改善に利用される条件があります。</p>
 <div class="actions wrap"><button type="button" id="testText">文章だけで接続テスト</button><span class="hint">API送信1回を使用</span></div></section>
 <section class="card"><div class="card-head"><h2><span class="step">03</span> 読み上げ</h2></div>
 <label>出力先<select id="output"><option value="bouyomi">棒読みちゃん（PC側で再生）</option><option value="voicevox">VOICEVOX直接（ブラウザで再生）</option></select></label>
-<div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><label>声のID<input id="bouyomiVoice" type="number" min="0" max="65535" value="0"></label><p class="hint">0＝棒読みちゃんで選択中の声。VOICEVOX連携済みなら、その声を選んでおきます。HTTP連携を有効にしてください。</p></div>
-<div id="voicevoxFields" hidden><div class="fields"><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label><label>話者スタイルID<input id="speaker" type="number" min="0" max="99999" value="3"></label></div><p class="hint">VOICEVOXを起動してください。OBSではブラウザの音声を取り込みます。</p></div>
-<button type="button" id="testVoice">音声テスト</button><p class="hint">停止後も、棒読みちゃんへ送信済みの音声は残る場合があります。</p></section>
+<div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><p class="hint">0＝棒読みちゃんで選択中の声。VOICEVOX連携済みなら、その声を選んでおきます。HTTP連携を有効にしてください。</p></div>
+<div id="voicevoxFields" hidden><div class="fields"><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label></div><p class="hint">VOICEVOXを起動してください。OBSではブラウザの音声を取り込みます。</p></div>
+<button type="button" id="testVoice">音声テスト（友達1）</button><p class="hint">人数・声・性格は「友達」タブで設定します。</p><p class="hint">停止後も、棒読みちゃんへ送信済みの音声は残る場合があります。</p></section>
 <section class="card"><div class="card-head"><h2><span class="step">04</span> 話し方と頻度</h2><button type="button" id="preset" class="subtle">よく話す設定</button></div>
 <label>おしゃべり度<select id="talkativeness"><option value="0">控えめ — 出来事を中心に</option><option value="1">標準 — 移動中も時々</option><option value="2" selected>よく話す — 相づち・感想も</option></select></label>
-<label>キャラクター設定<textarea id="persona" rows="2" maxlength="1000">隣でゲームを見ている、親しみやすい相方。短い自然な相づちやツッコミ。煽りは弱め。</textarea></label>
-<div class="fields"><label>API送信の最短間隔（秒）<input id="apiInterval" type="number" min="30" max="600" value="30" required></label><label>発言の最短間隔（秒）<input id="speechInterval" type="number" min="15" max="600" value="20" required></label><label>変化が少ない時の解析（秒）<input id="quietInterval" type="number" min="30" max="600" value="60" required></label><label>今回の送信上限（回）<input id="maxRequests" type="number" min="1" max="10000" value="20" required></label></div>
-<p class="hint">送信上限はGoogleの残枠ではありません。失敗・破棄も1回として数えます。短い間隔ほど送信回数が増えます。</p>
+<label>キャラクター設定<textarea id="persona" rows="2" maxlength="1000">学生時代の友達が家に集まってゲームをしている雰囲気。気取らない感想と相づち、軽いツッコミ。煽りは弱め。</textarea></label>
+<div class="fields"><label>API送信の最短間隔（秒）<input id="apiInterval" type="number" min="30" max="600" value="30" required></label><label>発言の最短間隔（秒）<input id="speechInterval" type="number" min="15" max="600" value="20" required></label><label>変化が少ない時の解析（秒）<input id="quietInterval" type="number" min="30" max="600" value="60" required></label></div>
+<p class="hint">自分で停止するまで続けます。混雑・通信エラーは待って再開、認証・設定エラーは修正待ちになります。Googleの無料枠・頻度制限は別途適用されます。</p>
 <div class="freshness"><label>コメントの鮮度上限（秒）<input id="freshness" type="number" min="5" max="180" value="15" required></label><p class="hint">現在画像の取得開始からこの時間を超えたら、応答待ちを打ち切り、古いコメントは読み上げません。棒読みちゃんは送信まで、直接再生は再生開始までを判定します。</p></div>
-<label class="check"><input id="resume503" type="checkbox">503時は待って再開（3回連続で停止）</label>
+
 <details><summary>画像・通信の詳細設定</summary><div class="fields"><label>画像取得間隔（秒）<input id="sampleInterval" type="number" min="4" max="60" value="8" required></label><label>送信画像の横幅<select id="imageWidth"><option value="320">320px</option><option value="640" selected>640px</option><option value="960">960px</option></select></label></div><p class="hint">JPEG品質75・前後2枚。APIの通信上限は180秒。鮮度上限が先なら、その時点で待機を打ち切ります。</p></details>
 </section>
-<div class="settings-footer"><button type="button" id="save">設定を保存</button><span id="saveState" class="hint">APIキーとOBSパスワードは保存しません。</span></div>
-</form>
+<section class="card"><div class="card-head"><h2>キー・パスワードの暗号化保存</h2></div>
+<p class="hint">APIキーとOBSパスワードを、このブラウザに暗号化して保存します。次回は合言葉1つで解除できます。合言葉は保存しません。</p>
+<label>合言葉（保存時は12文字以上）<input id="vaultPass" type="password" autocomplete="off" maxlength="200"></label>
+<label>合言葉の確認（保存時のみ）<input id="vaultConfirm" type="password" autocomplete="off" maxlength="200"></label>
+<div class="actions wrap"><button type="button" id="vaultSave">暗号化して保存</button><button type="button" id="vaultUnlock">解除</button><button type="button" id="vaultLock">ロック</button><button type="button" id="vaultDelete">保存を削除</button></div>
+<p id="vaultState" class="hint" role="status">保存状態を確認中</p><p class="hint">解除中の情報はこのページから利用できます。共有PCでは使用後にロックしてください。合言葉を忘れた場合は再入力・再保存が必要です。</p></section>
+<div class="settings-footer"><button type="button" id="save">設定を保存</button><span id="saveState" class="hint">通常の設定保存にはキー類を含めません。</span></div>
+</form></div>
+<div id="panel-friends" role="tabpanel" aria-labelledby="tab-friends" hidden>
+<section class="card"><div class="card-head"><h2>一緒に見る友達</h2></div>
+<label>参加人数の上限<select id="participantCount" form="settings"><option value="1">1人</option><option value="2">2人</option><option value="3">3人</option><option value="4">4人</option><option value="5">5人</option><option value="6">6人</option></select></label>
+<p class="hint">毎回1人〜設定人数から必要な人だけ話します。全員が順番に話す必要はありません。状況によっては無言になります。1回の解析で最大6発言です。</p></section>
+<div id="profiles"></div><p class="hint">変更は「設定」タブの保存、または実況開始で保存されます。声のIDはお使いの読み上げソフトで確認してください。</p>
 </div>
+<div id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden><section class="card"><div class="card-head"><h2>実行履歴</h2><button id="clearLog" class="subtle">クリア</button></div><ol id="log" aria-label="実行履歴"></ol></section>
 </div>
-<section class="help card"><details><summary>初回の準備・うまくつながらない時</summary><ol><li>このフォルダの <b>index.html</b> をWindowsのChromeまたはEdgeで開きます。専用サーバーは不要です。</li><li>OBS → ツール → WebSocketサーバー設定で有効化し、上のURL・パスワード・映像ソース名を入力します。</li><li>棒読みちゃんの設定 → システム → アプリケーション連携 → HTTP連携を有効化。音声テストで実際に音が出るか確認します。</li><li>Geminiのキーを入力し、無料枠を確認して開始。初期値では、取得画像が15秒以上古くなると破棄します。</li></ol><p>通信がブラウザに拒否された場合は、表示されたローカルネットワーク接続の許可と各ソフトの設定を確認してください。VOICEVOX直接接続ではVOICEVOX側のCORS設定が必要な場合があります。ブラウザのセキュリティ機能を無効にしないでください。</p><p>この版は同じWindows PCでの利用向けです。タブを閉じると停止します。バックグラウンド化やPCのスリープで処理が遅れることがあります。詳しくは同梱の README.md をご覧ください。</p></details></section>
-<footer>ローカルで操作 · 画像解析はGemini API · キーの外部保存なし</footer>
+<div id="panel-help" role="tabpanel" aria-labelledby="tab-help" hidden><section class="card help"><div class="card-head"><h2>準備とトラブルシューティング</h2></div>
+<h3>はじめに</h3><p>フォルダ内の index.html を、OBSと読み上げソフトを起動したPCのChrome・Edgeで開きます。専用サーバーは不要です。「映像確認」「音声テスト」を試し、Geminiのキーを設定して開始してください。</p>
+<h3>VOICEVOX：Windows版では鳴るのにブラウザでは失敗する</h3><p>開発者ツールに origin 'null'、CORS、403 Forbidden が出る場合は、VOICEVOXを起動し、<a href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>を開きます（ポートを変えている場合は読み替え）。CORS Policy Mode を localapps、Allow Origin に null を追加し、保存してVOICEVOXを再起動してください。ほかの許可設定は必要に応じて残します。その後、音声テストをやり直します。</p><p>null の許可は、このアプリ以外のローカルファイルや一部の隔離されたページにも適用されます。信頼できないHTMLを同時に開かず、使わなくなったら許可を外してください。CORSを all にしたり、ブラウザの保護を無効化したりする必要はありません。</p>
+<h3>読み上げ先に接続できない・音が出ない</h3><p>起動状態、URLとポート、ブラウザのローカルネットワーク許可、OSの音量を確認してください。VOICEVOX直接は操作しているブラウザで再生します。棒読みちゃんは設定のHTTP連携を有効にし、PC側の声・音量を確認します。声が異なる場合は「友達」タブのスタイルID・声IDを見直してください。</p>
+<h3>OBSにつながらない・映像が違う</h3><p>OBS → ツール → WebSocketサーバー設定で有効化。URL、パスワード、OBSに登録された映像ソース名を確認してください。配信全体ではなくゲームだけを取得するソースがおすすめです。</p>
+<h3>Geminiが遅い・503・429が出る</h3><p>503・通信エラーは30秒から最大5分、429は5分から最大15分を目安に待ち時間を延ばし、最新映像で再開します。APIがもっと長い待機時間を返した場合は従います。回数で停止しません。429には日次枠不足も含まれ、待ってもすぐ解消するとは限りません。Google側の上限は回避できません。</p><p>401・403など認証や設定の問題は、同じ要求を繰り返さず修正待ちになります。設定を直し「設定を適用して再開」を押してください。いつでも「停止」で終了できます。接続・音声テストは単発の診断です。</p>
+<h3>鮮度切れ・発言が少ない</h3><p>古い映像への発言を防ぐため、現在画像の取得開始から鮮度上限を超えた応答・音声を破棄します。まず画像幅320pxや、鮮度上限を少し長くする設定を試せます。「よく話す設定」も利用できます。掛け合いの後半も発言ごとに鮮度を確認するため、長い会話は途中で見送る場合があります。</p>
+<h3>友達の掛け合い</h3><p>人数は1〜6人の上限です。毎回全員を話させず、その場に合う1人以上が短く発言します。1回のAPI応答で最大6発言を生成し、VOICEVOX直接は順番に再生します。棒読みちゃんは順番にキューへ送るため、ほかのアプリの発言が混ざる場合があります。送信済み音声の停止は棒読みちゃん側で行ってください。</p>
+<h3>保存とロック</h3><p>通常設定はブラウザ内に保存します。キーとOBSパスワードは「暗号化して保存」を選んだ場合だけ、合言葉で暗号化して保存します。AES-GCM 256bit、PBKDF2-SHA256 60万回を使用し、合言葉は保存しません。解除中のページやPC自体が侵害された場合まで守る機能ではありません。ブラウザデータの削除・フォルダ移動・別ブラウザでは保存情報が利用できなくなることがあります。</p>
+<h3>スマホ・外出先・長時間の利用</h3><p>画面はスマホ幅にも対応しますが、接続先は操作端末自身のループバックアドレスに限ります。スマホから自宅PCを遠隔操作する機能はありません。タブを閉じると終了し、非表示・スリープ・画面ロックで監視や音声が中断することがあります。無人での常時稼働は保証できません。</p>
+</section></div>
+</div></div></div>
+<footer>ローカルで操作 · 画像解析はGemini API · 秘密情報は任意で端末内に暗号化保存</footer>
 </main></body></html>
