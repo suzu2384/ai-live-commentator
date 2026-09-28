@@ -33,8 +33,13 @@
   }
   function localUrl(value, protocol) {
     let u; try { u = new URL(value); } catch { throw new AppError('接続先URLの形式を確認してください。'); }
-    if (u.protocol !== protocol || !['localhost', '127.0.0.1', '[::1]'].includes(u.hostname.toLowerCase()) || u.username || u.password || u.search || u.hash || (u.pathname !== '/' && u.pathname !== ''))
-      throw new AppError(`この版の接続先は同じPCの ${protocol}//127.0.0.1:ポート番号 を指定してください。`);
+    const host = u.hostname.toLowerCase();
+    const octets = /^\d+\.\d+\.\d+\.\d+$/.test(host) ? host.split('.').map(Number) : [];
+    const privateIPv4 = octets.length === 4 && octets.every(n=>n>=0&&n<=255) &&
+      (octets[0]===10 || (octets[0]===172 && octets[1]>=16 && octets[1]<=31) || (octets[0]===192 && octets[1]===168));
+    const allowed = ['localhost','127.0.0.1','[::1]'].includes(host) || privateIPv4;
+    if (u.protocol !== protocol || !allowed || u.username || u.password || u.search || u.hash || (u.pathname !== '/' && u.pathname !== ''))
+      throw new AppError(`接続先は ${protocol}//127.0.0.1:ポート番号 または同じLAN内のPCのプライベートIPv4（例: ${protocol}//192.168.1.10:ポート番号）を指定してください。パスや認証情報は含めないでください。`);
     return u.origin;
   }
   function speechGuidance(level) {

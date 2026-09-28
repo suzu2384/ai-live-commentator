@@ -43,7 +43,12 @@
     try { localStorage.setItem(storageKey, JSON.stringify(data)); $('saveState').textContent = '設定を保存しました。キー類の保存は「暗号化して保存」から行えます。'; }
     catch { $('saveState').textContent = 'ブラウザが保存を許可していません。このタブ内では使えます。'; }
   }
-  function outputFields() { $('bouyomiFields').hidden = $('output').value !== 'bouyomi'; $('voicevoxFields').hidden = $('output').value !== 'voicevox'; }
+  function voicevoxSettingsLink(){
+    try{$('voicevoxSettingsLink').href=C.localUrl($('voicevoxUrl').value,'http:')+'/setting';}
+    catch{$('voicevoxSettingsLink').removeAttribute('href');}
+  }
+  $('voicevoxUrl').addEventListener('input',voicevoxSettingsLink);
+  function outputFields() { voicevoxSettingsLink(); $('bouyomiFields').hidden = $('output').value !== 'bouyomi'; $('voicevoxFields').hidden = $('output').value !== 'voicevox'; }
   function requireKey() {
     const key = C.normalizeKey($('apiKey').value);
     if (!$('freeTier').checked) throw new C.AppError('このキーのプロジェクトがFree Tier・課金未設定であることを確認し、チェックを付けてください。');

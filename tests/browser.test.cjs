@@ -12,6 +12,7 @@ const results=[];
  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||undefined,args:['--no-sandbox']});
  async function setup(config={}){
   const ctx=await browser.newContext({viewport:{width:1360,height:768}});const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const host=config.host||'127.0.0.1';
   const events={images:0,api:0,talks:[],queries:0,voices:[],synths:0,identifies:0,unexpected:[]};let held=null;
   await page.clock.install();
   await page.route('https://**/*',async r=>{
@@ -21,13 +22,13 @@ const results=[];
    if(config.status && (!config.failCount || events.api<=config.failCount))await r.fulfill({status:config.status,contentType:'application/json',body:'{}'});
    else await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(config.answer||answer)});
   });
-  await page.route('http://127.0.0.1:50080/**',async r=>{
+  await page.route(`http://${host}:50080/**`,async r=>{
    const u=new URL(r.request().url());
    if(u.pathname==='/GetTalkTaskCount')return r.fulfill({contentType:'application/json',body:JSON.stringify({talkTaskCount:config.busy?1:0})});
    if(u.pathname==='/talk'){events.talks.push(u.searchParams.get('text'));return r.fulfill({contentType:'application/json',body:'{"taskId":1}'});}
    events.unexpected.push(u.pathname);await r.abort();
   });
-  await page.route('http://127.0.0.1:50021/**',async r=>{
+  await page.route(`http://${host}:50021/**`,async r=>{
    const u=new URL(r.request().url());
    if(u.pathname==='/audio_query'){events.queries++;events.voices.push(u.searchParams.get('speaker'));return r.fulfill({contentType:'application/json',body:'{}'});}
    if(u.pathname==='/synthesis'){
@@ -37,7 +38,7 @@ const results=[];
    }await r.abort();
   });
   let jpeg;
-  await page.routeWebSocket('ws://127.0.0.1:4455',ws=>{
+  await page.routeWebSocket(`ws://${host}:4455`,ws=>{
    ws.onMessage(raw=>{
     const m=JSON.parse(raw);
     if(m.op===1){events.identifies++;assert.equal(m.d.authentication,sha(sha('obs-secret'+'salt')+'challenge'));ws.send(JSON.stringify({op:2,d:{negotiatedRpcVersion:1}}));}
@@ -48,6 +49,7 @@ const results=[];
   jpeg=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=640;c.height=360;const x=c.getContext('2d');x.fillStyle='#345a4b';x.fillRect(0,0,640,360);return c.toDataURL('image/jpeg');});
   await page.locator('#apiKey').fill('fake.test-key');await page.locator('#obsPassword').fill('obs-secret');await page.locator('#freeTier').check();
   await page.locator('summary').filter({hasText:'画像・通信'}).click();await page.locator('#sampleInterval').fill('4');
+  if(config.host){await page.locator('#output').selectOption('voicevox');await page.locator('#voicevoxUrl').fill(`http://${host}:50021`);await page.locator('#output').selectOption('bouyomi');for(const [id,port,proto] of [['obsUrl',4455,'ws'],['bouyomiUrl',50080,'http']])await page.locator('#'+id).fill(`${proto}://${host}:${port}`);}
   if(config.before)await config.before(page);
   return {page,ctx,events,errors,held:()=>held,close:async()=>{assert.deepEqual(errors,[]);assert.deepEqual(events.unexpected,[]);await ctx.close();}};
  }
@@ -127,6 +129,13 @@ const results=[];
   await p.setViewportSize({width:390,height:844});await p.locator('#tab-help').click();await p.evaluate(()=>scrollTo(0,document.body.scrollHeight));
   const bounds=await p.locator('#start').boundingBox();assert.ok(bounds.y>=0&&bounds.y+bounds.height<=844);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await p.setViewportSize({width:1280,height:600});await p.evaluate(()=>scrollTo(0,0));assert.equal(await p.evaluate(()=>document.documentElement.scrollHeight>innerHeight),false);
+  await x.close();
+ });
+ await test('LAN IP works for authenticated OBS, Bouyomi and VOICEVOX',async()=>{
+  const x=await setup({host:'192.168.1.10'});const p=x.page;assert.equal(await p.locator('#voicevoxSettingsLink').getAttribute('href'),'http://192.168.1.10:50021/setting');
+  await p.locator('#testObs').click();await stopped(p);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);
+  await p.locator('#testVoice').click();await stopped(p);assert.equal(x.events.talks.length,1);
+  await p.locator('#output').selectOption('voicevox');await p.locator('#testVoice').click();await stopped(p);assert.equal(x.events.synths,1);assert.equal(x.events.api,0);
   await x.close();
  });
  console.log(`${results.length} browser scenarios passed. No live Gemini/OBS/voice services used.`);await browser.close();

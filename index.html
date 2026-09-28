@@ -8,7 +8,7 @@
 <script src="core.js" defer></script><script src="vault.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
-<header><div class="brand"><span class="mark" aria-hidden="true">◖</span><div><h1>AI Live Commentator</h1><p>いつものゲームに、友達のひとこと。</p></div></div><span class="badge">BROWSER · v2.0</span></header>
+<header><div class="brand"><span class="mark" aria-hidden="true">◖</span><div><h1>AI Live Commentator</h1><p>いつものゲームに、友達のひとこと。</p></div></div><span class="badge">BROWSER · v2.1</span></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="stop" disabled>■ 停止</button></div></section>
 <div class="workspace">
@@ -28,7 +28,7 @@
 <section class="card"><div class="card-head"><h2><span class="step">01</span> 映像</h2><span class="hint">OBS WebSocket 5.x</span></div>
 <label>接続先<input id="obsUrl" type="url" value="ws://127.0.0.1:4455" required></label>
 <div class="fields"><label>OBSパスワード<input id="obsPassword" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます"></label><label>映像ソース名<input id="sourceName" value="PS Remote Play" required maxlength="200"></label></div>
-<button type="button" id="testObs">映像確認</button><p class="hint">OBSに登録したソース名を指定してください。ゲームだけが映るソースを選びます。</p></section>
+<button type="button" id="testObs">映像確認</button><p class="hint">同じLANのPCなら ws://192.168.1.10:4455 のように指定します。OBSに登録したソース名を指定してください。ゲームだけが映るソースを選びます。</p></section>
 <section class="card"><div class="card-head"><h2><span class="step">02</span> AI</h2><span class="badge small">Gemini 3.1 Flash-Lite</span></div>
 <label>Gemini APIキー<input id="apiKey" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます" required></label>
 <label class="check"><input id="freeTier" type="checkbox">このキーのプロジェクトが Free Tier・課金未設定だと確認しました</label>
@@ -36,8 +36,8 @@
 <div class="actions wrap"><button type="button" id="testText">文章だけで接続テスト</button><span class="hint">API送信1回を使用</span></div></section>
 <section class="card"><div class="card-head"><h2><span class="step">03</span> 読み上げ</h2></div>
 <label>出力先<select id="output"><option value="bouyomi">棒読みちゃん（PC側で再生）</option><option value="voicevox">VOICEVOX直接（ブラウザで再生）</option></select></label>
-<div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><p class="hint">0＝棒読みちゃんで選択中の声。VOICEVOX連携済みなら、その声を選んでおきます。HTTP連携を有効にしてください。</p></div>
-<div id="voicevoxFields" hidden><div class="fields"><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label></div><p class="hint">VOICEVOXを起動してください。OBSではブラウザの音声を取り込みます。</p></div>
+<div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><p class="hint">0＝棒読みちゃんで選択中の声。VOICEVOX連携済みなら、その声を選んでおきます。HTTP連携を有効にしてください。同じLANのPCなら http://192.168.1.10:50080 のように指定します。</p></div>
+<div id="voicevoxFields" hidden><div class="fields"><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label></div><p class="hint">同じLANのPCなら http://192.168.1.10:50021 のように指定します。音声は操作中のブラウザで再生されます。OBSではその音声を取り込みます。</p></div>
 <button type="button" id="testVoice">音声テスト（友達1）</button><p class="hint">人数・声・性格は「友達」タブで設定します。</p><p class="hint">停止後も、棒読みちゃんへ送信済みの音声は残る場合があります。</p></section>
 <section class="card"><div class="card-head"><h2><span class="step">04</span> 話し方と頻度</h2><button type="button" id="preset" class="subtle">よく話す設定</button></div>
 <label>おしゃべり度<select id="talkativeness"><option value="0">控えめ — 出来事を中心に</option><option value="1">標準 — 移動中も時々</option><option value="2" selected>よく話す — 相づち・感想も</option></select></label>
@@ -65,15 +65,16 @@
 <div id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden><section class="card"><div class="card-head"><h2>実行履歴</h2><button id="clearLog" class="subtle">クリア</button></div><ol id="log" aria-label="実行履歴"></ol></section>
 </div>
 <div id="panel-help" role="tabpanel" aria-labelledby="tab-help" hidden><section class="card help"><div class="card-head"><h2>準備とトラブルシューティング</h2></div>
-<h3>はじめに</h3><p>フォルダ内の index.html を、OBSと読み上げソフトを起動したPCのChrome・Edgeで開きます。専用サーバーは不要です。「映像確認」「音声テスト」を試し、Geminiのキーを設定して開始してください。</p>
-<h3>VOICEVOX：Windows版では鳴るのにブラウザでは失敗する</h3><p>開発者ツールに origin 'null'、CORS、403 Forbidden が出る場合は、VOICEVOXを起動し、<a href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>を開きます（ポートを変えている場合は読み替え）。CORS Policy Mode を localapps、Allow Origin に null を追加し、保存してVOICEVOXを再起動してください。ほかの許可設定は必要に応じて残します。その後、音声テストをやり直します。</p><p>null の許可は、このアプリ以外のローカルファイルや一部の隔離されたページにも適用されます。信頼できないHTMLを同時に開かず、使わなくなったら許可を外してください。CORSを all にしたり、ブラウザの保護を無効化したりする必要はありません。</p>
+<h3>はじめに</h3><p>フォルダ内の index.html を、操作するPCのChrome・Edgeで開きます。専用サーバーは不要です。「映像確認」「音声テスト」を試し、Geminiのキーを設定して開始してください。</p>
+<h3>VOICEVOX：Windows版では鳴るのにブラウザでは失敗する</h3><p>開発者ツールに origin 'null'、CORS、403 Forbidden が出る場合は、VOICEVOXを起動し、<a id="voicevoxSettingsLink" href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>を開きます（設定したVOICEVOX URLの設定画面）。CORS Policy Mode を localapps、Allow Origin に null を追加し、保存してVOICEVOXを再起動してください。ほかの許可設定は必要に応じて残します。その後、音声テストをやり直します。</p><p>null の許可は、このアプリ以外のローカルファイルや一部の隔離されたページにも適用されます。信頼できないHTMLを同時に開かず、使わなくなったら許可を外してください。CORSを all にしたり、ブラウザの保護を無効化したりする必要はありません。</p>
 <h3>読み上げ先に接続できない・音が出ない</h3><p>起動状態、URLとポート、ブラウザのローカルネットワーク許可、OSの音量を確認してください。VOICEVOX直接は操作しているブラウザで再生します。棒読みちゃんは設定のHTTP連携を有効にし、PC側の声・音量を確認します。声が異なる場合は「友達」タブのスタイルID・声IDを見直してください。</p>
 <h3>OBSにつながらない・映像が違う</h3><p>OBS → ツール → WebSocketサーバー設定で有効化。URL、パスワード、OBSに登録された映像ソース名を確認してください。配信全体ではなくゲームだけを取得するソースがおすすめです。</p>
 <h3>Geminiが遅い・503・429が出る</h3><p>503・通信エラーは30秒から最大5分、429は5分から最大15分を目安に待ち時間を延ばし、最新映像で再開します。APIがもっと長い待機時間を返した場合は従います。回数で停止しません。429には日次枠不足も含まれ、待ってもすぐ解消するとは限りません。Google側の上限は回避できません。</p><p>401・403など認証や設定の問題は、同じ要求を繰り返さず修正待ちになります。設定を直し「設定を適用して再開」を押してください。いつでも「停止」で終了できます。接続・音声テストは単発の診断です。</p>
 <h3>鮮度切れ・発言が少ない</h3><p>古い映像への発言を防ぐため、現在画像の取得開始から鮮度上限を超えた応答・音声を破棄します。まず画像幅320pxや、鮮度上限を少し長くする設定を試せます。「よく話す設定」も利用できます。掛け合いの後半も発言ごとに鮮度を確認するため、長い会話は途中で見送る場合があります。</p>
 <h3>友達の掛け合い</h3><p>人数は1〜6人の上限です。毎回全員を話させず、その場に合う1人以上が短く発言します。1回のAPI応答で最大6発言を生成し、VOICEVOX直接は順番に再生します。棒読みちゃんは順番にキューへ送るため、ほかのアプリの発言が混ざる場合があります。送信済み音声の停止は棒読みちゃん側で行ってください。</p>
 <h3>保存とロック</h3><p>通常設定はブラウザ内に保存します。キーとOBSパスワードは「暗号化して保存」を選んだ場合だけ、合言葉で暗号化して保存します。AES-GCM 256bit、PBKDF2-SHA256 60万回を使用し、合言葉は保存しません。解除中のページやPC自体が侵害された場合まで守る機能ではありません。ブラウザデータの削除・フォルダ移動・別ブラウザでは保存情報が利用できなくなることがあります。</p>
-<h3>スマホ・外出先・長時間の利用</h3><p>画面はスマホ幅にも対応しますが、接続先は操作端末自身のループバックアドレスに限ります。スマホから自宅PCを遠隔操作する機能はありません。タブを閉じると終了し、非表示・スリープ・画面ロックで監視や音声が中断することがあります。無人での常時稼働は保証できません。</p>
+<h3>同じLAN内の別PCへ接続する</h3><p>接続先PCのIPv4を指定します（例: OBSは ws://192.168.1.10:4455、VOICEVOXは http://192.168.1.10:50021、棒読みちゃんは http://192.168.1.10:50080）。許可範囲は10.x.x.x、172.16.x.x〜172.31.x.x、192.168.x.xです。PC名ではなくIPアドレスを使ってください。</p><p>接続先PCで各ソフトをLANから接続できる待受状態にし、Windowsファイアウォールのプライベートネットワークで必要なTCPポートをローカルサブネットから許可します。ルーターのポート開放は不要です。OBSは認証を有効にし、ゲストWi-Fiなど端末間通信が禁止されていないかも確認してください。</p><p>VOICEVOXのエンジンが127.0.0.1だけで待ち受けている場合は、LANのIPで待ち受ける起動設定が別途必要です。エンジンの --host にPCのLAN IPを指定する方法があります。CORS許可も引き続き必要です。棒読みちゃんもHTTP連携がLANから接続を受け付ける構成か確認してください。</p><p>VOICEVOX直接は接続先PCで音声を合成し、操作中の端末で再生します。接続先PCから音を出したい場合は棒読みちゃんを使います。HTTPSで公開したページからの ws/http 接続はブラウザに拒否される場合があります。ローカルHTMLでの利用を基本とし、ブラウザの保護を無効化しないでください。</p>
+<h3>スマホ・外出先・長時間の利用</h3><p>画面はスマホ幅にも対応し、同じLAN内のPCへも接続できます。接続にはブラウザの制限と接続先ソフトの設定が影響します。外出先からのインターネット経由の接続には対応していません。タブを閉じると終了し、非表示・スリープ・画面ロックで監視や音声が中断することがあります。無人での常時稼働は保証できません。</p>
 </section></div>
 </div></div></div>
 <footer>ローカルで操作 · 画像解析はGemini API · 秘密情報は任意で端末内に暗号化保存</footer>

@@ -30,9 +30,10 @@ test('503, 429, auth and other failures are distinct and never retried inside cl
     let calls=0;await assert.rejects(C.gemini('test',{},undefined,async()=>{calls++;return{status,ok:false};}),e=>e.code===code);assert.equal(calls,1);
   }
 });
-test('only loopback endpoints are accepted',()=>{
+test('loopback and private LAN IPv4 endpoints are accepted; public or malformed URLs are rejected',()=>{
   assert.equal(C.localUrl('http://127.0.0.1:50080','http:'),'http://127.0.0.1:50080');
-  for(const u of ['http://example.com','http://127.0.0.1.evil.test','http://user:pass@localhost','http://localhost/path','https://localhost'])assert.throws(()=>C.localUrl(u,'http:'));
+  for(const h of ['10.0.0.1','10.255.255.254','172.16.0.1','172.31.255.254','192.168.1.10']) for(const proto of ['http:','ws:']) assert.equal(C.localUrl(`${proto}//${h}:50021/`,proto),`${proto}//${h}:50021`);
+  for(const u of ['http://172.15.1.1','http://172.32.0.1','http://192.169.0.1','http://8.8.8.8','http://0.0.0.0','http://192.168.1.10.evil.test','http://192.168.1.10/?x=1','http://192.168.1.10/#x','http://192.168.999.1','http://example.com','http://127.0.0.1.evil.test','http://user:pass@localhost','http://localhost/path','https://localhost'])assert.throws(()=>C.localUrl(u,'http:'));
 });
 test('minimum API interval overrides motion and quiet-scene interval',()=>{
   assert.equal(C.shouldAnalyze(29,1,30,60),false);assert.equal(C.shouldAnalyze(30,1,30,60),true);
