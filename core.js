@@ -96,9 +96,8 @@
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(payload), signal,
       credentials: 'omit', redirect: 'error', cache: 'no-store', referrerPolicy: 'no-referrer'
     }); } catch (e) { check(signal); throw new AppError('Geminiに接続できません。通信・ブラウザの接続制限を確認してください。', 'NETWORK'); }
-    if (r.status === 503) throw new AppError('Geminiが一時的に利用できません（HTTP 503）。', '503');
-    if (r.status === 429) {
-      const error = new AppError('Geminiの利用上限・頻度制限です（HTTP 429）。', '429');
+    if (r.status === 429 || r.status >= 500) {
+      const error = new AppError(r.status === 429 ? 'Geminiの利用上限・頻度制限です（HTTP 429）。' : `Geminiが一時的に利用できません（HTTP ${r.status}）。`, String(r.status));
       const header = r.headers?.get('retry-after');
       error.retryAfter = header ? (/^\d+$/.test(header) ? Number(header)*1000 : Math.max(0,Date.parse(header)-Date.now())) : 0;
       try { const body=await r.json(); for (const d of body.error?.details || []) {
@@ -122,10 +121,9 @@
     if (result.turns.every(t=>spoken.includes(t.text))) return '直近と同じ発言';
     return '';
   }
-  function recoveryDelay(error, failures, apiSeconds) {
-    const base = error.code === '429' ? 300 : 30;
-    const cap = error.code === '429' ? 900 : 300;
-    return Math.max(apiSeconds*1000, Math.min(cap, base*2**Math.min(20,Math.max(0,failures-1)))*1000,
+  function recoveryDelay(error) {
+    // Fixed cooldown; repeated failures never extend it. Server retry hints take priority.
+    return Math.max(error.code === '429' ? 30000 : 5000,
       Number.isFinite(error.retryAfter) ? error.retryAfter : 0);
   }
   function needsSettings(error) {

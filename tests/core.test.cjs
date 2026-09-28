@@ -52,14 +52,18 @@ test('user stop stays cancellation, including during recovery sleep',async()=>{
   const ac=new AbortController();const p=C.deadline(token=>C.sleep(10000,token),10000,ac.signal,'timeout');ac.abort();await assert.rejects(p,{name:'AbortError'});
   const ac2=new AbortController();const waiting=C.sleep(30000,ac2.signal);ac2.abort();await assert.rejects(waiting,{name:'AbortError'});
 });
-test('recovery has no error-count stop; respects server delays and API interval',()=>{
-  assert.equal(C.recoveryDelay({code:'503'},1,30),30000);
-  assert.equal(C.recoveryDelay({code:'503'},2,30),60000);
-  assert.equal(C.recoveryDelay({code:'503'},100,30),300000);
-  assert.equal(C.recoveryDelay({code:'429',retryAfter:3600000},9,30),3600000);
-  assert.equal(C.recoveryDelay({code:'503'},1,120),120000);
+test('fixed short cooldown never grows; server retry hints override it',()=>{
+  for(let i=0;i<100;i++)assert.equal(C.recoveryDelay({code:'503'}),5000);
+  assert.equal(C.recoveryDelay({code:'NETWORK'}),5000);
+  assert.equal(C.recoveryDelay({code:'STALE'}),5000);
+  assert.equal(C.recoveryDelay({code:'429'}),30000);
+  assert.equal(C.recoveryDelay({code:'503',retryAfter:120000}),120000);
+  assert.equal(C.recoveryDelay({code:'429',retryAfter:3600000}),3600000);
   assert.equal(C.needsSettings({code:'AUTH'}),true);
   assert.equal(C.needsSettings({code:'503'}),false);
+});
+test('503 retry hint is preserved',async()=>{
+  await assert.rejects(C.gemini('test',{},undefined,async()=>({status:503,ok:false,headers:{get:()=> '20'},json:async()=>({})})),e=>e.code==='503'&&e.retryAfter===20000);
 });
 test('speaker subset is accepted; inactive speakers, long text and oversized exchanges are rejected',()=>{
   assert.equal(C.parseAnalysis(wrap(analysis),profiles).turns.length,1);

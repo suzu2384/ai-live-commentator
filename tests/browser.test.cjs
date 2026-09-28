@@ -89,12 +89,12 @@ const results=[];
  await test('stop cancels pending analysis, with no late speech',async()=>{const x=await setup({hold:true,max:20});await start(x);await x.page.waitForFunction(()=>document.getElementById('status').textContent==='Geminiの応答待ち');await x.page.locator('#stop').click();await stopped(x.page);await x.held()?.fulfill({contentType:'application/json',body:JSON.stringify(answer)}).catch(()=>{});assert.equal(x.events.talks.length,0);assert.equal(x.events.api,1);await x.close();});
  await test('429 backs off without stopping; stop cancels waiting',async()=>{
   const x=await setup({status:429});await start(x);await recovery(x.page);assert.equal(x.events.api,1);
-  await x.page.clock.fastForward(299000);assert.equal(x.events.api,1);assert.equal(await x.page.locator('#stop').isEnabled(),true);
+  await x.page.clock.fastForward(29000);assert.equal(x.events.api,1);assert.equal(await x.page.locator('#stop').isEnabled(),true);
   await stop(x.page);await x.page.clock.fastForward(900000);assert.equal(x.events.api,1);await x.close();
  });
- await test('503 continues beyond three failures and recovers with fresh frames',async()=>{
+ await test('503 retries at a fixed 5 seconds even after four failures, using fresh frames',async()=>{
   const x=await setup({status:503,failCount:4});const p=x.page;await start(x);await recovery(p);
-  for(const [i,delay] of [30001,60001,120001,240001].entries()){await next(x,delay);if(i<3)await recovery(p);else await idle(p);}
+  for(const [i,delay] of [5001,5001,5001,5001].entries()){await next(x,delay);if(i<3)await recovery(p);else await idle(p);}
   assert.equal(x.events.api,5);assert.equal(x.events.images,10);assert.deepEqual(x.events.talks,['景色がいいね']);await stop(p);await x.close();
  });
  await test('auth waits for correction without repeated API requests, then resumes',async()=>{

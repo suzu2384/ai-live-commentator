@@ -8,7 +8,7 @@
 <script src="core.js" defer></script><script src="vault.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
-<header><div class="brand"><span class="mark" aria-hidden="true">◖</span><div><h1>AI Live Commentator</h1><p>いつものゲームに、友達のひとこと。</p></div></div><span class="badge">BROWSER · v2.1</span></header>
+<header><div class="brand"><span class="mark" aria-hidden="true">◖</span><div><h1>AI Live Commentator</h1><p>いつものゲームに、友達のひとこと。</p></div></div><span class="badge">BROWSER · v2.2</span></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="stop" disabled>■ 停止</button></div></section>
 <div class="workspace">
@@ -69,7 +69,7 @@
 <h3>VOICEVOX：Windows版では鳴るのにブラウザでは失敗する</h3><p>開発者ツールに origin 'null'、CORS、403 Forbidden が出る場合は、VOICEVOXを起動し、<a id="voicevoxSettingsLink" href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>を開きます（設定したVOICEVOX URLの設定画面）。CORS Policy Mode を localapps、Allow Origin に null を追加し、保存してVOICEVOXを再起動してください。ほかの許可設定は必要に応じて残します。その後、音声テストをやり直します。</p><p>null の許可は、このアプリ以外のローカルファイルや一部の隔離されたページにも適用されます。信頼できないHTMLを同時に開かず、使わなくなったら許可を外してください。CORSを all にしたり、ブラウザの保護を無効化したりする必要はありません。</p>
 <h3>読み上げ先に接続できない・音が出ない</h3><p>起動状態、URLとポート、ブラウザのローカルネットワーク許可、OSの音量を確認してください。VOICEVOX直接は操作しているブラウザで再生します。棒読みちゃんは設定のHTTP連携を有効にし、PC側の声・音量を確認します。声が異なる場合は「友達」タブのスタイルID・声IDを見直してください。</p>
 <h3>OBSにつながらない・映像が違う</h3><p>OBS → ツール → WebSocketサーバー設定で有効化。URL、パスワード、OBSに登録された映像ソース名を確認してください。配信全体ではなくゲームだけを取得するソースがおすすめです。</p>
-<h3>Geminiが遅い・503・429が出る</h3><p>503・通信エラーは30秒から最大5分、429は5分から最大15分を目安に待ち時間を延ばし、最新映像で再開します。APIがもっと長い待機時間を返した場合は従います。回数で停止しません。429には日次枠不足も含まれ、待ってもすぐ解消するとは限りません。Google側の上限は回避できません。</p><p>401・403など認証や設定の問題は、同じ要求を繰り返さず修正待ちになります。設定を直し「設定を適用して再開」を押してください。いつでも「停止」で終了できます。接続・音声テストは単発の診断です。</p>
+<h3>Geminiが遅い・503・429が出る</h3><p>503・通信エラーなどは5秒、429は30秒の固定待機にし、連続エラーでも延長しません。通常時のAPI最短間隔とは別に、待機後に画像取得間隔に従って最新映像2枚を取得して再開します。APIがもっと長い待機時間を返した場合は従います。回数で停止しません。429には日次枠不足も含まれ、待ってもすぐ解消するとは限りません。Google側の上限は回避できません。</p><p>401・403など認証や設定の問題は、同じ要求を繰り返さず修正待ちになります。設定を直し「設定を適用して再開」を押してください。いつでも「停止」で終了できます。接続・音声テストは単発の診断です。</p>
 <h3>鮮度切れ・発言が少ない</h3><p>古い映像への発言を防ぐため、現在画像の取得開始から鮮度上限を超えた応答・音声を破棄します。まず画像幅320pxや、鮮度上限を少し長くする設定を試せます。「よく話す設定」も利用できます。掛け合いの後半も発言ごとに鮮度を確認するため、長い会話は途中で見送る場合があります。</p>
 <h3>友達の掛け合い</h3><p>人数は1〜6人の上限です。毎回全員を話させず、その場に合う1人以上が短く発言します。1回のAPI応答で最大6発言を生成し、VOICEVOX直接は順番に再生します。棒読みちゃんは順番にキューへ送るため、ほかのアプリの発言が混ざる場合があります。送信済み音声の停止は棒読みちゃん側で行ってください。</p>
 <h3>保存とロック</h3><p>通常設定はブラウザ内に保存します。キーとOBSパスワードは「暗号化して保存」を選んだ場合だけ、合言葉で暗号化して保存します。AES-GCM 256bit、PBKDF2-SHA256 60万回を使用し、合言葉は保存しません。解除中のページやPC自体が侵害された場合まで守る機能ではありません。ブラウザデータの削除・フォルダ移動・別ブラウザでは保存情報が利用できなくなることがあります。</p>

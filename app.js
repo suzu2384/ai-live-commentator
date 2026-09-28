@@ -174,7 +174,7 @@
     }
   }
   async function run(s,key,signal) {
-    const history=[],spoken=[];let previous=null,lastAnalysis=-Infinity,lastSpeech=-Infinity,failures=0;
+    const history=[],spoken=[];let previous=null,lastAnalysis=-Infinity,lastSpeech=-Infinity;
     while(true) {
       C.check(signal);
       try {
@@ -200,7 +200,6 @@
               log(`${profile.name}: ${turn.text}`,'spoken');
             }
           }
-          failures=0;
         }
         previous=current;setStatus('映像監視中・次の取得待ち');await C.sleep(s.sampleInterval*1000,signal);
       } catch(e) {
@@ -209,9 +208,9 @@
           stats.stale++;updateStats();log(e.message,'warn');$('latency').textContent='鮮度切れ';
         } else log(e instanceof C.AppError?e.message:'処理に失敗しました。設定と接続を確認してください。','warn');
         if(!(e instanceof C.AppError)||C.needsSettings(e)){
-          obs?.close();obs=null;({s,key}=await waitForSettings(signal));failures=0;
+          obs?.close();obs=null;({s,key}=await waitForSettings(signal));
         }else{
-          failures++;const delay=C.recoveryDelay(e,failures,s.apiInterval);
+          const delay=C.recoveryDelay(e);
           log(`${Math.ceil(delay/1000)}秒待機し、最新映像で再開します。停止ボタンで終了できます。`,'warn');
           await waitRecovery(delay,signal);
         }
