@@ -97,7 +97,7 @@
   async function speak(text,s,frame,signal,ownQueue=false) {
     checkFresh(frame,s); C.check(signal);
     const ms = frame ? Math.min(120000,frame.capturedAt+s.freshness*1000-performance.now()) : 120000;
-    // Synthesis and delivery must finish before the freshness deadline. Playback may finish after it.
+    // The first delivered turn must meet freshness. Later turns use ordinary timeouts.
     if(s.output==='bouyomi') {
       return C.deadline(async token => {
         const base=C.localUrl(s.bouyomiUrl,'http:');
@@ -187,14 +187,14 @@
           if(result.summary){history.push(result.summary);if(history.length>6)history.shift();}
           if(reason)log(`見送り（${reason}）: ${result.summary}`);
           else {
-            let ownQueue=false;
+            let conversationStarted=false;
             for(const turn of result.turns){
               if(spoken.includes(turn.text))continue;
-              checkFresh(current,s);C.check(signal);
+              C.check(signal);
               const profile=s.profiles.find(p=>p.id===turn.speakerId);
               setStatus(s.output==='bouyomi'?'棒読みちゃんへ送信中':'VOICEVOXの音声生成・再生中');
-              if(!await speak(turn.text,{...s,...profile},current,signal,ownQueue))break;
-              ownQueue=true;lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>12)spoken.shift();
+              if(!await speak(turn.text,{...s,...profile},conversationStarted ? null : current,signal,conversationStarted))break;
+              conversationStarted=true;lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>12)spoken.shift();
               $('lastComment').textContent=`${profile.name}：${turn.text}`;$('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
               $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
               log(`${profile.name}: ${turn.text}`,'spoken');

@@ -7,6 +7,10 @@ const entry='file://'+path.resolve(__dirname,'../index.html');
 const sha=s=>createHash('sha256').update(s).digest('base64');
 const answer={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね'}]})}]}}]};
 require('node:fs').mkdirSync(path.resolve(__dirname,'../../.browser-test'),{recursive:true});
+function wave(){
+    const b=Buffer.alloc(44+2400*2);b.write('RIFF');b.writeUInt32LE(b.length-8,4);b.write('WAVE',8);b.write('fmt ',12);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(1,22);b.writeUInt32LE(24000,24);b.writeUInt32LE(48000,28);b.writeUInt16LE(2,32);b.writeUInt16LE(16,34);b.write('data',36);b.writeUInt32LE(4800,40);
+    return b;
+}
 const results=[];
 (async()=>{
  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||undefined,args:['--no-sandbox']});
@@ -32,9 +36,8 @@ const results=[];
    const u=new URL(r.request().url());
    if(u.pathname==='/audio_query'){events.queries++;events.voices.push(u.searchParams.get('speaker'));return r.fulfill({contentType:'application/json',body:'{}'});}
    if(u.pathname==='/synthesis'){
-    events.synths++;if(config.holdSynth){held=r;return;}
-    const b=Buffer.alloc(44+2400*2);b.write('RIFF');b.writeUInt32LE(b.length-8,4);b.write('WAVE',8);b.write('fmt ',12);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(1,22);b.writeUInt32LE(24000,24);b.writeUInt32LE(48000,28);b.writeUInt16LE(2,32);b.writeUInt16LE(16,34);b.write('data',36);b.writeUInt32LE(4800,40);
-    return r.fulfill({contentType:'audio/wav',body:b});
+    events.synths++;if(config.holdSynth || events.synths===config.holdSynthAt){held=r;return;}
+    return r.fulfill({contentType:'audio/wav',body:wave()});
    }await r.abort();
   });
   let jpeg;
@@ -109,6 +112,18 @@ const results=[];
   const x=await setup({answer:multi});const p=x.page;await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');
   await start(x);await idle(p);assert.equal(x.events.api,1);assert.deepEqual(x.events.voices,['2','3']);assert.ok((await p.locator('#lastComment').textContent()).includes('友達1'));
   await stop(p);await x.close();
+ });
+ for(const cancel of [false,true])await test(cancel?'stop during later speech cancels remaining conversation':'three speakers finish after freshness expires once conversation has started',async()=>{
+  const turns=[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'こっちも見てみようよ'},{speakerId:'p3',text:'ちょっと寄り道しよう'}];
+  const reply={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進む',turns})}]}}]};
+  const x=await setup({answer:reply,holdSynthAt:2});const p=x.page;
+  await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('3');await start(x);
+  await p.waitForFunction(()=>document.getElementById('lastComment').textContent.includes('友達1：'));
+  for(let i=0;i<200&&!x.held();i++)await new Promise(r=>setTimeout(r,10));assert.ok(x.held());
+  await p.clock.fastForward(16000);assert.equal(await p.locator('#staleCount').textContent(),'0');
+  if(cancel){await stop(p);await x.held().fulfill({contentType:'audio/wav',body:wave()}).catch(()=>{});assert.equal(x.events.synths,2);assert.ok((await p.locator('#lastComment').textContent()).includes('友達1：'));}
+  else {await x.held().fulfill({contentType:'audio/wav',body:wave()});await idle(p);assert.deepEqual(x.events.voices,['3','2','3']);assert.ok((await p.locator('#lastComment').textContent()).includes('友達3：'));assert.equal(await p.locator('#staleCount').textContent(),'0');await stop(p);}
+  assert.equal(x.events.api,1);await x.close();
  });
  await test('encrypted credentials survive reload, require passphrase, and lock clears fields',async()=>{
   const x=await setup();const p=x.page;await p.locator('#vaultPass').fill('a sufficiently long phrase');await p.locator('#vaultConfirm').fill('a sufficiently long phrase');await p.locator('#vaultSave').click();
