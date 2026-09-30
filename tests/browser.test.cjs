@@ -7,8 +7,8 @@ const entry='file://'+path.resolve(__dirname,'../index.html');
 const sha=s=>createHash('sha256').update(s).digest('base64');
 const answer={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね'}]})}]}}]};
 require('node:fs').mkdirSync(path.resolve(__dirname,'../../.browser-test'),{recursive:true});
-function wave(){
-    const b=Buffer.alloc(44+2400*2);b.write('RIFF');b.writeUInt32LE(b.length-8,4);b.write('WAVE',8);b.write('fmt ',12);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(1,22);b.writeUInt32LE(24000,24);b.writeUInt32LE(48000,28);b.writeUInt16LE(2,32);b.writeUInt16LE(16,34);b.write('data',36);b.writeUInt32LE(4800,40);
+function wave(samples=2400){
+    const b=Buffer.alloc(44+samples*2);b.write('RIFF');b.writeUInt32LE(b.length-8,4);b.write('WAVE',8);b.write('fmt ',12);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(1,22);b.writeUInt32LE(24000,24);b.writeUInt32LE(48000,28);b.writeUInt16LE(2,32);b.writeUInt16LE(16,34);b.write('data',36);b.writeUInt32LE(samples*2,40);
     return b;
 }
 const results=[];
@@ -37,7 +37,7 @@ const results=[];
    if(u.pathname==='/audio_query'){events.queries++;events.voices.push(u.searchParams.get('speaker'));return r.fulfill({contentType:'application/json',body:'{}'});}
    if(u.pathname==='/synthesis'){
     events.synths++;events.speeds.push(JSON.parse(r.request().postData()||'{}').speedScale);if(config.holdSynth || events.synths===config.holdSynthAt){held=r;return;}
-    return r.fulfill({contentType:'audio/wav',body:wave()});
+    return r.fulfill({contentType:'audio/wav',body:wave(config.waveSamples)});
    }await r.abort();
   });
   let jpeg;
@@ -107,6 +107,14 @@ const results=[];
   assert.equal(x.events.api,2);assert.deepEqual(x.events.talks,['景色がいいね']);await stop(x.page);await x.close();
  });
  await test('busy Bouyomi queue is not overwritten',async()=>{const x=await setup({busy:true});await start(x);await idle(x.page);assert.equal(x.events.talks.length,0);assert.ok((await x.page.locator('#log').innerText()).includes('再生待ち'));await stop(x.page);await x.close();});
+ await test('VOICEVOX prefetches the next turn while the current turn is still playing',async()=>{
+  const multi={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'この道きれいだね'}]})}]}}]};
+  const x=await setup({answer:multi,holdSynthAt:2,waveSamples:48000});const p=x.page;
+  await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');await start(x);
+  for(let i=0;i<200&&!x.held();i++)await new Promise(r=>setTimeout(r,10));assert.ok(x.held());
+  assert.ok(!(await p.locator('#lastComment').textContent()).includes('友達1：'));assert.equal(x.events.synths,2);
+  await stop(p);await x.held()?.abort().catch(()=>{});await x.close();
+ });
  await test('two speakers use one generation and distinct VOICEVOX voices in order',async()=>{
   const multi={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p2',text:'この道きれいだね'},{speakerId:'p1',text:'寄り道したくなるね'}]})}]}}]};
   const x=await setup({answer:multi});const p=x.page;await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');
