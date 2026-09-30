@@ -94,43 +94,51 @@
     if(audioContext.state!=='running') throw new C.AppError('ブラウザで音声再生が許可されていません。「音声テスト」を押して再度お試しください。');
   }
   function checkFresh(frame,s) { if(frame && !C.fresh(frame.capturedAt,performance.now(),s.freshness)) throw new C.AppError('鮮度上限を超えたため、コメントを破棄しました。','STALE'); }
-  async function speak(text,s,frame,signal,ownQueue=false) {
+  async function generateVoicevoxAudio(text,s,frame,signal) {
     checkFresh(frame,s); C.check(signal);
-    const ms = frame ? Math.min(120000,frame.capturedAt+s.freshness*1000-performance.now()) : 120000;
-    // The first delivered turn must meet freshness. Later turns use ordinary timeouts.
-    if(s.output==='bouyomi') {
-      return C.deadline(async token => {
-        const base=C.localUrl(s.bouyomiUrl,'http:');
-        const state=await jsonLocal(base+'/GetTalkTaskCount',{},token);
-        if(!Number.isInteger(state.talkTaskCount) || state.talkTaskCount<0) throw new C.AppError('棒読みちゃんの待機数を取得できませんでした。HTTP連携を確認してください。');
-        if(state.talkTaskCount>0 && !ownQueue) { log('見送り: 棒読みちゃんに再生待ちの音声があります。','warn'); return false; }
-        const plain=C.plainSpeech(text); if(plain.length<2) { log('見送り: 読み上げ可能な文章がありません。','warn'); return false; }
-        checkFresh(frame,s); C.check(token);
-        const params=new URLSearchParams({text:plain,voice:String(s.bouyomiVoice),speed:'-1',tone:'-1',volume:'-1'});
-        const r=await fetchLocal(base+'/talk?'+params,{},token);
-        const body=await r.text(); C.check(token);
-        if(body.trim()) { let result; try { result=JSON.parse(body); } catch { throw new C.AppError('棒読みちゃんの応答を確認できませんでした。重複を避けるため再送しません。'); }
-          if(result?.error || result?.success===false) throw new C.AppError('棒読みちゃんが読み上げ要求を受け付けませんでした。'); }
-        return true;
-      },ms,signal,frame?'鮮度上限に達しました。棒読みちゃんへの送信が済んでいる場合はPC側で再生されることがあります。':'棒読みちゃんがタイムアウトしました。',frame?'STALE':'TIMEOUT');
-    }
-    const audio=await C.deadline(async token => {
+    const ms=frame?Math.min(120000,frame.capturedAt+s.freshness*1000-performance.now()):120000;
+    return C.deadline(async token=>{
       const base=C.localUrl(s.voicevoxUrl,'http:');
       const query=await jsonLocal(base+'/audio_query?'+new URLSearchParams({text,speaker:String(s.speaker)}),{method:'POST'},token);
       query.speedScale=s.speedScale;
       const r=await fetchLocal(base+'/synthesis?speaker='+s.speaker,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(query)},token);
-      const wave=await r.arrayBuffer(); C.check(token);
-      if(wave.byteLength>32*1024*1024) throw new C.AppError('生成された音声が大きすぎます。');
-      const decoded=await audioContext.decodeAudioData(wave); C.check(token); return decoded;
+      const wave=await r.arrayBuffer();C.check(token);
+      if(wave.byteLength>32*1024*1024)throw new C.AppError('生成された音声が大きすぎます。');
+      const decoded=await audioContext.decodeAudioData(wave);C.check(token);return decoded;
     },ms,signal,frame?'音声生成中に鮮度上限に達したため破棄しました。':'VOICEVOXの音声生成がタイムアウトしました。',frame?'STALE':'TIMEOUT');
-    checkFresh(frame,s); C.check(signal);
-    if(audioContext.state!=='running') throw new C.AppError('音声再生が中断されています。音声テストをやり直してください。');
+  }
+  async function playVoicevoxAudio(audio,s,frame,signal) {
+    checkFresh(frame,s);C.check(signal);
+    if(audioContext.state!=='running')throw new C.AppError('音声再生が中断されています。音声テストをやり直してください。');
     await C.deadline(token=>new Promise((resolve,reject)=>{
-      const source=audioContext.createBufferSource(); activeAudio=source; source.buffer=audio; source.connect(audioContext.destination);
+      const source=audioContext.createBufferSource();activeAudio=source;source.buffer=audio;source.connect(audioContext.destination);
       const clean=()=>{token.removeEventListener('abort',abort);source.disconnect();if(activeAudio===source)activeAudio=null;};
       const abort=()=>{source.onended=null;try{source.stop();}catch{}clean();reject(C.abortError());};
       source.onended=()=>{clean();resolve();};token.addEventListener('abort',abort,{once:true});source.start();
     }),120000,signal,'音声再生がタイムアウトしました。');
+  }
+  async function speak(text,s,frame,signal,ownQueue=false) {
+    checkFresh(frame,s);C.check(signal);
+    const ms=frame?Math.min(120000,frame.capturedAt+s.freshness*1000-performance.now()):120000;
+    // The first delivered turn must meet freshness. Later turns use ordinary timeouts.
+    if(s.output==='bouyomi') {
+      return C.deadline(async token=>{
+        const base=C.localUrl(s.bouyomiUrl,'http:');
+        const state=await jsonLocal(base+'/GetTalkTaskCount',{},token);
+        if(!Number.isInteger(state.talkTaskCount)||state.talkTaskCount<0)throw new C.AppError('棒読みちゃんの待機数を取得できませんでした。HTTP連携を確認してください。');
+        if(state.talkTaskCount>0&&!ownQueue){log('見送り: 棒読みちゃんに再生待ちの音声があります。','warn');return false;}
+        const plain=C.plainSpeech(text);if(plain.length<2){log('見送り: 読み上げ可能な文章がありません。','warn');return false;}
+        checkFresh(frame,s);C.check(token);
+        const params=new URLSearchParams({text:plain,voice:String(s.bouyomiVoice),speed:'-1',tone:'-1',volume:'-1'});
+        const r=await fetchLocal(base+'/talk?'+params,{},token);
+        const body=await r.text();C.check(token);
+        if(body.trim()){let result;try{result=JSON.parse(body);}catch{throw new C.AppError('棒読みちゃんの応答を確認できませんでした。重複を避けるため再送しません。');}
+          if(result?.error||result?.success===false)throw new C.AppError('棒読みちゃんが読み上げ要求を受け付けませんでした。');}
+        return true;
+      },ms,signal,frame?'鮮度上限に達しました。棒読みちゃんへの送信が済んでいる場合はPC側で再生されることがあります。':'棒読みちゃんがタイムアウトしました。',frame?'STALE':'TIMEOUT');
+    }
+    const audio=await generateVoicevoxAudio(text,s,frame,signal);
+    await playVoicevoxAudio(audio,s,frame,signal);
     return true;
   }
   async function connectObs(s,signal) {
@@ -189,16 +197,47 @@
           if(reason)log(`見送り（${reason}）: ${result.summary}`);
           else {
             let conversationStarted=false;
-            for(const turn of result.turns){
-              if(spoken.includes(turn.text))continue;
-              C.check(signal);
-              const profile=s.profiles.find(p=>p.id===turn.speakerId);
-              setStatus(s.output==='bouyomi'?'棒読みちゃんへ送信中':'VOICEVOXの音声生成・再生中');
-              if(!await speak(turn.text,{...s,...profile},conversationStarted ? null : current,signal,conversationStarted))break;
+            const delivered=(turn,profile)=>{
               conversationStarted=true;lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>12)spoken.shift();
               $('lastComment').textContent=`${profile.name}：${turn.text}`;$('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
               $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
               log(`${profile.name}: ${turn.text}`,'spoken');
+            };
+            const seen=new Set(spoken),turns=[];
+            for(const turn of result.turns){
+              if(seen.has(turn.text))continue;
+              seen.add(turn.text);
+              turns.push({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)});
+            }
+            if(s.output==='voicevox'&&turns.length){
+              let item=turns[0];
+              setStatus('VOICEVOXの音声生成中');
+              let audio=await generateVoicevoxAudio(item.turn.text,{...s,...item.profile},current,signal);
+              for(let i=0;i<turns.length;i++){
+                C.check(signal);item=turns[i];
+                const next=turns[i+1];
+                setStatus(next?'VOICEVOX再生中・次の音声を先読み中':'VOICEVOXの音声再生中');
+                const playback=playVoicevoxAudio(audio,{...s,...item.profile},i===0?current:null,signal);
+                let prefetch=null,prefetchController=null,unlink=null;
+                if(next){
+                  prefetchController=new AbortController();
+                  const abort=()=>prefetchController.abort();signal.addEventListener('abort',abort,{once:true});unlink=()=>signal.removeEventListener('abort',abort);
+                  prefetch=generateVoicevoxAudio(next.turn.text,{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
+                }
+                try{await playback;}catch(e){prefetchController?.abort();throw e;}
+                delivered(item.turn,item.profile);
+                if(prefetch){
+                  const prepared=await prefetch;unlink?.();
+                  if(prepared.error)throw prepared.error;
+                  audio=prepared.value;
+                }
+              }
+            }else{
+              for(const {turn,profile} of turns){
+                C.check(signal);setStatus('棒読みちゃんへ送信中');
+                if(!await speak(turn.text,{...s,...profile},conversationStarted?null:current,signal,conversationStarted))break;
+                delivered(turn,profile);
+              }
             }
           }
         }
