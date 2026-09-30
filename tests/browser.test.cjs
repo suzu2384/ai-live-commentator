@@ -17,12 +17,12 @@ const results=[];
  async function setup(config={}){
   const ctx=await browser.newContext({viewport:{width:1360,height:768}});const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const host=config.host||'127.0.0.1';
-  const events={images:0,api:0,analysisImages:[],promptTexts:[],talks:[],queries:0,voices:[],speeds:[],synths:0,identifies:0,unexpected:[]};let held=null;
+  const events={images:0,api:0,analysisImages:[],turnLimits:[],promptTexts:[],talks:[],queries:0,voices:[],speeds:[],synths:0,identifies:0,unexpected:[]};let held=null;
   await page.clock.install();
   await page.route('https://**/*',async r=>{
    if(!r.request().url().startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent')){events.unexpected.push(r.request().url());return r.abort();}
    events.api++;assert.equal(r.request().headers()['x-goog-api-key'],'fake.test-key');
-   const requestBody=JSON.parse(r.request().postData()||'{}');const parts=requestBody.contents?.[0]?.parts||[];events.analysisImages.push(parts.filter(p=>p.inlineData).length);events.promptTexts.push(parts.filter(p=>typeof p.text==='string').map(p=>p.text).join('\n'));
+   const requestBody=JSON.parse(r.request().postData()||'{}');const parts=requestBody.contents?.[0]?.parts||[];events.analysisImages.push(parts.filter(p=>p.inlineData).length);events.turnLimits.push(requestBody.generationConfig?.responseSchema?.properties?.turns?.maxItems??null);events.promptTexts.push(parts.filter(p=>typeof p.text==='string').map(p=>p.text).join('\n'));
    if(config.hold){held=r;return;}
    if(config.status && (!config.failCount || events.api<=config.failCount))await r.fulfill({status:config.status,contentType:'application/json',body:'{}'});
    else {const response=config.answers?.[events.api-1]||config.answer||answer;await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(response)});}
@@ -109,6 +109,17 @@ const results=[];
   await p.locator('#start').click();await idle(p);assert.equal(x.events.api,0);
   await stop(p);assert.equal(x.events.api,0);assert.equal(x.events.talks.length,0);await x.close();
  });
+ await test('speaker-count weights force the sampled maximum and are saved',async()=>{
+  const two={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p1',text:'まず見てみよう'},{speakerId:'p2',text:'うん、気になるね'}]})}]}}]};
+  const x=await setup({answer:two,before:async p=>{
+    await p.locator('#participantCount').selectOption('3');
+    for(let n=1;n<=6;n++)await p.locator('#speakerWeight'+n).fill(n===2?'100':'0');
+  }});const p=x.page;
+  await start(x);await idle(p);assert.equal(x.events.api,1);assert.equal(x.events.turnLimits[0],2);
+  assert.ok(x.events.promptTexts[0].includes('今回の発言人数上限: 2人'));assert.equal(x.events.talks.length,2);
+  await stop(p);const saved=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1')));
+  assert.equal(saved.speakerWeight2,100);assert.equal(saved.speakerWeight1,0);await x.close();
+ });
  await test('configured analysis frame count sends the latest four frames',async()=>{
   const x=await setup({before:async p=>{await p.locator('#analysisFrameCount').selectOption('4');}});const p=x.page;
   await p.locator('#start').click();await idle(p);assert.equal(x.events.api,0);
@@ -160,14 +171,14 @@ const results=[];
  await test('VOICEVOX prefetches the next turn while the current turn is still playing',async()=>{
   const multi={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'この道きれいだね'}]})}]}}]};
   const x=await setup({answer:multi,holdSynthAt:2,waveSamples:48000});const p=x.page;
-  await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');await start(x);
+  await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');await start(x);
   for(let i=0;i<200&&!x.held();i++)await new Promise(r=>setTimeout(r,10));assert.ok(x.held());
   assert.ok(!(await p.locator('#lastComment').textContent()).includes('友達1：'));assert.equal(x.events.synths,2);
   await stop(p);await x.held()?.abort().catch(()=>{});await x.close();
  });
  await test('two speakers use one generation and distinct VOICEVOX voices in order',async()=>{
   const multi={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p2',text:'この道きれいだね'},{speakerId:'p1',text:'寄り道したくなるね'}]})}]}}]};
-  const x=await setup({answer:multi});const p=x.page;await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');
+  const x=await setup({answer:multi});const p=x.page;await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');
   await start(x);await idle(p);assert.equal(x.events.api,1);assert.deepEqual(x.events.voices,['2','3']);assert.ok((await p.locator('#lastComment').textContent()).includes('友達1'));
   await stop(p);await x.close();
  });
@@ -175,7 +186,7 @@ const results=[];
   const turns=[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'こっちも見てみようよ'},{speakerId:'p3',text:'ちょっと寄り道しよう'}];
   const reply={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進む',turns})}]}}]};
   const x=await setup({answer:reply,holdSynthAt:2});const p=x.page;
-  await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('3');await start(x);
+  await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('3');await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('0');await p.locator('#speakerWeight3').fill('100');await start(x);
   await p.waitForFunction(()=>document.getElementById('lastComment').textContent.includes('友達1：'));
   for(let i=0;i<200&&!x.held();i++)await new Promise(r=>setTimeout(r,10));assert.ok(x.held());
   await p.clock.fastForward(16000);assert.equal(await p.locator('#staleCount').textContent(),'0');
