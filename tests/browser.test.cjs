@@ -25,7 +25,7 @@ const results=[];
    const requestBody=JSON.parse(r.request().postData()||'{}');events.analysisImages.push((requestBody.contents?.[0]?.parts||[]).filter(p=>p.inlineData).length);
    if(config.hold){held=r;return;}
    if(config.status && (!config.failCount || events.api<=config.failCount))await r.fulfill({status:config.status,contentType:'application/json',body:'{}'});
-   else await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(config.answer||answer)});
+   else {const response=config.answers?.[events.api-1]||config.answer||answer;await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(response)});}
   });
   await page.route(`http://${host}:50080/**`,async r=>{
    const u=new URL(r.request().url());
@@ -51,6 +51,7 @@ const results=[];
   });
   await page.goto(entry);
   await page.locator('details.setting-section').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+  await page.locator('#greetStart').uncheck();await page.locator('#greetEnd').uncheck();
   jpeg=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=640;c.height=360;const x=c.getContext('2d');x.fillStyle='#345a4b';x.fillRect(0,0,640,360);return c.toDataURL('image/jpeg');});
   await page.locator('#apiKey').fill('fake.test-key');await page.locator('#obsPassword').fill('obs-secret');await page.locator('#freeTier').check();
   await page.locator('summary').filter({hasText:'画像・通信'}).click();await page.locator('#sampleInterval').fill('4');
@@ -60,6 +61,7 @@ const results=[];
  }
  async function start(x){await x.page.locator('#start').click();await idle(x.page);await x.page.clock.fastForward(4100);}
  async function stop(p){await p.locator('#stop').click();await stopped(p);}
+ async function finish(p){await p.locator('#finish').click();await stopped(p);}
  async function idle(p){await p.waitForFunction(()=>{const s=document.getElementById('status').textContent;return s==='映像監視中'||s.startsWith('映像履歴を準備中');});}
  async function recovery(p){await p.waitForFunction(()=>document.getElementById('status').textContent.includes('自動再開まで'));}
  async function next(x,ms){await x.page.clock.fastForward(ms);await idle(x.page);await x.page.clock.fastForward(4100);}
@@ -87,6 +89,26 @@ const results=[];
  await test('OBS authentication and preview send no Gemini request',async()=>{const x=await setup();await x.page.locator('#testObs').click();await stopped(x.page);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);await x.close();});
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
  await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await x.page.locator('#output').selectOption('voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
+ await test('start greeting is generated before OBS monitoring begins',async()=>{
+  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'じゃあ今日も見ていこう'}]})}]}}]};
+  const x=await setup({answer:intro,before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
+  await p.locator('#start').click();await idle(p);
+  assert.equal(x.events.api,1);assert.deepEqual(x.events.analysisImages,[0]);assert.deepEqual(x.events.talks,['じゃあ今日も見ていこう']);
+  assert.ok((await p.locator('#log').innerText()).includes('開始の挨拶'));await stop(p);await x.close();
+ });
+ await test('normal finish uses recent history for a closing greeting then stops',async()=>{
+  const closing={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'終了',turns:[{speakerId:'p1',text:'今日はこの辺かな。また見よう'}]})}]}}]};
+  const x=await setup({answers:[answer,closing],before:async p=>{await p.locator('#greetEnd').check();}});const p=x.page;
+  await start(x);await idle(p);assert.equal(x.events.api,1);assert.deepEqual(x.events.talks,['景色がいいね']);
+  await finish(p);assert.equal(x.events.api,2);assert.deepEqual(x.events.analysisImages,[2,0]);
+  assert.deepEqual(x.events.talks,['景色がいいね','今日はこの辺かな。また見よう']);
+  assert.ok((await p.locator('#log').innerText()).includes('実況を通常終了しました。'));await x.close();
+ });
+ await test('immediate stop skips the configured closing greeting',async()=>{
+  const x=await setup({before:async p=>{await p.locator('#greetEnd').check();}});const p=x.page;
+  await p.locator('#start').click();await idle(p);assert.equal(x.events.api,0);
+  await stop(p);assert.equal(x.events.api,0);assert.equal(x.events.talks.length,0);await x.close();
+ });
  await test('configured analysis frame count sends the latest four frames',async()=>{
   const x=await setup({before:async p=>{await p.locator('#analysisFrameCount').selectOption('4');}});const p=x.page;
   await p.locator('#start').click();await idle(p);assert.equal(x.events.api,0);
