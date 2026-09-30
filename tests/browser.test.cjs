@@ -17,11 +17,12 @@ const results=[];
  async function setup(config={}){
   const ctx=await browser.newContext({viewport:{width:1360,height:768}});const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const host=config.host||'127.0.0.1';
-  const events={images:0,api:0,talks:[],queries:0,voices:[],speeds:[],synths:0,identifies:0,unexpected:[]};let held=null;
+  const events={images:0,api:0,analysisImages:[],talks:[],queries:0,voices:[],speeds:[],synths:0,identifies:0,unexpected:[]};let held=null;
   await page.clock.install();
   await page.route('https://**/*',async r=>{
    if(!r.request().url().startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent')){events.unexpected.push(r.request().url());return r.abort();}
    events.api++;assert.equal(r.request().headers()['x-goog-api-key'],'fake.test-key');
+   const requestBody=JSON.parse(r.request().postData()||'{}');events.analysisImages.push((requestBody.contents?.[0]?.parts||[]).filter(p=>p.inlineData).length);
    if(config.hold){held=r;return;}
    if(config.status && (!config.failCount || events.api<=config.failCount))await r.fulfill({status:config.status,contentType:'application/json',body:'{}'});
    else await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(config.answer||answer)});
@@ -76,6 +77,14 @@ const results=[];
  await test('OBS authentication and preview send no Gemini request',async()=>{const x=await setup();await x.page.locator('#testObs').click();await stopped(x.page);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);await x.close();});
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
  await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await x.page.locator('#output').selectOption('voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
+ await test('configured analysis frame count sends the latest four frames',async()=>{
+  const x=await setup({before:async p=>{await p.locator('#analysisFrameCount').selectOption('4');}});const p=x.page;
+  await p.locator('#start').click();await idle(p);assert.equal(x.events.api,0);
+  for(let i=0;i<3;i++){await p.clock.fastForward(4100);if(i<2)await idle(p);}
+  await p.waitForFunction(()=>document.getElementById('usage').textContent==='1 回');
+  assert.equal(x.events.api,1);assert.equal(x.events.analysisImages[0],4);assert.equal(x.events.images,4);
+  await stop(p);await x.close();
+ });
  await test('successful analysis continues beyond former request cap until manual stop',async()=>{
   const x=await setup();await start(x);await idle(x.page);assert.equal(x.events.api,1);assert.deepEqual(x.events.talks,['景色がいいね']);
   for(let i=0;i<21;i++){await x.page.clock.fastForward(61000);await idle(x.page);}
@@ -147,7 +156,7 @@ const results=[];
  await test('old settings migrate voice IDs; tabs and mobile stop remain accessible',async()=>{
   const x=await setup();const p=x.page;
   await p.evaluate(()=>localStorage.setItem('ai-live-commentator-browser-v1',JSON.stringify({speaker:8,bouyomiVoice:12,maxRequests:1,resume503:false,sourceName:'Old source'})));
-  await p.reload();await p.locator('#tab-friends').click();assert.equal(await p.locator('#participantCount').inputValue(),'1');assert.equal(await p.locator('#p1-speaker').inputValue(),'8');assert.equal(await p.locator('#p1-speedScale').inputValue(),'1');assert.equal(await p.locator('#p1-bouyomiVoice').inputValue(),'12');
+  await p.reload();assert.equal(await p.locator('#analysisFrameCount').inputValue(),'2');await p.locator('#tab-friends').click();assert.equal(await p.locator('#participantCount').inputValue(),'1');assert.equal(await p.locator('#p1-speaker').inputValue(),'8');assert.equal(await p.locator('#p1-speedScale').inputValue(),'1');assert.equal(await p.locator('#p1-bouyomiVoice').inputValue(),'12');
   await p.locator('#tab-friends').press('ArrowRight');assert.equal(await p.locator('#tab-history').getAttribute('aria-selected'),'true');
   await p.setViewportSize({width:390,height:844});await p.locator('#tab-help').click();await p.evaluate(()=>scrollTo(0,document.body.scrollHeight));
   const bounds=await p.locator('#start').boundingBox();assert.ok(bounds.y>=0&&bounds.y+bounds.height<=844);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
