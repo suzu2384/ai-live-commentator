@@ -174,16 +174,17 @@
     await playVoicevoxAudio(audio,s,frame,signal);
     return true;
   }
-  function greetingPayload(kind,s,history){
+  function greetingPayload(kind,s,history,maxTurns){
+    maxTurns=Math.max(1,Math.min(s.profiles.length,Number(maxTurns)||1));
     const ending=kind==='end';
     const context=ending&&history.length?history.slice(-5).join(' / '):'まだゲーム内容は判断しない';
     const task=ending
       ? '実況を通常終了する直前の締めの挨拶を作る。今回見えていた状況に軽く触れてもよいが、確認できない成果・勝敗・進捗は断定しない。「また見よう」「おつかれ」など自然に締める。'
       : '実況開始直後の短い挨拶を作る。まだゲーム内容を見ていないので、ゲーム名・状況・成果を推測せず、「始まったね」「今日も見ていこう」程度の自然な開始挨拶にする。';
-    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n直近の状況: ${context}\n${task}\n1〜2人だけが発言し、各5〜25文字程度の自然な口語。全員を必ず話させない。架空の思い出は作らない。`}];
+    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n直近の状況: ${context}\n${task}\n今回の発言人数上限は${maxTurns}人。上限を埋める必要はなく、1人だけでもよい。各5〜25文字程度の自然な口語。全員を必ず話させない。架空の思い出は作らない。`}];
     return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。指定された開始または終了の挨拶だけを短く返す。読み上げ用の普通の日本語だけにする。'}]},
       contents:[{role:'user',parts}],generationConfig:{candidateCount:1,maxOutputTokens:512,thinkingConfig:{thinkingLevel:'MINIMAL',includeThoughts:false},responseMimeType:'application/json',
-        responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:1,maxItems:2,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'}},required:['speakerId','text']}}},required:['speak','summary','turns']}}};
+        responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:1,maxItems:maxTurns,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'}},required:['speakerId','text']}}},required:['speak','summary','turns']}}};
   }
   async function playGreetingTurns(turns,s,signal,label){
     const items=turns.map(turn=>({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)})).filter(x=>x.profile);
@@ -216,9 +217,10 @@
   async function greeting(kind,runtime,signal,{tolerateFailure=false}={}){
     const s=runtime.s,key=runtime.key,label=kind==='end'?'終了の挨拶':'開始の挨拶';
     try{
-      reserve(s);setStatus(`${label}を生成中`);log(`Geminiへ${label}を依頼（${stats.used}回）。`);
-      const body=await C.deadline(token=>C.gemini(key,greetingPayload(kind,s,runtime.history),token),60000,signal,`${label}の生成がタイムアウトしました。`);
-      const result=C.parseAnalysis(body,s.profiles);
+      const turnLimit=C.pickWeightedSpeakerLimit(s.speakerCountWeights,s.profiles.length);
+      reserve(s);setStatus(`${label}を生成中`);log(`Geminiへ${label}を依頼（${stats.used}回・今回の発言上限${turnLimit}人）。`);
+      const body=await C.deadline(token=>C.gemini(key,greetingPayload(kind,s,runtime.history,turnLimit),token),60000,signal,`${label}の生成がタイムアウトしました。`);
+      const result=C.parseAnalysis(body,s.profiles,turnLimit);
       await playGreetingTurns(result.turns,s,signal,label);
     }catch(e){
       C.check(signal);
