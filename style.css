@@ -24,3 +24,54 @@ html,body{height:100%}body{height:100dvh;display:flex;flex-direction:column;over
 
 .speaker-weight-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 10px}.speaker-weight-grid input{font-variant-numeric:tabular-nums}.speaker-weight-settings{margin:12px 0}.speaker-weight-settings>summary{color:var(--text)}
 @media(max-width:520px){.speaker-weight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* v3.4 MinCome AI brand refresh */
+:root{
+  --bg:#0d151c;
+  --card:#172129;
+  --line:#2d3d49;
+  --accent:#4aa8ff;
+  --accent-pink:#ff6f9d;
+  --accent-green:#54c991;
+  --accent-purple:#9c79ef;
+  --accent-yellow:#ffc857;
+  --warn:#ffc857;
+}
+header{background:linear-gradient(180deg,#101c27 0%,var(--bg) 100%)}
+.brand{gap:12px}
+.brand-icon{width:62px;height:62px;flex:0 0 62px;object-fit:cover;border-radius:18px;box-shadow:0 8px 24px #06101b66}
+.brand-copy{min-width:0}
+.brand-title{display:flex;align-items:center;gap:8px;line-height:1}
+.brand-title h1{font-size:25px;font-weight:800;letter-spacing:.02em}
+.ai-bubble{position:relative;display:inline-flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;border-radius:10px;padding:4px 8px 5px;font-size:12px;font-weight:800;line-height:1}
+.ai-bubble::after{content:"";position:absolute;left:8px;bottom:-4px;border-width:5px 5px 0 0;border-style:solid;border-color:var(--accent) transparent transparent transparent;transform:skewX(-18deg)}
+header p{color:#9fb3c3}
+.toolbar{background:#0d151cf5}
+.dot.running{background:var(--accent-green);box-shadow:0 0 0 4px #54c99118}
+.quote{color:#82c5ff}
+.step{border-color:#3c6786;color:#83c7ff}
+#settings-video .step{border-color:#3d6a58;color:var(--accent-green)}
+#settings-ai .step{border-color:#376b92;color:var(--accent)}
+#settings-voice .step{border-color:#624f89;color:#b29af5}
+#settings-frequency .step{border-color:#85506a;color:#ff9aba}
+button.primary{background:var(--accent);border-color:var(--accent);color:#071828}
+button.primary:hover{background:#74bcff}
+button.subtle,.help a{color:#7fc1ff}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 2px #4aa8ff1f}
+button:focus-visible,summary:focus-visible{outline-color:var(--accent)}
+.tabs button[aria-selected=true]{background:#183650;color:#8acaff}
+.setting-section[open]>.setting-summary{background:#1a2b36}
+#finish{border-color:#426d5c;color:var(--accent-green)}
+#profiles .friend{--friend-accent:var(--accent);border-left:3px solid var(--friend-accent)!important;padding-left:14px!important}
+#profiles .friend:nth-child(4n+2){--friend-accent:var(--accent-pink)}
+#profiles .friend:nth-child(4n+3){--friend-accent:var(--accent-green)}
+#profiles .friend:nth-child(4n+4){--friend-accent:var(--accent-purple)}
+#profiles .friend h2{color:var(--friend-accent)}
+#profiles .friend input:focus,#profiles .friend select:focus,#profiles .friend textarea:focus{border-color:var(--friend-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--friend-accent) 18%,transparent)}
+@media(max-width:520px){
+  .brand-icon{width:48px;height:48px;flex-basis:48px;border-radius:14px}
+  .brand-title h1{font-size:21px}
+  .ai-bubble{font-size:10px;padding:3px 7px 4px}
+  header p{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px}
+}
