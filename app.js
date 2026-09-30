@@ -3,7 +3,7 @@
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
   const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount'];
-  const numberRules = { talkativeness:[0,2], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[4,60], imageWidth:[320,960], analysisFrameCount:[2,6] };
+  const numberRules = { talkativeness:[0,2], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6] };
   let controller = null, obs = null, audioContext = null, activeAudio = null, wakeLock = null;
   let phaseAt = performance.now(), busy = false, lastSettings = null;
   const stats = { used:0, stale:0 };
@@ -183,68 +183,117 @@
       await C.sleep(Math.min(1000,until-performance.now()),signal);
     }
   }
-  async function run(s,key,signal) {
-    const history=[],spoken=[],frames=[];let lastAnalysis=-Infinity,lastSpeech=-Infinity;
+  async function captureLoop(s,state,signal) {
     while(true) {
       C.check(signal);
+      const frame=await getFrame(s,signal);
+      state.frames.push(frame);while(state.frames.length>s.analysisFrameCount)state.frames.shift();
+      state.frameVersion++;
+      await C.sleep(s.sampleInterval*1000,signal);
+    }
+  }
+  async function analysisLoop(s,key,state,history,spoken,signal) {
+    let shownBufferCount=-1;
+    while(true) {
+      C.check(signal);
+      if(state.frames.length<s.analysisFrameCount) {
+        if(shownBufferCount!==state.frames.length){
+          shownBufferCount=state.frames.length;
+          setStatus(`映像履歴を準備中 ${state.frames.length}/${s.analysisFrameCount}・次の取得待ち`);
+        }
+        await C.sleep(100,signal);continue;
+      }
+      if(shownBufferCount!==s.analysisFrameCount){
+        shownBufferCount=s.analysisFrameCount;setStatus('映像監視中・次の取得待ち');
+      }
+      const frames=state.frames.slice(),current=frames[frames.length-1],previous=frames[frames.length-2];
+      if(current.capturedAt<=state.lastAnalyzedFrameAt ||
+         !C.shouldAnalyze((performance.now()-state.lastAnalysis)/1000,motion(previous.pixels,current.pixels),s.apiInterval,s.quietInterval)) {
+        await C.sleep(100,signal);continue;
+      }
+      state.lastAnalysis=performance.now();state.lastAnalyzedFrameAt=current.capturedAt;
       try {
-        if(!obs?.ready){obs?.close();await connectObs(s,signal);frames.length=0;}
-        setStatus('OBSの画像取得中');const current=await getFrame(s,signal);
-        frames.push(current);while(frames.length>s.analysisFrameCount)frames.shift();
-        const previous=frames.length>1?frames[frames.length-2]:null;
-        if(frames.length>=s.analysisFrameCount && previous && C.shouldAnalyze((performance.now()-lastAnalysis)/1000,motion(previous.pixels,current.pixels),s.apiInterval,s.quietInterval)) {
-          lastAnalysis=performance.now();
-          const result=await analyze(frames.slice(),s,key,history,spoken,signal);
-          const reason=C.skipReason(result,performance.now()-current.capturedAt,s,performance.now()-lastSpeech,spoken);
-          if(result.summary){history.push(result.summary);if(history.length>6)history.shift();}
-          if(reason)log(`見送り（${reason}）: ${result.summary}`);
-          else {
-            let conversationStarted=false;
-            const delivered=(turn,profile)=>{
-              conversationStarted=true;lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>12)spoken.shift();
-              $('lastComment').textContent=`${profile.name}：${turn.text}`;$('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
-              $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
-              log(`${profile.name}: ${turn.text}`,'spoken');
-            };
-            const seen=new Set(spoken),turns=[];
-            for(const turn of result.turns){
-              if(seen.has(turn.text))continue;
-              seen.add(turn.text);
-              turns.push({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)});
+        const result=await analyze(frames,s,key,history,spoken,signal);
+        const reason=C.skipReason(result,performance.now()-current.capturedAt,s,performance.now()-state.lastSpeech,spoken);
+        if(result.summary){history.push(result.summary);if(history.length>6)history.shift();}
+        if(reason)log(`見送り（${reason}）: ${result.summary}`);
+        else {
+          let conversationStarted=false;
+          const delivered=(turn,profile)=>{
+            conversationStarted=true;state.lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>12)spoken.shift();
+            $('lastComment').textContent=`${profile.name}：${turn.text}`;$('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
+            $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
+            log(`${profile.name}: ${turn.text}`,'spoken');
+          };
+          const seen=new Set(spoken),turns=[];
+          for(const turn of result.turns){
+            if(seen.has(turn.text))continue;
+            seen.add(turn.text);
+            turns.push({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)});
+          }
+          if(s.output==='voicevox'&&turns.length){
+            let item=turns[0];
+            setStatus('VOICEVOXの音声生成中');
+            let audio=await generateVoicevoxAudio(item.turn.text,{...s,...item.profile},current,signal);
+            for(let i=0;i<turns.length;i++){
+              C.check(signal);item=turns[i];
+              const next=turns[i+1];
+              setStatus(next?'VOICEVOX再生中・次の音声を先読み中':'VOICEVOXの音声再生中');
+              const playback=playVoicevoxAudio(audio,{...s,...item.profile},i===0?current:null,signal);
+              let prefetch=null,prefetchController=null,unlink=null;
+              if(next){
+                prefetchController=new AbortController();
+                const abort=()=>prefetchController.abort();signal.addEventListener('abort',abort,{once:true});unlink=()=>signal.removeEventListener('abort',abort);
+                prefetch=generateVoicevoxAudio(next.turn.text,{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
+              }
+              try{await playback;}catch(e){prefetchController?.abort();unlink?.();throw e;}
+              delivered(item.turn,item.profile);
+              if(prefetch){
+                const prepared=await prefetch;unlink?.();
+                if(prepared.error)throw prepared.error;
+                audio=prepared.value;
+              }
             }
-            if(s.output==='voicevox'&&turns.length){
-              let item=turns[0];
-              setStatus('VOICEVOXの音声生成中');
-              let audio=await generateVoicevoxAudio(item.turn.text,{...s,...item.profile},current,signal);
-              for(let i=0;i<turns.length;i++){
-                C.check(signal);item=turns[i];
-                const next=turns[i+1];
-                setStatus(next?'VOICEVOX再生中・次の音声を先読み中':'VOICEVOXの音声再生中');
-                const playback=playVoicevoxAudio(audio,{...s,...item.profile},i===0?current:null,signal);
-                let prefetch=null,prefetchController=null,unlink=null;
-                if(next){
-                  prefetchController=new AbortController();
-                  const abort=()=>prefetchController.abort();signal.addEventListener('abort',abort,{once:true});unlink=()=>signal.removeEventListener('abort',abort);
-                  prefetch=generateVoicevoxAudio(next.turn.text,{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
-                }
-                try{await playback;}catch(e){prefetchController?.abort();unlink?.();throw e;}
-                delivered(item.turn,item.profile);
-                if(prefetch){
-                  const prepared=await prefetch;unlink?.();
-                  if(prepared.error)throw prepared.error;
-                  audio=prepared.value;
-                }
-              }
-            }else{
-              for(const {turn,profile} of turns){
-                C.check(signal);setStatus('棒読みちゃんへ送信中');
-                if(!await speak(turn.text,{...s,...profile},conversationStarted?null:current,signal,conversationStarted))break;
-                delivered(turn,profile);
-              }
+          }else{
+            for(const {turn,profile} of turns){
+              C.check(signal);setStatus('棒読みちゃんへ送信中');
+              if(!await speak(turn.text,{...s,...profile},conversationStarted?null:current,signal,conversationStarted))break;
+              delivered(turn,profile);
             }
           }
         }
-        setStatus('映像監視中・次の取得待ち');await C.sleep(s.sampleInterval*1000,signal);
+        setStatus('映像監視中・次の取得待ち');
+      } catch(e) {
+        C.check(signal);
+        if(!(e instanceof C.AppError)||C.needsSettings(e))throw e;
+        if(e.code==='STALE'){
+          stats.stale++;updateStats();log(e.message,'warn');$('latency').textContent='鮮度切れ';
+        } else log(e.message,'warn');
+        const delay=C.recoveryDelay(e);
+        log(`${Math.ceil(delay/1000)}秒待機し、その間も映像取得を続けて最新映像で再開します。停止ボタンで終了できます。`,'warn');
+        await waitRecovery(delay,signal);
+        state.lastAnalysis=-Infinity;
+      }
+    }
+  }
+  async function run(s,key,signal) {
+    const history=[],spoken=[],state={frames:[],frameVersion:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastAnalyzedFrameAt:-Infinity};
+    while(true) {
+      C.check(signal);
+      try {
+        if(!obs?.ready){obs?.close();await connectObs(s,signal);}
+        state.frames.length=0;state.lastAnalysis=-Infinity;state.lastAnalyzedFrameAt=-Infinity;
+        const session=new AbortController();
+        const stop=()=>session.abort();signal.addEventListener('abort',stop,{once:true});
+        const capture=captureLoop(s,state,session.signal);
+        const analysis=analysisLoop(s,key,state,history,spoken,session.signal);
+        try {
+          await Promise.race([capture,analysis]);
+          throw new C.AppError('監視処理が予期せず終了しました。','NETWORK');
+        } finally {
+          session.abort();signal.removeEventListener('abort',stop);
+          await Promise.allSettled([capture,analysis]);
+        }
       } catch(e) {
         C.check(signal);
         if(e.code==='STALE'){
@@ -253,11 +302,12 @@
         if(!(e instanceof C.AppError)||C.needsSettings(e)){
           obs?.close();obs=null;({s,key}=await waitForSettings(signal));
         }else{
+          obs?.close();obs=null;
           const delay=C.recoveryDelay(e);
-          log(`${Math.ceil(delay/1000)}秒待機し、最新映像で再開します。停止ボタンで終了できます。`,'warn');
+          log(`${Math.ceil(delay/1000)}秒待機し、OBSへ再接続して再開します。停止ボタンで終了できます。`,'warn');
           await waitRecovery(delay,signal);
         }
-        frames.length=0;lastAnalysis=-Infinity;
+        state.frames.length=0;state.lastAnalysis=-Infinity;state.lastAnalyzedFrameAt=-Infinity;
       }
     }
   }
