@@ -177,6 +177,23 @@ const results=[];
   assert.equal(x.events.api,2);assert.deepEqual(x.events.talks,['景色がいいね']);await stop(x.page);await x.close();
  });
  await test('busy Bouyomi queue is not overwritten',async()=>{const x=await setup({busy:true});await start(x);await idle(x.page);assert.equal(x.events.talks.length,0);assert.ok((await x.page.locator('#log').innerText()).includes('再生待ち'));await stop(x.page);await x.close();});
+ await test('Gemini prefetches the next comment while the current VOICEVOX conversation is still active',async()=>{
+  const first={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進む',turns:[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'この道きれいだね'}]})}]}}]};
+  const next={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'さらに進む',turns:[{speakerId:'p1',text:'まだ先がありそうだね'}]})}]}}]};
+  const x=await setup({answers:[first,next],holdSynthAt:2});const p=x.page;
+  await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');
+  await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');
+  await p.locator('#apiInterval').fill('30');await p.locator('#quietInterval').fill('30');await p.locator('#speechInterval').fill('600');await p.locator('#freshness').fill('180');
+  await start(x);
+  for(let i=0;i<200&&!x.held();i++)await new Promise(r=>setTimeout(r,10));assert.ok(x.held());assert.equal(x.events.api,1);
+  await p.clock.fastForward(31000);
+  for(let i=0;i<200&&x.events.api<2;i++)await new Promise(r=>setTimeout(r,10));
+  assert.equal(x.events.api,2);assert.ok(x.events.promptTexts[1].includes('景色がいいね'));assert.ok(x.events.promptTexts[1].includes('この道きれいだね'));
+  await x.held().fulfill({contentType:'audio/wav',body:wave()});
+  for(let i=0;i<300&&!((await p.locator('#lastComment').textContent()).includes('まだ先がありそうだね'));i++)await new Promise(r=>setTimeout(r,10));
+  assert.ok((await p.locator('#lastComment').textContent()).includes('まだ先がありそうだね'));assert.ok(x.events.synths>=3);
+  assert.ok((await p.locator('#log').innerText()).includes('次の発言候補を先読みしました。'));await stop(p);await x.close();
+ });
  await test('VOICEVOX prefetches the next turn while the current turn is still playing',async()=>{
   const multi={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'この道きれいだね'}]})}]}}]};
   const x=await setup({answer:multi,holdSynthAt:2,waveSamples:48000});const p=x.page;
