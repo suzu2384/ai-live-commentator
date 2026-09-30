@@ -2,8 +2,8 @@
   'use strict';
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
-  const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth'];
-  const numberRules = { talkativeness:[0,2], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[4,60], imageWidth:[320,960] };
+  const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount'];
+  const numberRules = { talkativeness:[0,2], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[4,60], imageWidth:[320,960], analysisFrameCount:[2,6] };
   let controller = null, obs = null, audioContext = null, activeAudio = null, wakeLock = null;
   let phaseAt = performance.now(), busy = false, lastSettings = null;
   const stats = { used:0, stale:0 };
@@ -145,11 +145,12 @@
     if(!s.sourceName) throw new C.AppError('OBSの映像ソース名を入力してください。');
     setStatus('OBSに接続中'); obs=new C.ObsClient(); await obs.connect(s.obsUrl,$('obsPassword').value,signal); log('OBSへの接続完了。');
   }
-  async function analyze(previous,current,s,key,history,spoken,signal) {
+  async function analyze(frames,s,key,history,spoken,signal) {
+    const current=frames[frames.length-1];
     const remaining=current.capturedAt+s.freshness*1000-performance.now();
     if(remaining<=0) throw new C.AppError('画像取得中に鮮度上限に達しました。','STALE');
-    const payload=C.makePayload(previous,current,s,history,spoken); reserve(s); const began=performance.now();
-    setStatus('Geminiの応答待ち'); log(`Geminiへ画像2枚を送信（${stats.used}回・鮮度上限${s.freshness}秒）。`);
+    const payload=C.makePayload(frames,s,history,spoken); reserve(s); const began=performance.now();
+    setStatus('Geminiの応答待ち'); log(`Geminiへ画像${frames.length}枚を送信（${stats.used}回・鮮度上限${s.freshness}秒）。`);
     const response=await C.deadline(token=>C.gemini(key,payload,token),Math.min(180000,remaining),signal,'鮮度上限に達したためGeminiの応答待ちを打ち切りました。','STALE');
     const duration=(performance.now()-began)/1000; $('latency').textContent=duration.toFixed(1)+' 秒';log(`Gemini応答 ${duration.toFixed(1)}秒。`);
     checkFresh(current,s);return C.parseAnalysis(response,s.profiles);
@@ -183,15 +184,17 @@
     }
   }
   async function run(s,key,signal) {
-    const history=[],spoken=[];let previous=null,lastAnalysis=-Infinity,lastSpeech=-Infinity;
+    const history=[],spoken=[],frames=[];let lastAnalysis=-Infinity,lastSpeech=-Infinity;
     while(true) {
       C.check(signal);
       try {
-        if(!obs?.ready){obs?.close();await connectObs(s,signal);previous=null;}
+        if(!obs?.ready){obs?.close();await connectObs(s,signal);frames.length=0;}
         setStatus('OBSの画像取得中');const current=await getFrame(s,signal);
-        if(previous && C.shouldAnalyze((performance.now()-lastAnalysis)/1000,motion(previous.pixels,current.pixels),s.apiInterval,s.quietInterval)) {
+        frames.push(current);while(frames.length>s.analysisFrameCount)frames.shift();
+        const previous=frames.length>1?frames[frames.length-2]:null;
+        if(frames.length>=s.analysisFrameCount && previous && C.shouldAnalyze((performance.now()-lastAnalysis)/1000,motion(previous.pixels,current.pixels),s.apiInterval,s.quietInterval)) {
           lastAnalysis=performance.now();
-          const result=await analyze(previous,current,s,key,history,spoken,signal);
+          const result=await analyze(frames.slice(),s,key,history,spoken,signal);
           const reason=C.skipReason(result,performance.now()-current.capturedAt,s,performance.now()-lastSpeech,spoken);
           if(result.summary){history.push(result.summary);if(history.length>6)history.shift();}
           if(reason)log(`見送り（${reason}）: ${result.summary}`);
@@ -241,7 +244,7 @@
             }
           }
         }
-        previous=current;setStatus('映像監視中・次の取得待ち');await C.sleep(s.sampleInterval*1000,signal);
+        setStatus('映像監視中・次の取得待ち');await C.sleep(s.sampleInterval*1000,signal);
       } catch(e) {
         C.check(signal);
         if(e.code==='STALE'){
@@ -254,7 +257,7 @@
           log(`${Math.ceil(delay/1000)}秒待機し、最新映像で再開します。停止ボタンで終了できます。`,'warn');
           await waitRecovery(delay,signal);
         }
-        previous=null;lastAnalysis=-Infinity;
+        frames.length=0;lastAnalysis=-Infinity;
       }
     }
   }
@@ -357,6 +360,7 @@
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};for(const id of savedIds){if(stored[id]===undefined)continue;if($(id).type==='checkbox')$(id).checked=stored[id]===true;else if(['string','number'].includes(typeof stored[id]))$(id).value=stored[id];}}catch{}
+  if(stored.analysisFrameCount===undefined)$('analysisFrameCount').value='2';
   $('participantCount').value=String([1,2,3,4,5,6].includes(Number(stored.participantCount))?stored.participantCount:1);
   const profiles=Array.isArray(stored.profiles)?stored.profiles:[];
   if(!profiles.length)profiles.push({...defaultProfile(0),speaker:stored.speaker??3,bouyomiVoice:stored.bouyomiVoice??0});
