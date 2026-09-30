@@ -3,12 +3,12 @@
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
   const sectionStateKey = 'ai-live-commentator-settings-sections-v1';
-  const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount'];
+  const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','greetStart','greetEnd'];
   const numberRules = { talkativeness:[0,2], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6] };
   let controller = null, obs = null, audioContext = null, activeAudio = null, wakeLock = null;
   let phaseAt = performance.now(), lastCaptureAt = null, busy = false, lastSettings = null;
   const stats = { used:0, stale:0 };
-  let resumeAction=null, vaultBusy=false, pageEpoch=0;
+  let resumeAction=null, finishAction=null, streaming=false, vaultBusy=false, pageEpoch=0;
   function log(message, kind='') {
     const li = document.createElement('li'), time = document.createElement('time');
     time.textContent = new Date().toLocaleTimeString('ja-JP'); li.className = kind;
@@ -20,7 +20,7 @@
   function setBusy(value) {
     busy = value;
     for (const el of document.querySelectorAll('#settings input,#settings select,#settings textarea,#settings button,#panel-friends input,#panel-friends select,#panel-friends textarea,#panel-friends button')) el.disabled = value || vaultBusy;
-    $('start').disabled = value; $('stop').disabled = !value;
+    $('start').disabled = value; $('stop').disabled = !value; $('finish').disabled = !streaming;
   }
   function revealSetting(id){
     const section=$(id)?.closest('details.setting-section');
@@ -172,6 +172,58 @@
     await playVoicevoxAudio(audio,s,frame,signal);
     return true;
   }
+  function greetingPayload(kind,s,history){
+    const ending=kind==='end';
+    const context=ending&&history.length?history.slice(-5).join(' / '):'まだゲーム内容は判断しない';
+    const task=ending
+      ? '実況を通常終了する直前の締めの挨拶を作る。今回見えていた状況に軽く触れてもよいが、確認できない成果・勝敗・進捗は断定しない。「また見よう」「おつかれ」など自然に締める。'
+      : '実況開始直後の短い挨拶を作る。まだゲーム内容を見ていないので、ゲーム名・状況・成果を推測せず、「始まったね」「今日も見ていこう」程度の自然な開始挨拶にする。';
+    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n直近の状況: ${context}\n${task}\n1〜2人だけが発言し、各5〜25文字程度の自然な口語。全員を必ず話させない。架空の思い出は作らない。`}];
+    return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。指定された開始または終了の挨拶だけを短く返す。読み上げ用の普通の日本語だけにする。'}]},
+      contents:[{role:'user',parts}],generationConfig:{candidateCount:1,maxOutputTokens:512,thinkingConfig:{thinkingLevel:'MINIMAL',includeThoughts:false},responseMimeType:'application/json',
+        responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:1,maxItems:2,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'}},required:['speakerId','text']}}},required:['speak','summary','turns']}}};
+  }
+  async function playGreetingTurns(turns,s,signal,label){
+    const items=turns.map(turn=>({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)})).filter(x=>x.profile);
+    const delivered=({turn,profile})=>{
+      $('lastComment').textContent=`${profile.name}：${turn.text}`;$('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
+      $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
+      log(`${label}・${profile.name}: ${turn.text}`,'spoken');
+    };
+    if(!items.length)return;
+    if(s.output==='voicevox'){
+      let audio=await generateVoicevoxAudio(items[0].turn.text,{...s,...items[0].profile},null,signal);
+      for(let i=0;i<items.length;i++){
+        const item=items[i],next=items[i+1];
+        setStatus(next?`${label}を再生中・次の音声を先読み中`:`${label}を再生中`);
+        const playback=playVoicevoxAudio(audio,{...s,...item.profile},null,signal);
+        let prefetch=null,prefetchController=null,unlink=null;
+        if(next){
+          prefetchController=new AbortController();
+          const abort=()=>prefetchController.abort();signal.addEventListener('abort',abort,{once:true});unlink=()=>signal.removeEventListener('abort',abort);
+          prefetch=generateVoicevoxAudio(next.turn.text,{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
+        }
+        try{await playback;}catch(e){prefetchController?.abort();unlink?.();throw e;}
+        delivered(item);
+        if(prefetch){const prepared=await prefetch;unlink?.();if(prepared.error)throw prepared.error;audio=prepared.value;}
+      }
+    }else{
+      for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);if(!await speak(item.turn.text,{...s,...item.profile},null,signal,i>0))break;delivered(item);}
+    }
+  }
+  async function greeting(kind,runtime,signal,{tolerateFailure=false}={}){
+    const s=runtime.s,key=runtime.key,label=kind==='end'?'終了の挨拶':'開始の挨拶';
+    try{
+      reserve(s);setStatus(`${label}を生成中`);log(`Geminiへ${label}を依頼（${stats.used}回）。`);
+      const body=await C.deadline(token=>C.gemini(key,greetingPayload(kind,s,runtime.history),token),60000,signal,`${label}の生成がタイムアウトしました。`);
+      const result=C.parseAnalysis(body,s.profiles);
+      await playGreetingTurns(result.turns,s,signal,label);
+    }catch(e){
+      C.check(signal);
+      log(`${label}を省略: ${e instanceof C.AppError?e.message:'生成または再生に失敗しました。'}`,'warn');
+      if(!tolerateFailure)throw e;
+    }
+  }
   async function connectObs(s,signal) {
     if(!s.sourceName){revealSetting('sourceName');throw new C.AppError('OBSの映像ソース名を入力してください。');}
     setStatus('OBSに接続中'); obs=new C.ObsClient(); await obs.connect(s.obsUrl,$('obsPassword').value,signal); log('OBSへの接続完了。');
@@ -313,8 +365,8 @@
       }
     }
   }
-  async function run(s,key,signal) {
-    const history=[],spoken=[],state={frames:[],frameVersion:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastAnalyzedFrameAt:-Infinity};
+  async function run(runtime,signal) {
+    let {s,key}=runtime;const {history,spoken,state}=runtime;
     while(true) {
       C.check(signal);
       try {
@@ -337,7 +389,7 @@
           stats.stale++;updateStats();log(e.message,'warn');$('latency').textContent='鮮度切れ';
         } else log(e instanceof C.AppError?e.message:'処理に失敗しました。設定と接続を確認してください。','warn');
         if(!(e instanceof C.AppError)||C.needsSettings(e)){
-          obs?.close();obs=null;({s,key}=await waitForSettings(signal));
+          obs?.close();obs=null;({s,key}=await waitForSettings(signal));runtime.s=s;runtime.key=key;
         }else{
           obs?.close();obs=null;
           const delay=C.recoveryDelay(e);
@@ -353,17 +405,31 @@
     controller=new AbortController();const signal=controller.signal;setBusy(true);let failed=false;
     try {await fn(signal);}
     catch(e){if(signal.aborted || e.name==='AbortError')log('停止しました。');else{failed=true;log('停止: '+(e instanceof C.AppError?e.message:'処理に失敗しました。接続先やブラウザの状態を確認してください。'),'warn');}}
-    finally{obs?.close();obs=null;activeAudio?.stop();activeAudio=null;await wakeLock?.release().catch(()=>{});wakeLock=null;controller=null;lastCaptureAt=null;setBusy(false);setStatus(failed?'エラーで停止・履歴を確認してください':'停止中',failed);$('elapsed').textContent='';}
+    finally{obs?.close();obs=null;activeAudio?.stop();activeAudio=null;await wakeLock?.release().catch(()=>{});wakeLock=null;controller=null;finishAction=null;streaming=false;lastCaptureAt=null;setBusy(false);setStatus(failed?'エラーで停止・履歴を確認してください':'停止中',failed);$('elapsed').textContent='';}
   }
   $('start').addEventListener('click',()=>operation(async signal=>{
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();$('latency').textContent='—';
-    log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・手動停止まで継続・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
+    const runtime={s,key,history:[],spoken:[],state:{frames:[],frameVersion:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastAnalyzedFrameAt:-Infinity}};
+    streaming=true;$('finish').disabled=false;
+    log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
-    await run(s,key,signal);
+    if(s.greetStart)await greeting('start',runtime,signal,{tolerateFailure:true});
+    const runController=new AbortController();let finishing=false;
+    const stopRun=()=>runController.abort();signal.addEventListener('abort',stopRun,{once:true});
+    finishAction=()=>{if(finishing||signal.aborted)return;finishing=true;$('finish').disabled=true;setStatus('実況終了の準備中');runController.abort();};
+    try{await run(runtime,runController.signal);}
+    catch(e){if(!(finishing&&e.name==='AbortError'))throw e;}
+    finally{signal.removeEventListener('abort',stopRun);}
+    if(!finishing)return;
+    C.check(signal);obs?.close();obs=null;lastCaptureAt=null;
+    runtime.s=runtime.s||s;runtime.key=runtime.key||key;lastSettings=runtime.s;
+    if(runtime.s.greetEnd)await greeting('end',runtime,signal,{tolerateFailure:true});
+    log('実況を通常終了しました。');
   }));
   $('resume').addEventListener('click',()=>resumeAction?.());
-  $('stop').addEventListener('click',()=>{controller?.abort();obs?.close();try{activeAudio?.stop();}catch{}setStatus('停止処理中');if(lastSettings?.output==='bouyomi')log('新しい送信を停止します。棒読みちゃんに送信済みの音声は、必要なら棒読みちゃん側で停止してください。');});
+  $('finish').addEventListener('click',()=>finishAction?.());
+  $('stop').addEventListener('click',()=>{controller?.abort();obs?.close();try{activeAudio?.stop();}catch{}setStatus('即停止処理中');if(lastSettings?.output==='bouyomi')log('新しい送信を即停止します。棒読みちゃんに送信済みの音声は、必要なら棒読みちゃん側で停止してください。');});
   $('testObs').addEventListener('click',()=>operation(async signal=>{const s=settings();await connectObs(s,signal);setStatus('OBSの画像取得中');await getFrame(s,signal);log('映像確認完了。Geminiへの送信はありません。');}));
   $('testVoice').addEventListener('click',()=>operation(async signal=>{const s=settings();lastSettings=s;await unlockAudio(s);setStatus('音声テスト中');const ok=await speak('こんにちは。音声テストです。',s,null,signal);if(ok)log(s.output==='bouyomi'?'棒読みちゃんへの音声テスト送信完了。実際に聞こえるか確認してください。':'音声テスト再生完了。');}));
   $('testText').addEventListener('click',()=>operation(async signal=>{
