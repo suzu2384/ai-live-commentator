@@ -315,11 +315,12 @@
         await C.sleep(100,signal);continue;
       }
       state.lastAnalysis=performance.now();state.lastAnalyzedFrameAt=current.capturedAt;state.analysisInFlight=true;
+      const speechEpochAtStart=state.speechEpoch,startedDuringSpeech=state.speaking;
       try {
         const result=await analyze(frames,s,key,history,spoken,speakerHistory,state,signal);
         state.analysisVersion++;
         if(result.summary){history.push(result.summary);if(history.length>6)history.shift();}
-        const candidate={result,frame:current,version:state.analysisVersion,prefetchedDuringSpeech:state.speaking};
+        const candidate={result,frame:current,version:state.analysisVersion,prefetchedDuringSpeech:startedDuringSpeech||state.speaking||state.speechEpoch!==speechEpochAtStart};
         const reason=candidateSkipReason(candidate,s,spoken);
         const hadPending=!!state.pending;
         state.pending=null;
@@ -372,7 +373,7 @@
       seen.add(turn.text);turns.push({turn,profile});
     }
     if(!turns.length)return false;
-    state.activeTurnTexts=turns.map(x=>x.turn.text);state.activeSpeakerIds=turns.map(x=>x.turn.speakerId);
+    state.activeTurnTexts=turns.map(x=>x.turn.text);state.activeSpeakerIds=turns.map(x=>x.turn.speakerId);state.speechEpoch++;
     let conversationStarted=false;
     const delivered=(turn,profile)=>{
       conversationStarted=true;state.lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>12)spoken.shift();
@@ -485,7 +486,7 @@
   $('start').addEventListener('click',()=>operation(async signal=>{
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();$('latency').textContent='—';
-    const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
+    const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,speechEpoch:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
     streaming=true;$('finish').disabled=true;
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
