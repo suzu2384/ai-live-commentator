@@ -318,7 +318,7 @@
         const result=await analyze(frames,s,key,history,spoken,speakerHistory,state,signal);
         state.analysisVersion++;
         if(result.summary){history.push(result.summary);if(history.length>6)history.shift();}
-        const candidate={result,frame:current,version:state.analysisVersion};
+        const candidate={result,frame:current,version:state.analysisVersion,prefetchedDuringSpeech:state.speaking};
         const reason=candidateSkipReason(candidate,s,spoken);
         const hadPending=!!state.pending;
         state.pending=null;
@@ -354,7 +354,7 @@
       }
       const reason=candidateSkipReason(candidate,s,spoken);
       if(reason){log(`見送り（${reason}）: ${candidate.result.summary}`);return null;}
-      const wait=state.lastConversationStart===-Infinity?0:state.lastConversationStart+s.speechInterval*1000-performance.now();
+      const wait=candidate.prefetchedDuringSpeech||state.lastConversationStart===-Infinity?0:state.lastConversationStart+s.speechInterval*1000-performance.now();
       if(wait<=0)return candidate;
       const freshLeft=candidate.frame.capturedAt+s.freshness*1000-performance.now();
       if(freshLeft<=0){log(`見送り（発言待ち中に鮮度上限を超過）: ${candidate.result.summary}`);return null;}
