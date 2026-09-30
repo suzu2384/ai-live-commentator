@@ -411,13 +411,13 @@
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();$('latency').textContent='—';
     const runtime={s,key,history:[],spoken:[],state:{frames:[],frameVersion:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastAnalyzedFrameAt:-Infinity}};
-    streaming=true;$('finish').disabled=false;
+    streaming=true;$('finish').disabled=true;
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
     if(s.greetStart)await greeting('start',runtime,signal,{tolerateFailure:true});
     const runController=new AbortController();let finishing=false;
     const stopRun=()=>runController.abort();signal.addEventListener('abort',stopRun,{once:true});
-    finishAction=()=>{if(finishing||signal.aborted)return;finishing=true;$('finish').disabled=true;setStatus('実況終了の準備中');runController.abort();};
+    finishAction=()=>{if(finishing||signal.aborted)return;finishing=true;$('finish').disabled=true;setStatus('実況終了の準備中');runController.abort();};$('finish').disabled=false;
     try{await run(runtime,runController.signal);}
     catch(e){if(!(finishing&&e.name==='AbortError'))throw e;}
     finally{signal.removeEventListener('abort',stopRun);}
