@@ -57,9 +57,9 @@ const results=[];
   if(config.before)await config.before(page);
   return {page,ctx,events,errors,held:()=>held,close:async()=>{assert.deepEqual(errors,[]);assert.deepEqual(events.unexpected,[]);await ctx.close();}};
  }
- async function start(x){await x.page.locator('#start').click();await x.page.waitForFunction(()=>document.getElementById('status').textContent.includes('次の取得待ち'));await x.page.clock.fastForward(4100);}
+ async function start(x){await x.page.locator('#start').click();await idle(x.page);await x.page.clock.fastForward(4100);}
  async function stop(p){await p.locator('#stop').click();await stopped(p);}
- async function idle(p){await p.waitForFunction(()=>document.getElementById('status').textContent.includes('次の取得待ち'));}
+ async function idle(p){await p.waitForFunction(()=>{const s=document.getElementById('status').textContent;return s==='映像監視中'||s.startsWith('映像履歴を準備中');});}
  async function recovery(p){await p.waitForFunction(()=>document.getElementById('status').textContent.includes('自動再開まで'));}
  async function next(x,ms){await x.page.clock.fastForward(ms);await idle(x.page);await x.page.clock.fastForward(4100);}
  async function stopped(p){await p.waitForFunction(()=>!document.getElementById('start').disabled);}
@@ -87,9 +87,10 @@ const results=[];
  });
  await test('one-second capture continues while Gemini is still responding',async()=>{
   const x=await setup({hold:true,before:async p=>{await p.locator('#sampleInterval').fill('1');}});const p=x.page;
-  await p.locator('#start').click();await p.waitForFunction(()=>document.getElementById('status').textContent.includes('次の取得待ち'));
+  await p.locator('#start').click();await idle(p);await p.waitForFunction(()=>document.getElementById('elapsed').textContent.startsWith('最終取得 '));
   await p.clock.fastForward(1100);await p.waitForFunction(()=>document.getElementById('status').textContent==='Geminiの応答待ち');
   const before=x.events.images;await p.clock.fastForward(3100);assert.ok(x.events.images>=before+3);
+  assert.ok((await p.locator('#elapsed').textContent()).startsWith('最終取得 '));
   await stop(p);await x.held()?.abort().catch(()=>{});await x.close();
  });
  await test('successful analysis continues beyond former request cap until manual stop',async()=>{
