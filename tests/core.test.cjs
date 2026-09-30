@@ -11,14 +11,21 @@ test('response parsing excludes thoughts and rejects incomplete output',()=>{
   assert.equal(C.parseAnalysis({promptFeedback:{blockReason:'SAFETY'}}).speak,false);
 });
 test('fixed endpoint, ordered JPEG parts and opaque key in header only',async()=>{
-  const frames=[{data:'data:image/jpeg;base64,AQ=='},{data:'data:image/jpeg;base64,Ag=='}];
-  const payload=C.makePayload(...frames,{persona:'相方',talkativeness:2,profiles},[],[]);let calls=0;
+  const frames=[{data:'data:image/jpeg;base64,AQ=='},{data:'data:image/jpeg;base64,Ag=='},{data:'data:image/jpeg;base64,Aw=='},{data:'data:image/jpeg;base64,BA=='}];
+  const payload=C.makePayload(frames,{persona:'相方',talkativeness:2,profiles},[],[]);let calls=0;
   await C.gemini(' \uFEFFtest.token+/=\n',payload,new AbortController().signal,async(url,options)=>{
     calls++;assert.equal(url,'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent');
     assert.equal(options.headers['x-goog-api-key'],'test.token+/=');assert.equal(options.redirect,'error');
-    const p=JSON.parse(options.body);assert.equal(p.contents[0].parts[1].inlineData.data,'AQ==');assert.equal(p.contents[0].parts[3].inlineData.data,'Ag==');
+    const p=JSON.parse(options.body);assert.equal(p.contents[0].parts[1].inlineData.data,'AQ==');assert.equal(p.contents[0].parts[3].inlineData.data,'Ag==');assert.equal(p.contents[0].parts[5].inlineData.data,'Aw==');assert.equal(p.contents[0].parts[7].inlineData.data,'BA==');
+    assert.equal(p.contents[0].parts.filter(x=>x.inlineData).length,4);assert.ok(p.contents[0].parts.at(-1).text.includes('画像4'));
     assert.equal(p.generationConfig.thinkingConfig.thinkingLevel,'MINIMAL');return {ok:true,json:async()=>wrap(analysis)};
   });assert.equal(calls,1);
+});
+test('analysis payload accepts only two to six ordered frames',()=>{
+  const s={persona:'相方',talkativeness:1,profiles};
+  assert.doesNotThrow(()=>C.makePayload(Array.from({length:6},(_,i)=>({data:`data:image/jpeg;base64,${Buffer.from([i]).toString('base64')}`})),s,[],[]));
+  assert.throws(()=>C.makePayload([{data:'data:image/jpeg;base64,AQ=='}],s,[],[]));
+  assert.throws(()=>C.makePayload(Array(7).fill({data:'data:image/jpeg;base64,AQ=='}),s,[],[]));
 });
 test('invalid keys and cancellation prevent network requests',async()=>{
   let calls=0;const f=()=>{calls++;};
