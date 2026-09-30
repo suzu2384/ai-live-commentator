@@ -34,7 +34,7 @@
     s.participantCount=Number($('participantCount').value);
     if(!Number.isInteger(s.participantCount)||s.participantCount<1||s.participantCount>6)throw new C.AppError('人数は1〜6人を選択してください。');
     s.allProfiles=readProfiles(); s.profiles=s.allProfiles.slice(0,s.participantCount);
-    s.speaker=s.profiles[0].speaker; s.bouyomiVoice=s.profiles[0].bouyomiVoice;
+    s.speaker=s.profiles[0].speaker; s.speedScale=s.profiles[0].speedScale; s.bouyomiVoice=s.profiles[0].bouyomiVoice;
     return s;
   }
   function save(s) {
@@ -117,6 +117,7 @@
     const audio=await C.deadline(async token => {
       const base=C.localUrl(s.voicevoxUrl,'http:');
       const query=await jsonLocal(base+'/audio_query?'+new URLSearchParams({text,speaker:String(s.speaker)}),{method:'POST'},token);
+      query.speedScale=s.speedScale;
       const r=await fetchLocal(base+'/synthesis?speaker='+s.speaker,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(query)},token);
       const wave=await r.arrayBuffer(); C.check(token);
       if(wave.byteLength>32*1024*1024) throw new C.AppError('生成された音声が大きすぎます。');
@@ -264,14 +265,14 @@
       e.preventDefault();selectTab(tabs[n].id.slice(4),true);
     });
   }
-  function defaultProfile(i){return {id:`p${i+1}`,name:`友達${i+1}`,personality:['気さくで明るい。感想と応援が多い。','落ち着いていて、軽いツッコミが得意。','好奇心旺盛。景色や細部に気づく。'][i%3],speaker:i%2===0?3:2,bouyomiVoice:0};}
+  function defaultProfile(i){return {id:`p${i+1}`,name:`友達${i+1}`,personality:['気さくで明るい。感想と応援が多い。','落ち着いていて、軽いツッコミが得意。','好奇心旺盛。景色や細部に気づく。'][i%3],speaker:i%2===0?3:2,speedScale:1.0,bouyomiVoice:0};}
   function buildProfiles(saved=[]){
     for(let i=0;i<6;i++){
       const d={...defaultProfile(i),...saved[i]},section=document.createElement('section');section.className='card friend';section.dataset.index=i;
       const heading=document.createElement('h2');heading.textContent=`友達 ${i+1}`;section.append(heading);
-      for(const [field,label,type,max] of [['name','呼び名','text',40],['personality','性格・話し方','text',300],['speaker','VOICEVOX スタイルID','number',99999],['bouyomiVoice','棒読みちゃん 声ID（0＝選択中）','number',65535]]){
+      for(const [field,label,type,min,max,step] of [['name','呼び名','text',null,40,null],['personality','性格・話し方','text',null,300,null],['speaker','VOICEVOX スタイルID','number',0,99999,1],['speedScale','VOICEVOX 話速（0.5〜2.0）','number',0.5,2,0.05],['bouyomiVoice','棒読みちゃん 声ID（0＝選択中）','number',0,65535,1]]){
         const l=document.createElement('label');l.textContent=label;const input=document.createElement('input');input.id=`p${i+1}-${field}`;input.type=type;input.setAttribute('form','settings');
-        if(type==='number'){input.min=0;input.max=max;}else input.maxLength=max;
+        if(type==='number'){input.min=min;input.max=max;input.step=step;}else input.maxLength=max;
         input.value=typeof d[field]==='string'||typeof d[field]==='number'?d[field]:defaultProfile(i)[field];l.append(input);section.append(l);
       }
       const button=document.createElement('button');button.type='button';button.textContent='この友達の音声テスト';
@@ -285,6 +286,7 @@
     const p=defaultProfile(i);
     for(const f of ['name','personality']){p[f]=$(`${p.id}-${f}`).value.trim();if(!p[f])throw new C.AppError('友達の呼び名と性格を入力してください。');}
     for(const [f,max] of [['speaker',99999],['bouyomiVoice',65535]]){const v=$(`${p.id}-${f}`).value;p[f]=Number(v);if(v===''||!Number.isInteger(p[f])||p[f]<0||p[f]>max)throw new C.AppError('友達の声IDを確認してください。');}
+    const speed=$(`${p.id}-speedScale`).value;p.speedScale=Number(speed);if(speed===''||!Number.isFinite(p.speedScale)||p.speedScale<0.5||p.speedScale>2)throw new C.AppError('VOICEVOXの話速は0.5〜2.0で指定してください。');
     return p;
   });}
   $('participantCount').addEventListener('change',showProfiles);
