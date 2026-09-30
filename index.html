@@ -3,12 +3,18 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>AI Live Commentator — ブラウザ版</title>
+<title>みんコメAI — ブラウザ版</title>
+<meta name="theme-color" content="#0a264b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="みんコメAI">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="style.css">
 <script src="core.js" defer></script><script src="vault.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
-<header><div class="brand"><span class="mark" aria-hidden="true">◖</span><div><h1>AI Live Commentator</h1><p>いつものゲームに、友達のひとこと。</p></div></div><span class="badge">BROWSER · v3.3</span></header>
+<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v3.4</span></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
