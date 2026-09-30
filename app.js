@@ -224,7 +224,7 @@
                   const abort=()=>prefetchController.abort();signal.addEventListener('abort',abort,{once:true});unlink=()=>signal.removeEventListener('abort',abort);
                   prefetch=generateVoicevoxAudio(next.turn.text,{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
                 }
-                try{await playback;}catch(e){prefetchController?.abort();throw e;}
+                try{await playback;}catch(e){prefetchController?.abort();unlink?.();throw e;}
                 delivered(item.turn,item.profile);
                 if(prefetch){
                   const prepared=await prefetch;unlink?.();
