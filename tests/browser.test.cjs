@@ -101,8 +101,8 @@ const results=[];
  await test('freshness includes VOICEVOX synthesis; late audio is not played',async()=>{
   const x=await setup({holdSynth:true});const p=x.page;await p.locator('#output').selectOption('voicevox');await start(x);
   await p.waitForFunction(()=>document.getElementById('status').textContent.includes('音声生成'));
-  while(!x.events.synths)await new Promise(r=>setTimeout(r,10));
-  await p.clock.fastForward(16000);await recovery(p);await stop(p);assert.equal(await p.locator('#staleCount').innerText(),'1');assert.ok(!(await p.locator('#log').innerText()).includes('AI: 景色'));
+  while(!x.events.synths)await new Promise(r=>setTimeout(r,10));const imagesBefore=x.events.images;
+  await p.clock.fastForward(16000);await recovery(p);assert.ok(x.events.images>=imagesBefore+3);await stop(p);assert.equal(await p.locator('#staleCount').innerText(),'1');assert.ok(!(await p.locator('#log').innerText()).includes('AI: 景色'));
   await x.held()?.abort().catch(()=>{});await x.close();
  });
  await test('stop cancels pending analysis, with no late speech',async()=>{const x=await setup({hold:true,max:20});await start(x);await x.page.waitForFunction(()=>document.getElementById('status').textContent==='Geminiの応答待ち');await x.page.locator('#stop').click();await stopped(x.page);await x.held()?.fulfill({contentType:'application/json',body:JSON.stringify(answer)}).catch(()=>{});assert.equal(x.events.talks.length,0);assert.equal(x.events.api,1);await x.close();});
