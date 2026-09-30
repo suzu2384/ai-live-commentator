@@ -5,7 +5,7 @@
   const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount'];
   const numberRules = { talkativeness:[0,2], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6] };
   let controller = null, obs = null, audioContext = null, activeAudio = null, wakeLock = null;
-  let phaseAt = performance.now(), busy = false, lastSettings = null;
+  let phaseAt = performance.now(), lastCaptureAt = null, busy = false, lastSettings = null;
   const stats = { used:0, stale:0 };
   let resumeAction=null, vaultBusy=false, pageEpoch=0;
   function log(message, kind='') {
@@ -73,6 +73,7 @@
     const pixels = ctx.getImageData(0,0,32,18).data;
     $('preview').src = data; $('preview').hidden = false; $('placeholder').hidden = true;
     $('imageInfo').textContent = `${im.naturalWidth} × ${im.naturalHeight} · ${new Date().toLocaleTimeString('ja-JP')}`;
+    lastCaptureAt=performance.now();
     return { data, capturedAt, pixels };
   }
   function motion(a,b) { let changed=0; for(let i=0;i<a.length;i+=4) if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>85) changed++; return changed/(a.length/4); }
@@ -184,12 +185,17 @@
     }
   }
   async function captureLoop(s,state,signal) {
+    const interval=s.sampleInterval*1000;
+    let nextCaptureAt=performance.now();
     while(true) {
       C.check(signal);
+      const wait=nextCaptureAt-performance.now();
+      if(wait>0)await C.sleep(wait,signal);
+      const startedAt=performance.now();
+      nextCaptureAt=startedAt+interval;
       const frame=await getFrame(s,signal);
       state.frames.push(frame);while(state.frames.length>s.analysisFrameCount)state.frames.shift();
       state.frameVersion++;
-      await C.sleep(s.sampleInterval*1000,signal);
     }
   }
   async function analysisLoop(s,key,state,history,spoken,signal) {
@@ -199,12 +205,12 @@
       if(state.frames.length<s.analysisFrameCount) {
         if(shownBufferCount!==state.frames.length){
           shownBufferCount=state.frames.length;
-          setStatus(`映像履歴を準備中 ${state.frames.length}/${s.analysisFrameCount}・次の取得待ち`);
+          setStatus(`映像履歴を準備中 ${state.frames.length}/${s.analysisFrameCount}`);
         }
         await C.sleep(100,signal);continue;
       }
       if(shownBufferCount!==s.analysisFrameCount){
-        shownBufferCount=s.analysisFrameCount;setStatus('映像監視中・次の取得待ち');
+        shownBufferCount=s.analysisFrameCount;setStatus('映像監視中');
       }
       const frames=state.frames.slice(),current=frames[frames.length-1],previous=frames[frames.length-2];
       if(current.capturedAt<=state.lastAnalyzedFrameAt ||
@@ -262,7 +268,7 @@
             }
           }
         }
-        setStatus('映像監視中・次の取得待ち');
+        setStatus('映像監視中');
       } catch(e) {
         C.check(signal);
         if(!(e instanceof C.AppError)||C.needsSettings(e))throw e;
@@ -272,7 +278,7 @@
         const delay=C.recoveryDelay(e);
         log(`${Math.ceil(delay/1000)}秒待機し、その間も映像取得を続けて最新映像で再開します。停止ボタンで終了できます。`,'warn');
         await waitRecovery(delay,signal);
-        setStatus('映像監視中・次の取得待ち');state.lastAnalysis=-Infinity;
+        setStatus('映像監視中');state.lastAnalysis=-Infinity;
       }
     }
   }
@@ -316,10 +322,10 @@
     controller=new AbortController();const signal=controller.signal;setBusy(true);let failed=false;
     try {await fn(signal);}
     catch(e){if(signal.aborted || e.name==='AbortError')log('停止しました。');else{failed=true;log('停止: '+(e instanceof C.AppError?e.message:'処理に失敗しました。接続先やブラウザの状態を確認してください。'),'warn');}}
-    finally{obs?.close();obs=null;activeAudio?.stop();activeAudio=null;await wakeLock?.release().catch(()=>{});wakeLock=null;controller=null;setBusy(false);setStatus(failed?'エラーで停止・履歴を確認してください':'停止中',failed);$('elapsed').textContent='';}
+    finally{obs?.close();obs=null;activeAudio?.stop();activeAudio=null;await wakeLock?.release().catch(()=>{});wakeLock=null;controller=null;lastCaptureAt=null;setBusy(false);setStatus(failed?'エラーで停止・履歴を確認してください':'停止中',failed);$('elapsed').textContent='';}
   }
   $('start').addEventListener('click',()=>operation(async signal=>{
-    const s=settings(),key=requireKey();validateEndpoints(s);
+    lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();$('latency').textContent='—';
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・手動停止まで継続・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
@@ -338,7 +344,11 @@
   $('preset').addEventListener('click',()=>{for(const [id,value] of Object.entries({talkativeness:2,apiInterval:30,speechInterval:20,quietInterval:60}))$(id).value=value;log('よく話す設定を適用しました。「設定を保存」または「実況を開始」で保存します。');});
   $('clearLog').addEventListener('click',()=>$('log').replaceChildren());$('output').addEventListener('change',outputFields);
   $('apiKey').addEventListener('input',()=>{$('freeTier').checked=false;});$('settings').addEventListener('submit',e=>e.preventDefault());
-  setInterval(()=>{if(busy)$('elapsed').textContent=`${Math.floor((performance.now()-phaseAt)/1000)}秒`;},500);
+  setInterval(()=>{
+    if(!busy){$('elapsed').textContent='';return;}
+    if(lastCaptureAt!==null){$('elapsed').textContent=`最終取得 ${((performance.now()-lastCaptureAt)/1000).toFixed(1)}秒前`;return;}
+    $('elapsed').textContent=`経過 ${Math.floor((performance.now()-phaseAt)/1000)}秒`;
+  },200);
   document.addEventListener('visibilitychange',()=>{if(busy&&document.hidden)log('タブが非表示になりました。ブラウザの節電で間隔が延びる場合があります。','warn');});
   window.addEventListener('pagehide',()=>{pageEpoch++;lockSecrets();controller?.abort();obs?.close();try{activeAudio?.stop();}catch{}});
   new ResizeObserver(entries=>document.documentElement.style.setProperty('--toolbar-height',`${entries[0].target.getBoundingClientRect().height}px`)).observe(document.querySelector('.toolbar'));
