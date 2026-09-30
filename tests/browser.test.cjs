@@ -89,18 +89,27 @@ const results=[];
  await test('OBS authentication and preview send no Gemini request',async()=>{const x=await setup();await x.page.locator('#testObs').click();await stopped(x.page);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);await x.close();});
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
  await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await x.page.locator('#output').selectOption('voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
- await test('start greeting is generated before OBS monitoring begins',async()=>{
+ await test('start greeting uses the configured speaker-count weight',async()=>{
   const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'じゃあ今日も見ていこう'}]})}]}}]};
-  const x=await setup({answer:intro,before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
+  const x=await setup({answer:intro,before:async p=>{
+    await p.locator('#greetStart').check();await p.locator('#participantCount').selectOption('3');
+    for(let n=1;n<=6;n++)await p.locator('#speakerWeight'+n).fill(n===3?'100':'0');
+  }});const p=x.page;
   await p.locator('#start').click();await idle(p);
-  assert.equal(x.events.api,1);assert.deepEqual(x.events.analysisImages,[0]);assert.deepEqual(x.events.talks,['じゃあ今日も見ていこう']);
+  assert.equal(x.events.api,1);assert.deepEqual(x.events.analysisImages,[0]);assert.equal(x.events.turnLimits[0],3);
+  assert.ok(x.events.promptTexts[0].includes('今回の発言人数上限は3人'));assert.deepEqual(x.events.talks,['じゃあ今日も見ていこう']);
   assert.ok((await p.locator('#log').innerText()).includes('開始の挨拶'));await stop(p);await x.close();
  });
- await test('normal finish uses recent history for a closing greeting then stops',async()=>{
+ await test('normal finish uses recent history and speaker-count weight for its closing greeting',async()=>{
   const closing={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'終了',turns:[{speakerId:'p1',text:'今日はこの辺かな。また見よう'}]})}]}}]};
-  const x=await setup({answers:[answer,closing],before:async p=>{await p.locator('#greetEnd').check();}});const p=x.page;
+  const x=await setup({answers:[answer,closing],before:async p=>{
+    await p.locator('#greetEnd').check();await p.locator('#participantCount').selectOption('2');
+    await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');
+    for(let n=3;n<=6;n++)await p.locator('#speakerWeight'+n).fill('0');
+  }});const p=x.page;
   await start(x);await idle(p);assert.equal(x.events.api,1);assert.deepEqual(x.events.talks,['景色がいいね']);
-  await finish(p);assert.equal(x.events.api,2);assert.deepEqual(x.events.analysisImages,[2,0]);assert.ok(x.events.promptTexts[1].includes('道を進んでいる'));
+  await finish(p);assert.equal(x.events.api,2);assert.deepEqual(x.events.analysisImages,[2,0]);assert.equal(x.events.turnLimits[1],2);
+  assert.ok(x.events.promptTexts[1].includes('道を進んでいる'));assert.ok(x.events.promptTexts[1].includes('今回の発言人数上限は2人'));
   assert.deepEqual(x.events.talks,['景色がいいね','今日はこの辺かな。また見よう']);
   assert.ok((await p.locator('#log').innerText()).includes('実況を通常終了しました。'));await x.close();
  });
