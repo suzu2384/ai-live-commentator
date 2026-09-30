@@ -272,7 +272,7 @@
         const delay=C.recoveryDelay(e);
         log(`${Math.ceil(delay/1000)}秒待機し、その間も映像取得を続けて最新映像で再開します。停止ボタンで終了できます。`,'warn');
         await waitRecovery(delay,signal);
-        state.lastAnalysis=-Infinity;
+        setStatus('映像監視中・次の取得待ち');state.lastAnalysis=-Infinity;
       }
     }
   }
