@@ -67,7 +67,7 @@ const results=[];
  await test('file startup, responsive layout, settings persistence excludes credentials',async()=>{
   const x=await setup();const p=x.page;await p.locator('#save').click();const data=await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1'));
   assert.ok(!data.includes('fake.test-key')&&!data.includes('obs-secret')&&!data.includes('freeTier'));
-  await p.reload();assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#freeTier').isChecked(),false);
+  await p.reload();assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#freeTier').isChecked(),false);assert.equal(await p.locator('#sampleInterval').getAttribute('min'),'1');
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   assert.equal(await p.evaluate(()=>document.documentElement.scrollHeight>innerHeight),false);
   await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/desktop.png'),fullPage:true});
@@ -84,6 +84,13 @@ const results=[];
   await p.waitForFunction(()=>document.getElementById('usage').textContent==='1 回');
   assert.equal(x.events.api,1);assert.equal(x.events.analysisImages[0],4);assert.equal(x.events.images,4);
   await stop(p);await x.close();
+ });
+ await test('one-second capture continues while Gemini is still responding',async()=>{
+  const x=await setup({hold:true,before:async p=>{await p.locator('#sampleInterval').fill('1');}});const p=x.page;
+  await p.locator('#start').click();await p.waitForFunction(()=>document.getElementById('status').textContent.includes('次の取得待ち'));
+  await p.clock.fastForward(1100);await p.waitForFunction(()=>document.getElementById('status').textContent==='Geminiの応答待ち');
+  const before=x.events.images;await p.clock.fastForward(3100);assert.ok(x.events.images>=before+3);
+  await stop(p);await x.held()?.abort().catch(()=>{});await x.close();
  });
  await test('successful analysis continues beyond former request cap until manual stop',async()=>{
   const x=await setup();await start(x);await idle(x.page);assert.equal(x.events.api,1);assert.deepEqual(x.events.talks,['景色がいいね']);
@@ -104,10 +111,11 @@ const results=[];
   await x.page.clock.fastForward(29000);assert.equal(x.events.api,1);assert.equal(await x.page.locator('#stop').isEnabled(),true);
   await stop(x.page);await x.page.clock.fastForward(900000);assert.equal(x.events.api,1);await x.close();
  });
- await test('503 retries at a fixed 5 seconds even after four failures, using fresh frames',async()=>{
+ await test('503 retries at a fixed 5 seconds while capture keeps refreshing frames',async()=>{
   const x=await setup({status:503,failCount:4});const p=x.page;await start(x);await recovery(p);
-  for(const [i,delay] of [5001,5001,5001,5001].entries()){await next(x,delay);if(i<3)await recovery(p);else await idle(p);}
-  assert.equal(x.events.api,5);assert.equal(x.events.images,10);assert.deepEqual(x.events.talks,['景色がいいね']);await stop(p);await x.close();
+  for(let i=0;i<4;i++){await p.clock.fastForward(5100);if(i<3)await recovery(p);else await idle(p);}
+  assert.equal(x.events.api,5);assert.ok(x.events.images>=5);assert.deepEqual(x.events.talks,['景色がいいね']);
+  assert.ok((await p.locator('#log').innerText()).includes('その間も映像取得を続けて'));await stop(p);await x.close();
  });
  await test('auth waits for correction without repeated API requests, then resumes',async()=>{
   const x=await setup({status:403,failCount:1});await start(x);await x.page.waitForFunction(()=>!document.getElementById('resume').hidden);
