@@ -17,12 +17,12 @@ const results=[];
  async function setup(config={}){
   const ctx=await browser.newContext({viewport:{width:1360,height:768}});const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const host=config.host||'127.0.0.1';
-  const events={images:0,api:0,analysisImages:[],talks:[],queries:0,voices:[],speeds:[],synths:0,identifies:0,unexpected:[]};let held=null;
+  const events={images:0,api:0,analysisImages:[],promptTexts:[],talks:[],queries:0,voices:[],speeds:[],synths:0,identifies:0,unexpected:[]};let held=null;
   await page.clock.install();
   await page.route('https://**/*',async r=>{
    if(!r.request().url().startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent')){events.unexpected.push(r.request().url());return r.abort();}
    events.api++;assert.equal(r.request().headers()['x-goog-api-key'],'fake.test-key');
-   const requestBody=JSON.parse(r.request().postData()||'{}');events.analysisImages.push((requestBody.contents?.[0]?.parts||[]).filter(p=>p.inlineData).length);
+   const requestBody=JSON.parse(r.request().postData()||'{}');const parts=requestBody.contents?.[0]?.parts||[];events.analysisImages.push(parts.filter(p=>p.inlineData).length);events.promptTexts.push(parts.filter(p=>typeof p.text==='string').map(p=>p.text).join('\n'));
    if(config.hold){held=r;return;}
    if(config.status && (!config.failCount || events.api<=config.failCount))await r.fulfill({status:config.status,contentType:'application/json',body:'{}'});
    else {const response=config.answers?.[events.api-1]||config.answer||answer;await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(response)});}
@@ -100,7 +100,7 @@ const results=[];
   const closing={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'終了',turns:[{speakerId:'p1',text:'今日はこの辺かな。また見よう'}]})}]}}]};
   const x=await setup({answers:[answer,closing],before:async p=>{await p.locator('#greetEnd').check();}});const p=x.page;
   await start(x);await idle(p);assert.equal(x.events.api,1);assert.deepEqual(x.events.talks,['景色がいいね']);
-  await finish(p);assert.equal(x.events.api,2);assert.deepEqual(x.events.analysisImages,[2,0]);
+  await finish(p);assert.equal(x.events.api,2);assert.deepEqual(x.events.analysisImages,[2,0]);assert.ok(x.events.promptTexts[1].includes('道を進んでいる'));
   assert.deepEqual(x.events.talks,['景色がいいね','今日はこの辺かな。また見よう']);
   assert.ok((await p.locator('#log').innerText()).includes('実況を通常終了しました。'));await x.close();
  });
