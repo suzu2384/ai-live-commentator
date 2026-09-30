@@ -173,7 +173,7 @@
     return true;
   }
   async function connectObs(s,signal) {
-    if(!s.sourceName) throw new C.AppError('OBSの映像ソース名を入力してください。');
+    if(!s.sourceName){revealSetting('sourceName');throw new C.AppError('OBSの映像ソース名を入力してください。');}
     setStatus('OBSに接続中'); obs=new C.ObsClient(); await obs.connect(s.obsUrl,$('obsPassword').value,signal); log('OBSへの接続完了。');
   }
   async function analyze(frames,s,key,history,spoken,signal) {
@@ -204,8 +204,9 @@
     }); } finally { $('resume').hidden=true;resumeAction=null;setBusy(true); }
   }
   function validateEndpoints(s){
-    if(!s.sourceName)throw new C.AppError('OBSの映像ソース名を入力してください。');
-    C.localUrl(s.obsUrl,'ws:');C.localUrl(s.output==='bouyomi'?s.bouyomiUrl:s.voicevoxUrl,'http:');
+    if(!s.sourceName){revealSetting('sourceName');throw new C.AppError('OBSの映像ソース名を入力してください。');}
+    try{C.localUrl(s.obsUrl,'ws:');}catch(e){revealSetting('obsUrl');throw e;}
+    const id=s.output==='bouyomi'?'bouyomiUrl':'voicevoxUrl';try{C.localUrl(s[id],'http:');}catch(e){revealSetting(id);throw e;}
   }
   async function waitRecovery(ms,signal){
     const until=performance.now()+ms;
@@ -436,7 +437,7 @@
     const epoch=pageEpoch;
     const data=await LiveVault.seal({apiKey,obsPassword:$('obsPassword').value},$('vaultPass').value);
     if(epoch!==pageEpoch)return;
-    localStorage.setItem(vaultKey,JSON.stringify(data));$('vaultState').textContent='暗号化して保存しました。現在は解除中です。';
+    localStorage.setItem(vaultKey,JSON.stringify(data));$('vaultState').textContent='暗号化して保存しました。現在は解除中です。';updateSettingSummaries();
   }));
   $('vaultUnlock').addEventListener('click',()=>vaultOperation(async()=>{
     const raw=localStorage.getItem(vaultKey);if(!raw)throw new Error('保存された情報がありません。');
@@ -445,7 +446,7 @@
     const credentials=await LiveVault.open(data,$('vaultPass').value);
     if(epoch!==pageEpoch)return;
     $('apiKey').value=credentials.apiKey;$('obsPassword').value=credentials.obsPassword;$('freeTier').checked=false;
-    $('vaultState').textContent='解除しました。Free Tierの確認をしてから開始してください。';
+    $('vaultState').textContent='解除しました。Free Tierの確認をしてから開始してください。';updateSettingSummaries();
   }));
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
