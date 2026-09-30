@@ -3,8 +3,8 @@
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
   const sectionStateKey = 'ai-live-commentator-settings-sections-v1';
-  const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','greetStart','greetEnd'];
-  const numberRules = { talkativeness:[0,2], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6] };
+  const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
+  const numberRules = { talkativeness:[0,2], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6], speakerWeight1:[0,999], speakerWeight2:[0,999], speakerWeight3:[0,999], speakerWeight4:[0,999], speakerWeight5:[0,999], speakerWeight6:[0,999] };
   let controller = null, obs = null, audioContext = null, activeAudio = null, wakeLock = null;
   let phaseAt = performance.now(), lastCaptureAt = null, busy = false, lastSettings = null;
   const stats = { used:0, stale:0 };
@@ -23,8 +23,8 @@
     $('start').disabled = value; $('stop').disabled = !value; $('finish').disabled = !streaming;
   }
   function revealSetting(id){
-    const section=$(id)?.closest('details.setting-section');
-    if(section)section.open=true;
+    let section=$(id)?.closest('details');
+    while(section){section.open=true;section=section.parentElement?.closest('details');}
   }
   function updateSettingSummaries(){
     const talk=['控えめ','標準','よく話す'][Number($('talkativeness').value)]||'話し方';
@@ -63,6 +63,8 @@
     if (!['bouyomi','voicevox'].includes(s.output)){revealSetting('output');throw new C.AppError('読み上げ先を選択してください。');}
     s.participantCount=Number($('participantCount').value);
     if(!Number.isInteger(s.participantCount)||s.participantCount<1||s.participantCount>6)throw new C.AppError('人数は1〜6人を選択してください。');
+    s.speakerCountWeights=Array.from({length:6},(_,i)=>s[`speakerWeight${i+1}`]);
+    if(s.speakerCountWeights.slice(0,s.participantCount).every(w=>w===0)){revealSetting('speakerWeight1');throw new C.AppError('参加人数以内の発言人数の重みを1つ以上0より大きくしてください。');}
     s.allProfiles=readProfiles(); s.profiles=s.allProfiles.slice(0,s.participantCount);
     s.speaker=s.profiles[0].speaker; s.speedScale=s.profiles[0].speedScale; s.bouyomiVoice=s.profiles[0].bouyomiVoice;
     return s;
@@ -228,15 +230,17 @@
     if(!s.sourceName){revealSetting('sourceName');throw new C.AppError('OBSの映像ソース名を入力してください。');}
     setStatus('OBSに接続中'); obs=new C.ObsClient(); await obs.connect(s.obsUrl,$('obsPassword').value,signal); log('OBSへの接続完了。');
   }
-  async function analyze(frames,s,key,history,spoken,signal) {
+  async function analyze(frames,s,key,history,spoken,speakerHistory,signal) {
     const current=frames[frames.length-1];
+    const turnLimit=C.pickWeightedSpeakerLimit(s.speakerCountWeights,s.profiles.length);
+    const analysisSettings={...s,turnLimit,recentSpeakerIds:speakerHistory.slice(-8)};
     const remaining=current.capturedAt+s.freshness*1000-performance.now();
     if(remaining<=0) throw new C.AppError('画像取得中に鮮度上限に達しました。','STALE');
-    const payload=C.makePayload(frames,s,history,spoken); reserve(s); const began=performance.now();
-    setStatus('Geminiの応答待ち'); log(`Geminiへ画像${frames.length}枚を送信（${stats.used}回・鮮度上限${s.freshness}秒）。`);
+    const payload=C.makePayload(frames,analysisSettings,history,spoken); reserve(s); const began=performance.now();
+    setStatus('Geminiの応答待ち'); log(`Geminiへ画像${frames.length}枚を送信（${stats.used}回・今回の発言上限${turnLimit}人・鮮度上限${s.freshness}秒）。`);
     const response=await C.deadline(token=>C.gemini(key,payload,token),Math.min(180000,remaining),signal,'鮮度上限に達したためGeminiの応答待ちを打ち切りました。','STALE');
     const duration=(performance.now()-began)/1000; $('latency').textContent=duration.toFixed(1)+' 秒';log(`Gemini応答 ${duration.toFixed(1)}秒。`);
-    checkFresh(current,s);return C.parseAnalysis(response,s.profiles);
+    checkFresh(current,s);return C.parseAnalysis(response,s.profiles,turnLimit);
   }
   async function waitForSettings(signal) {
     C.check(signal); $('resume').hidden=false;
@@ -281,7 +285,7 @@
       state.frameVersion++;
     }
   }
-  async function analysisLoop(s,key,state,history,spoken,signal) {
+  async function analysisLoop(s,key,state,history,spoken,speakerHistory,signal) {
     let shownBufferCount=-1;
     while(true) {
       C.check(signal);
@@ -302,14 +306,14 @@
       }
       state.lastAnalysis=performance.now();state.lastAnalyzedFrameAt=current.capturedAt;
       try {
-        const result=await analyze(frames,s,key,history,spoken,signal);
+        const result=await analyze(frames,s,key,history,spoken,speakerHistory,signal);
         const reason=C.skipReason(result,performance.now()-current.capturedAt,s,performance.now()-state.lastSpeech,spoken);
         if(result.summary){history.push(result.summary);if(history.length>6)history.shift();}
         if(reason)log(`見送り（${reason}）: ${result.summary}`);
         else {
           let conversationStarted=false;
           const delivered=(turn,profile)=>{
-            conversationStarted=true;state.lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>12)spoken.shift();
+            conversationStarted=true;state.lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>12)spoken.shift();speakerHistory.push(turn.speakerId);if(speakerHistory.length>12)speakerHistory.shift();
             $('lastComment').textContent=`${profile.name}：${turn.text}`;$('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
             $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
             log(`${profile.name}: ${turn.text}`,'spoken');
@@ -366,7 +370,7 @@
     }
   }
   async function run(runtime,signal) {
-    let {s,key}=runtime;const {history,spoken,state}=runtime;
+    let {s,key}=runtime;const {history,spoken,speakerHistory,state}=runtime;
     while(true) {
       C.check(signal);
       try {
@@ -375,7 +379,7 @@
         const session=new AbortController();
         const stop=()=>session.abort();signal.addEventListener('abort',stop,{once:true});
         const capture=captureLoop(s,state,session.signal);
-        const analysis=analysisLoop(s,key,state,history,spoken,session.signal);
+        const analysis=analysisLoop(s,key,state,history,spoken,speakerHistory,session.signal);
         try {
           await Promise.race([capture,analysis]);
           throw new C.AppError('監視処理が予期せず終了しました。','NETWORK');
@@ -410,7 +414,7 @@
   $('start').addEventListener('click',()=>operation(async signal=>{
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();$('latency').textContent='—';
-    const runtime={s,key,history:[],spoken:[],state:{frames:[],frameVersion:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastAnalyzedFrameAt:-Infinity}};
+    const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastAnalyzedFrameAt:-Infinity}};
     streaming=true;$('finish').disabled=true;
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
