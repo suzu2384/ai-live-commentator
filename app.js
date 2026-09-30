@@ -235,10 +235,11 @@
   async function analyze(frames,s,key,history,spoken,speakerHistory,state,signal) {
     const current=frames[frames.length-1];
     const turnLimit=C.pickWeightedSpeakerLimit(s.speakerCountWeights,s.profiles.length);
-    const analysisSettings={...s,turnLimit,recentSpeakerIds:speakerHistory.slice(-8)};
+    const analysisSettings={...s,turnLimit,recentSpeakerIds:[...speakerHistory,...state.activeSpeakerIds].slice(-8)};
+    const recentSpoken=[...spoken,...state.activeTurnTexts].slice(-12);
     const remaining=current.capturedAt+s.freshness*1000-performance.now();
     if(remaining<=0) throw new C.AppError('画像取得中に鮮度上限に達しました。','STALE');
-    const payload=C.makePayload(frames,analysisSettings,history,spoken); reserve(s); const began=performance.now();
+    const payload=C.makePayload(frames,analysisSettings,history,recentSpoken); reserve(s); const began=performance.now();
     setStatus(state.speaking?'読み上げ中・裏でGemini解析中':'Geminiの応答待ち'); log(`Geminiへ画像${frames.length}枚を送信（${stats.used}回・今回の発言上限${turnLimit}人・鮮度上限${s.freshness}秒）。`);
     const response=await C.deadline(token=>C.gemini(key,payload,token),Math.min(180000,remaining),signal,'鮮度上限に達したためGeminiの応答待ちを打ち切りました。','STALE');
     const duration=(performance.now()-began)/1000; $('latency').textContent=duration.toFixed(1)+' 秒';log(`Gemini応答 ${duration.toFixed(1)}秒。`);
@@ -353,11 +354,11 @@
         return null;
       }
       const reason=candidateSkipReason(candidate,s,spoken);
-      if(reason){log(`見送り（${reason}）: ${candidate.result.summary}`);return null;}
+      if(reason){if(reason==='鮮度上限を超過'){stats.stale++;updateStats();$('latency').textContent='鮮度切れ';}log(`見送り（${reason}）: ${candidate.result.summary}`);return null;}
       const wait=candidate.prefetchedDuringSpeech||state.lastConversationStart===-Infinity?0:state.lastConversationStart+s.speechInterval*1000-performance.now();
       if(wait<=0)return candidate;
       const freshLeft=candidate.frame.capturedAt+s.freshness*1000-performance.now();
-      if(freshLeft<=0){log(`見送り（発言待ち中に鮮度上限を超過）: ${candidate.result.summary}`);return null;}
+      if(freshLeft<=0){stats.stale++;updateStats();$('latency').textContent='鮮度切れ';log(`見送り（発言待ち中に鮮度上限を超過）: ${candidate.result.summary}`);return null;}
       setStatus(state.analysisInFlight?'次の発言候補を待機中・裏でGemini解析中':'次の発言候補を待機中');
       await C.sleep(Math.min(100,wait,freshLeft),signal);
     }
@@ -371,6 +372,7 @@
       seen.add(turn.text);turns.push({turn,profile});
     }
     if(!turns.length)return false;
+    state.activeTurnTexts=turns.map(x=>x.turn.text);state.activeSpeakerIds=turns.map(x=>x.turn.speakerId);
     let conversationStarted=false;
     const delivered=(turn,profile)=>{
       conversationStarted=true;state.lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>12)spoken.shift();
@@ -410,13 +412,13 @@
       }
       return conversationStarted;
     } finally {
-      state.speaking=false;
+      state.speaking=false;state.activeTurnTexts=[];state.activeSpeakerIds=[];
     }
   }
   async function speechLoop(s,state,spoken,speakerHistory,signal) {
     while(true){
       C.check(signal);
-      if(!state.pending){if(!state.analysisInFlight)setStatus('映像監視中');await C.sleep(100,signal);continue;}
+      if(!state.pending){if(!state.analysisInFlight&&state.frames.length>=s.analysisFrameCount)setStatus('映像監視中');await C.sleep(100,signal);continue;}
       let candidate=state.pending;state.pending=null;
       candidate=await waitForSpeakableCandidate(candidate,s,state,spoken,signal);
       if(!candidate)continue;
@@ -441,7 +443,7 @@
       C.check(signal);
       try {
         if(!obs?.ready){obs?.close();await connectObs(s,signal);}
-        state.frames.length=0;state.pending=null;state.analysisInFlight=false;state.speaking=false;
+        state.frames.length=0;state.pending=null;state.analysisInFlight=false;state.speaking=false;state.activeTurnTexts=[];state.activeSpeakerIds=[];
         state.lastAnalysis=-Infinity;state.lastAnalyzedFrameAt=-Infinity;
         const session=new AbortController();
         const stop=()=>session.abort();signal.addEventListener('abort',stop,{once:true});
@@ -468,7 +470,7 @@
           log(`${Math.ceil(delay/1000)}秒待機し、OBSへ再接続して再開します。停止ボタンで終了できます。`,'warn');
           await waitRecovery(delay,signal);
         }
-        state.frames.length=0;state.pending=null;state.analysisInFlight=false;state.speaking=false;
+        state.frames.length=0;state.pending=null;state.analysisInFlight=false;state.speaking=false;state.activeTurnTexts=[];state.activeSpeakerIds=[];
         state.lastAnalysis=-Infinity;state.lastAnalyzedFrameAt=-Infinity;
       }
     }
@@ -483,7 +485,7 @@
   $('start').addEventListener('click',()=>operation(async signal=>{
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();$('latency').textContent='—';
-    const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,analysisInFlight:false,speaking:false,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
+    const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
     streaming=true;$('finish').disabled=true;
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
