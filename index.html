@@ -8,7 +8,7 @@
 <script src="core.js" defer></script><script src="vault.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
-<header><div class="brand"><span class="mark" aria-hidden="true">◖</span><div><h1>AI Live Commentator</h1><p>いつものゲームに、友達のひとこと。</p></div></div><span class="badge">BROWSER · v3.0</span></header>
+<header><div class="brand"><span class="mark" aria-hidden="true">◖</span><div><h1>AI Live Commentator</h1><p>いつものゲームに、友達のひとこと。</p></div></div><span class="badge">BROWSER · v3.1</span></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -44,6 +44,14 @@
 <label>おしゃべり度<select id="talkativeness"><option value="0">控えめ — 出来事を中心に</option><option value="1">標準 — 移動中も時々</option><option value="2" selected>よく話す — 相づち・感想も</option></select></label>
 <label>キャラクター設定<textarea id="persona" rows="2" maxlength="1000">学生時代の友達が家に集まってゲームをしている雰囲気。気取らない感想と相づち、軽いツッコミ。煽りは弱め。</textarea></label>
 <div class="fields"><label>API送信の最短間隔（秒）<input id="apiInterval" type="number" min="30" max="600" value="30" required></label><label>発言の最短間隔（秒）<input id="speechInterval" type="number" min="15" max="600" value="20" required></label><label>変化が少ない時の解析（秒）<input id="quietInterval" type="number" min="30" max="600" value="60" required></label></div>
+<details class="speaker-weight-settings"><summary>1回に話す人数の重み</summary><div class="speaker-weight-grid">
+<label>1人<input id="speakerWeight1" type="number" min="0" max="999" value="45" required></label>
+<label>2人<input id="speakerWeight2" type="number" min="0" max="999" value="35" required></label>
+<label>3人<input id="speakerWeight3" type="number" min="0" max="999" value="15" required></label>
+<label>4人<input id="speakerWeight4" type="number" min="0" max="999" value="5" required></label>
+<label>5人<input id="speakerWeight5" type="number" min="0" max="999" value="0" required></label>
+<label>6人<input id="speakerWeight6" type="number" min="0" max="999" value="0" required></label>
+</div><p class="hint">通常実況で今回しゃべる最大人数を、この相対的な重みから毎回抽選します。合計100にする必要はありません。0は選ばない設定です。参加人数の上限を超える欄は無視します。抽選された上限を埋める必要はなく、AIが1人だけにすることもあります。</p></details>
 <div class="fields"><label class="check"><input id="greetStart" type="checkbox" checked>実況開始時に短い挨拶を入れる</label><label class="check"><input id="greetEnd" type="checkbox" checked>通常終了時に締めの挨拶を入れる</label></div><p class="hint">開始・終了の挨拶はGeminiが1〜2人分を生成し、友達ごとの声で読み上げます。「実況を終了」は締めの挨拶後に終了、「即停止」は挨拶せずすぐ停止します。</p><p class="hint">自分で停止するまで続けます。混雑・通信エラーは待って再開、認証・設定エラーは修正待ちになります。Googleの無料枠・頻度制限は別途適用されます。</p>
 <div class="freshness"><label>コメントの鮮度上限（秒）<input id="freshness" type="number" min="5" max="180" value="15" required></label><p class="hint">現在画像の取得開始からこの時間を超えたら、応答待ちを打ち切り、古いコメントは読み上げません。会話の最初の発言について、棒読みちゃんは送信完了まで、直接再生は再生開始までを判定します。開始できた掛け合いは後半も鮮度で打ち切らず再生します。</p></div>
 
