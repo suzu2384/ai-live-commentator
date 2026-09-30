@@ -8,9 +8,9 @@
 <script src="core.js" defer></script><script src="vault.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
-<header><div class="brand"><span class="mark" aria-hidden="true">◖</span><div><h1>AI Live Commentator</h1><p>いつものゲームに、友達のひとこと。</p></div></div><span class="badge">BROWSER · v2.9</span></header>
+<header><div class="brand"><span class="mark" aria-hidden="true">◖</span><div><h1>AI Live Commentator</h1><p>いつものゲームに、友達のひとこと。</p></div></div><span class="badge">BROWSER · v3.0</span></header>
 <main>
-<section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="stop" disabled>■ 停止</button></div></section>
+<section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
 <div class="monitor-column">
 <section class="card preview-card"><div class="card-head"><h2>取得した映像</h2><span id="imageInfo">OBSから静止画を取得</span></div><div class="preview"><img id="preview" alt="OBSから取得したゲーム映像" hidden><div id="placeholder"><span aria-hidden="true">▣</span><p>ゲームの映像を確認しましょう</p><small>「映像確認」で取得します。Geminiへの送信はありません。</small></div></div><div class="metrics"><div><small>今回の送信</small><strong id="usage">0 回</strong></div><div><small>直近のAPI応答</small><strong id="latency">—</strong></div><div><small>鮮度切れ</small><strong id="staleCount">0</strong></div></div></section>
@@ -44,7 +44,7 @@
 <label>おしゃべり度<select id="talkativeness"><option value="0">控えめ — 出来事を中心に</option><option value="1">標準 — 移動中も時々</option><option value="2" selected>よく話す — 相づち・感想も</option></select></label>
 <label>キャラクター設定<textarea id="persona" rows="2" maxlength="1000">学生時代の友達が家に集まってゲームをしている雰囲気。気取らない感想と相づち、軽いツッコミ。煽りは弱め。</textarea></label>
 <div class="fields"><label>API送信の最短間隔（秒）<input id="apiInterval" type="number" min="30" max="600" value="30" required></label><label>発言の最短間隔（秒）<input id="speechInterval" type="number" min="15" max="600" value="20" required></label><label>変化が少ない時の解析（秒）<input id="quietInterval" type="number" min="30" max="600" value="60" required></label></div>
-<p class="hint">自分で停止するまで続けます。混雑・通信エラーは待って再開、認証・設定エラーは修正待ちになります。Googleの無料枠・頻度制限は別途適用されます。</p>
+<div class="fields"><label class="check"><input id="greetStart" type="checkbox" checked>実況開始時に短い挨拶を入れる</label><label class="check"><input id="greetEnd" type="checkbox" checked>通常終了時に締めの挨拶を入れる</label></div><p class="hint">開始・終了の挨拶はGeminiが1〜2人分を生成し、友達ごとの声で読み上げます。「実況を終了」は締めの挨拶後に終了、「即停止」は挨拶せずすぐ停止します。</p><p class="hint">自分で停止するまで続けます。混雑・通信エラーは待って再開、認証・設定エラーは修正待ちになります。Googleの無料枠・頻度制限は別途適用されます。</p>
 <div class="freshness"><label>コメントの鮮度上限（秒）<input id="freshness" type="number" min="5" max="180" value="15" required></label><p class="hint">現在画像の取得開始からこの時間を超えたら、応答待ちを打ち切り、古いコメントは読み上げません。会話の最初の発言について、棒読みちゃんは送信完了まで、直接再生は再生開始までを判定します。開始できた掛け合いは後半も鮮度で打ち切らず再生します。</p></div>
 
 <details><summary>画像・通信の詳細設定</summary><div class="fields"><label>画像取得間隔（秒）<input id="sampleInterval" type="number" min="1" max="60" value="8" required></label><label>解析画像枚数<select id="analysisFrameCount"><option value="2" selected>2枚</option><option value="3">3枚</option><option value="4">4枚</option><option value="5">5枚</option><option value="6">6枚</option></select></label><label>送信画像の横幅<select id="imageWidth"><option value="320">320px</option><option value="640" selected>640px</option><option value="960">960px</option></select></label></div><p class="hint">JPEG品質75。画像取得は解析・読み上げとは独立して1〜60秒間隔で続け、取得開始時刻を基準に次回取得を予約します。常に最新2〜6枚を保持します。OBSの1回の取得自体が設定間隔より長い場合は、取得完了後すぐ次回へ進みます。枚数を増やすと場面の流れを捉えやすくなる一方、送信量と応答時間も増える場合があります。APIの通信上限は180秒。鮮度上限が先なら、その時点で待機を打ち切ります。</p></details>
