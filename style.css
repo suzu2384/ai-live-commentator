@@ -19,3 +19,5 @@ html,body{height:100%}body{height:100dvh;display:flex;flex-direction:column;over
 .setting-meta{display:flex;justify-content:flex-end;align-items:center;margin:0 0 10px}
 .setting-body>label:last-child{margin-bottom:6px}
 @media(max-width:520px){.setting-summary{grid-template-columns:auto minmax(0,1fr) auto;padding:11px 10px}.setting-summary-value{font-size:10px}.setting-body{padding:12px 10px 4px}}
+
+#finish{border-color:#4b685e;color:var(--accent)}
