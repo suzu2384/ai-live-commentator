@@ -21,6 +21,25 @@ test('fixed endpoint, ordered JPEG parts and opaque key in header only',async()=
     assert.equal(p.generationConfig.thinkingConfig.thinkingLevel,'MINIMAL');return {ok:true,json:async()=>wrap(analysis)};
   });assert.equal(calls,1);
 });
+test('weighted speaker limit uses relative weights and participant cap',()=>{
+  const weights=[45,35,15,5,0,0];
+  assert.equal(C.pickWeightedSpeakerLimit(weights,6,()=>0),1);
+  assert.equal(C.pickWeightedSpeakerLimit(weights,6,()=>0.45),2);
+  assert.equal(C.pickWeightedSpeakerLimit(weights,6,()=>0.80),3);
+  assert.equal(C.pickWeightedSpeakerLimit(weights,6,()=>0.95),4);
+  assert.equal(C.pickWeightedSpeakerLimit([0,100,0,0,0,0],3,()=>0.7),2);
+  assert.throws(()=>C.pickWeightedSpeakerLimit([0,0,100,0,0,0],2,()=>0));
+});
+test('analysis payload enforces sampled turn limit and carries recent speakers',()=>{
+  const frames=[{data:'data:image/jpeg;base64,AQ=='},{data:'data:image/jpeg;base64,Ag=='}];
+  const s={persona:'相方',talkativeness:2,profiles,turnLimit:2,recentSpeakerIds:['p1','p2','p1']};
+  const payload=C.makePayload(frames,s,[],[]);
+  assert.equal(payload.generationConfig.responseSchema.properties.turns.maxItems,2);
+  assert.ok(payload.contents[0].parts.at(-1).text.includes('今回の発言人数上限: 2人'));
+  assert.ok(payload.contents[0].parts.at(-1).text.includes('p1 → p2 → p1'));
+  const tooMany={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p2',text:'二つ目だよ'},{speakerId:'p1',text:'三つ目だよ'}]};
+  assert.throws(()=>C.parseAnalysis(wrap(tooMany),profiles,2));
+});
 test('analysis payload accepts only two to six ordered frames',()=>{
   const s={persona:'相方',talkativeness:1,profiles};
   assert.doesNotThrow(()=>C.makePayload(Array.from({length:6},(_,i)=>({data:`data:image/jpeg;base64,${Buffer.from([i]).toString('base64')}`})),s,[],[]));
