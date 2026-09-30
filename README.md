@@ -1,6 +1,6 @@
-# AI Live Commentator — ブラウザ版 v3.3
+# みんコメAI — ブラウザ版 v3.4
 
-OBSのゲーム映像をGemini 3.1 Flash-Liteが見て、友達と遊んでいるような短い感想・掛け合いを添えます。サーバー・インストール・ビルドは不要です。名前は従来のままです。
+OBSの映像をGemini 3.1 Flash-Liteが見て、AIの仲間たちが同じ場所に集まっているような短い感想・掛け合いを添えます。サーバー・インストール・ビルドは不要です。
 
 ## 起動
 
@@ -154,7 +154,7 @@ WebSocketの有効化、パスワード、ポート、OBSに登録したソー�
 
 ## 開発・検証
 
-- `index.html`：画面とヘルプ
+- `index.html`：画面とヘルプ\n- `manifest.webmanifest`：アプリ名・ホーム画面用メタデータ\n- `assets/`：みんコメAIのfavicon・ホーム画面用アイコン
 - `style.css`：PC・スマホ用レイアウト
 - `core.js`：OBS、Gemini、応答検証、鮮度、再開方針
 - `app.js`：操作画面、継続処理、話者、音声出力
