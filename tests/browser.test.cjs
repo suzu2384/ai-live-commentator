@@ -89,9 +89,10 @@ const results=[];
   assert.equal(await p.locator('#speakerWeight1').isVisible(),true);assert.equal(await p.locator('#sampleInterval').isVisible(),true);
   await x.close();
  });
- await test('friend cards use two columns when wide and one column on mobile',async()=>{
+ await test('friend cards use two columns from panel width and one column on mobile',async()=>{
   const x=await setup();const p=x.page;
   await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('4');
+  const panelWidth=await p.locator('#panel-friends').evaluate(el=>el.getBoundingClientRect().width);assert.ok(panelWidth>=440);
   const desktop=await p.locator('#profiles .friend:not([hidden])').evaluateAll(cards=>cards.map(c=>{const r=c.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width)};}));
   assert.equal(desktop.length,4);assert.equal(desktop[0].y,desktop[1].y);assert.ok(desktop[1].x>desktop[0].x);assert.equal(desktop[2].y,desktop[3].y);
   await p.setViewportSize({width:390,height:844});

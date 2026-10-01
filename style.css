@@ -97,7 +97,9 @@ button:focus-visible,summary:focus-visible{outline-color:var(--accent)}
 .speaker-weight-grid{grid-template-columns:repeat(6,minmax(64px,1fr));gap:8px}
 .speaker-weight-grid label{margin:0}
 .speaker-weight-grid input{padding:7px 8px;text-align:right}
-#profiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px 16px;align-items:start}
+#panel-friends{container-type:inline-size;container-name:friends-panel}
+#profiles{display:grid;grid-template-columns:1fr;gap:14px 16px;align-items:start}
+@container friends-panel (min-width:440px){#profiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #profiles .friend{margin:0!important;min-width:0}
 #profiles .friend-voice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:6px 0 12px}
 #profiles .friend-voice-grid label{margin:0;min-width:0}
