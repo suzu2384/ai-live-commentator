@@ -3,8 +3,8 @@
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
   const sectionStateKey = 'ai-live-commentator-settings-sections-v1';
-  const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
-  const numberRules = { talkativeness:[0,2], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6], speakerWeight1:[0,999], speakerWeight2:[0,999], speakerWeight3:[0,999], speakerWeight4:[0,999], speakerWeight5:[0,999], speakerWeight6:[0,999] };
+  const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
+  const numberRules = { talkativeness:[0,2], conversationHistoryCount:[0,20], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6], speakerWeight1:[0,999], speakerWeight2:[0,999], speakerWeight3:[0,999], speakerWeight4:[0,999], speakerWeight5:[0,999], speakerWeight6:[0,999] };
   let controller = null, obs = null, audioContext = null, activeAudio = null, wakeLock = null;
   let phaseAt = performance.now(), lastCaptureAt = null, busy = false, lastSettings = null;
   const stats = { used:0, stale:0 };
@@ -31,7 +31,7 @@
     $('summary-video').textContent=$('sourceName').value.trim()||'映像ソース未入力';
     $('summary-ai').textContent=$('apiKey').value?($('freeTier').checked?'APIキー入力済み / Free確認済み':'APIキー入力済み'):'APIキー未入力';
     $('summary-voice').textContent=$('output').value==='voicevox'?'VOICEVOX':'棒読みちゃん';
-    $('summary-frequency').textContent=`${talk} / API ${$('apiInterval').value||'—'}秒 / ${$('analysisFrameCount').value||'—'}枚・${$('sampleInterval').value||'—'}秒取得`;
+    $('summary-frequency').textContent=`${talk} / 履歴 ${$('conversationHistoryCount').value||'0'}発言 / API ${$('apiInterval').value||'—'}秒 / ${$('analysisFrameCount').value||'—'}枚・${$('sampleInterval').value||'—'}秒取得`;
     try{$('summary-vault').textContent=localStorage.getItem('ai-live-commentator-vault-v1')?'保存あり':'保存なし';}
     catch{$('summary-vault').textContent='保存状態不明';}
   }
@@ -236,10 +236,15 @@
     const current=frames[frames.length-1];
     const turnLimit=C.pickWeightedSpeakerLimit(s.speakerCountWeights,s.profiles.length);
     const analysisSettings={...s,turnLimit,recentSpeakerIds:[...speakerHistory,...state.activeSpeakerIds].slice(-8)};
-    const recentSpoken=[...spoken,...state.activeTurnTexts].slice(-12);
+    const profileNames=new Map(s.profiles.map(p=>[p.id,p.name]));
+    const deliveredConversation=spoken.map((text,i)=>({speakerId:speakerHistory[i],text}));
+    const activeConversation=state.activeTurnTexts.map((text,i)=>({speakerId:state.activeSpeakerIds[i],text}));
+    const recentConversation=s.conversationHistoryCount>0
+      ? [...deliveredConversation,...activeConversation].slice(-s.conversationHistoryCount).map(item=>`${profileNames.get(item.speakerId)||item.speakerId}: ${item.text}`)
+      : [];
     const remaining=current.capturedAt+s.freshness*1000-performance.now();
     if(remaining<=0) throw new C.AppError('画像取得中に鮮度上限に達しました。','STALE');
-    const payload=C.makePayload(frames,analysisSettings,history,recentSpoken); reserve(s); const began=performance.now();
+    const payload=C.makePayload(frames,analysisSettings,history,recentConversation); reserve(s); const began=performance.now();
     setStatus(state.speaking?'読み上げ中・裏でGemini解析中':'Geminiの応答待ち'); log(`Geminiへ画像${frames.length}枚を送信（${stats.used}回・今回の発言上限${turnLimit}人・鮮度上限${s.freshness}秒）。`);
     const response=await C.deadline(token=>C.gemini(key,payload,token),Math.min(180000,remaining),signal,'鮮度上限に達したためGeminiの応答待ちを打ち切りました。','STALE');
     const duration=(performance.now()-began)/1000; $('latency').textContent=duration.toFixed(1)+' 秒';log(`Gemini応答 ${duration.toFixed(1)}秒。`);
@@ -292,7 +297,7 @@
     const age=performance.now()-candidate.frame.capturedAt;
     if(age>=s.freshness*1000)return '鮮度上限を超過';
     if(!candidate.result.speak)return 'AIが発言不要と判断';
-    if(candidate.result.turns.every(t=>spoken.includes(t.text)))return '直近と同じ発言';
+    if(candidate.result.turns.every(t=>spoken.slice(-12).includes(t.text)))return '直近と同じ発言';
     return '';
   }
   async function analysisLoop(s,key,state,history,spoken,speakerHistory,signal) {
@@ -366,7 +371,7 @@
   }
   async function playAnalysisCandidate(candidate,s,state,spoken,speakerHistory,signal) {
     const current=candidate.frame,result=candidate.result;
-    const seen=new Set(spoken),turns=[];
+    const seen=new Set(spoken.slice(-12)),turns=[];
     for(const turn of result.turns){
       if(seen.has(turn.text))continue;
       const profile=s.profiles.find(p=>p.id===turn.speakerId);if(!profile)continue;
@@ -376,8 +381,8 @@
     state.activeTurnTexts=turns.map(x=>x.turn.text);state.activeSpeakerIds=turns.map(x=>x.turn.speakerId);state.speechEpoch++;
     let conversationStarted=false;
     const delivered=(turn,profile)=>{
-      conversationStarted=true;state.lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>12)spoken.shift();
-      speakerHistory.push(turn.speakerId);if(speakerHistory.length>12)speakerHistory.shift();
+      conversationStarted=true;state.lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>20)spoken.shift();
+      speakerHistory.push(turn.speakerId);if(speakerHistory.length>20)speakerHistory.shift();
       $('lastComment').textContent=`${profile.name}：${turn.text}`;$('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
       $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
       log(`${profile.name}: ${turn.text}`,'spoken');

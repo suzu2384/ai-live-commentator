@@ -68,9 +68,9 @@ const results=[];
  async function stopped(p){await p.waitForFunction(()=>!document.getElementById('start').disabled);}
  async function test(name,fn){await fn();results.push(name);console.log('PASS:',name);}
  await test('file startup, responsive layout, settings persistence excludes credentials',async()=>{
-  const x=await setup();const p=x.page;await p.locator('#save').click();const data=await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1'));
+  const x=await setup();const p=x.page;await p.locator('#conversationHistoryCount').fill('4');await p.locator('#save').click();const data=await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1'));
   assert.ok(!data.includes('fake.test-key')&&!data.includes('obs-secret')&&!data.includes('freeTier'));
-  await p.reload();assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#freeTier').isChecked(),false);assert.equal(await p.locator('#sampleInterval').getAttribute('min'),'1');
+  await p.reload();assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#freeTier').isChecked(),false);assert.equal(await p.locator('#sampleInterval').getAttribute('min'),'1');assert.equal(await p.locator('#conversationHistoryCount').inputValue(),'4');assert.equal(await p.locator('#conversationHistoryCount').getAttribute('max'),'20');
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   assert.equal(await p.evaluate(()=>document.documentElement.scrollHeight>innerHeight),false);
   await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/desktop.png'),fullPage:true});

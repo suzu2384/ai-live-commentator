@@ -33,10 +33,14 @@ test('weighted speaker limit uses relative weights and participant cap',()=>{
 test('analysis payload enforces sampled turn limit and carries recent speakers',()=>{
   const frames=[{data:'data:image/jpeg;base64,AQ=='},{data:'data:image/jpeg;base64,Ag=='}];
   const s={persona:'相方',talkativeness:2,profiles,turnLimit:2,recentSpeakerIds:['p1','p2','p1']};
-  const payload=C.makePayload(frames,s,[],[]);
+  const payload=C.makePayload(frames,s,[],['友達1: ほんまやな','友達2: 次も見てみよか']);
   assert.equal(payload.generationConfig.responseSchema.properties.turns.maxItems,2);
   assert.ok(payload.contents[0].parts.at(-1).text.includes('今回の発言人数上限: 2人'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('p1 → p2 → p1'));
+  assert.ok(payload.contents[0].parts.at(-1).text.includes('直近の会話履歴（古い順、発言者名つき）'));
+  assert.ok(payload.contents[0].parts.at(-1).text.includes('友達1: ほんまやな\n友達2: 次も見てみよか'));
+  assert.ok(payload.systemInstruction.parts[0].text.includes('相づちだけの返答が何度も続く会話パターンを避ける'));
+  assert.ok(payload.systemInstruction.parts[0].text.includes('相づち自体は禁止せず'));
   const tooMany={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p2',text:'二つ目だよ'},{speakerId:'p1',text:'三つ目だよ'}]};
   assert.throws(()=>C.parseAnalysis(wrap(tooMany),profiles,2));
 });
