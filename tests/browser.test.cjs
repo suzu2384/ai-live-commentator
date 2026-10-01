@@ -54,7 +54,7 @@ const results=[];
   await page.locator('#greetStart').uncheck();await page.locator('#greetEnd').uncheck();
   jpeg=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=640;c.height=360;const x=c.getContext('2d');x.fillStyle='#345a4b';x.fillRect(0,0,640,360);return c.toDataURL('image/jpeg');});
   await page.locator('#apiKey').fill('fake.test-key');await page.locator('#obsPassword').fill('obs-secret');await page.locator('#freeTier').check();
-  await page.locator('summary').filter({hasText:'画像・通信'}).click();await page.locator('#sampleInterval').fill('4');
+  await page.locator('#sampleInterval').fill('4');
   if(config.host){await page.locator('#output').selectOption('voicevox');await page.locator('#voicevoxUrl').fill(`http://${host}:50021`);await page.locator('#output').selectOption('bouyomi');for(const [id,port,proto] of [['obsUrl',4455,'ws'],['bouyomiUrl',50080,'http']])await page.locator('#'+id).fill(`${proto}://${host}:${port}`);}
   if(config.before)await config.before(page);
   return {page,ctx,events,errors,held:()=>held,close:async()=>{assert.deepEqual(errors,[]);assert.deepEqual(events.unexpected,[]);await ctx.close();}};
@@ -77,14 +77,17 @@ const results=[];
   await p.setViewportSize({width:390,height:844});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/mobile.png'),fullPage:true});await x.close();
  });
- await test('settings sections collapse, summarize values and persist open state',async()=>{
+ await test('only top-level setting sections collapse and startup opens vault only',async()=>{
   const x=await setup();const p=x.page;
   await p.locator('#output').selectOption('voicevox');await p.locator('#analysisFrameCount').selectOption('4');await p.locator('#sampleInterval').fill('1');
   assert.equal(await p.locator('#summary-voice').textContent(),'VOICEVOX');assert.ok((await p.locator('#summary-frequency').textContent()).includes('4枚・1秒取得'));
-  await p.locator('#settings-video > summary').click();await p.locator('#settings-ai > summary').click();
-  assert.equal(await p.locator('#settings-video').getAttribute('open'),null);assert.equal(await p.locator('#settings-ai').getAttribute('open'),null);
-  await p.reload();assert.equal(await p.locator('#settings-video').getAttribute('open'),null);assert.equal(await p.locator('#settings-ai').getAttribute('open'),null);
-  assert.notEqual(await p.locator('#settings-frequency').getAttribute('open'),null);await x.close();
+  assert.equal(await p.locator('#settings-frequency details').count(),0);
+  await p.reload();
+  for(const id of ['settings-video','settings-ai','settings-voice','settings-frequency'])assert.equal(await p.locator('#'+id).getAttribute('open'),null);
+  assert.notEqual(await p.locator('#settings-vault').getAttribute('open'),null);
+  await p.locator('#settings-frequency > summary').click();
+  assert.equal(await p.locator('#speakerWeight1').isVisible(),true);assert.equal(await p.locator('#sampleInterval').isVisible(),true);
+  await x.close();
  });
  await test('OBS authentication and preview send no Gemini request',async()=>{const x=await setup();await x.page.locator('#testObs').click();await stopped(x.page);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);await x.close();});
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});

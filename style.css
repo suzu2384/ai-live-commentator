@@ -22,7 +22,9 @@ html,body{height:100%}body{height:100dvh;display:flex;flex-direction:column;over
 
 #finish{border-color:#4b685e;color:var(--accent)}
 
-.speaker-weight-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 10px}.speaker-weight-grid input{font-variant-numeric:tabular-nums}.speaker-weight-settings{margin:12px 0}.speaker-weight-settings>summary{color:var(--text)}
+.speaker-weight-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 10px}.speaker-weight-grid input{font-variant-numeric:tabular-nums}
+.inline-setting-group{margin:14px 0;padding:14px 0 2px;border-top:1px solid var(--line)}
+.inline-setting-group h3{margin:0 0 10px;color:var(--text);font-size:12px;font-weight:650}
 @media(max-width:520px){.speaker-weight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 
@@ -91,8 +93,7 @@ button:focus-visible,summary:focus-visible{outline-color:var(--accent)}
 .value-unit input{flex:0 0 72px}
 .toggle-grid{display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin:12px 0 4px}
 .toggle-grid .check{margin:0}
-.sub-settings{margin:10px 0 4px;padding:10px 0 0}
-.sub-settings>summary{margin-bottom:8px;color:#c8d5dd}
+.sub-settings{margin:14px 0 4px;padding:14px 0 0}
 .speaker-weight-grid{grid-template-columns:repeat(6,minmax(64px,1fr));gap:8px}
 .speaker-weight-grid label{margin:0}
 .speaker-weight-grid input{padding:7px 8px;text-align:right}

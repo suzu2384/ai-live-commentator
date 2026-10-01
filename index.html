@@ -14,7 +14,7 @@
 <script src="core.js" defer></script><script src="vault.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
-<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v3.5</span></header>
+<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v3.6</span></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -46,7 +46,7 @@
 <div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><p class="hint compact-hint">HTTP連携を有効にしてください。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
 <div id="voicevoxFields" hidden><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label><p class="hint compact-hint">音声はこのブラウザで再生します。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
 <div class="setting-action"><button type="button" id="testVoice">音声テスト（友達1）</button><span class="hint">声・話速・性格は「友達」で設定</span></div></div></details>
-<details class="card setting-section" id="settings-frequency" open><summary class="setting-summary"><span><span class="step">04</span> 話し方と頻度</span><span id="summary-frequency" class="setting-summary-value">よく話す / API 30秒 / 2枚</span></summary><div class="setting-body"><div class="setting-meta"><button type="button" id="preset" class="subtle">よく話す設定</button></div>
+<details class="card setting-section" id="settings-frequency"><summary class="setting-summary"><span><span class="step">04</span> 話し方と頻度</span><span id="summary-frequency" class="setting-summary-value">よく話す / API 30秒 / 2枚</span></summary><div class="setting-body"><div class="setting-meta"><button type="button" id="preset" class="subtle">よく話す設定</button></div>
 <label>おしゃべり度<select id="talkativeness"><option value="0">控えめ — 出来事を中心に</option><option value="1">標準 — 移動中も時々</option><option value="2" selected>よく話す — 相づち・感想も</option></select></label>
 <label>キャラクター設定<textarea id="persona" rows="2" maxlength="1000">学生時代の友達が家に集まってゲームをしている雰囲気。気取らない感想と相づち、軽いツッコミ。煽りは弱め。</textarea></label>
 <div class="compact-setting-grid">
@@ -56,26 +56,26 @@
 <label class="compact-field"><span>変化が少ない時</span><span class="value-unit"><input id="quietInterval" type="number" min="30" max="600" value="60" required><span>秒</span></span></label>
 </div>
 <p class="hint compact-hint">会話履歴は0で送信しません。増やすほど直近の掛け合いを参照しやすくなります。</p>
-<details class="speaker-weight-settings"><summary>1回に話す人数の重み</summary><div class="speaker-weight-grid">
+<section class="inline-setting-group speaker-weight-settings"><h3>1回に話す人数の重み</h3><div class="speaker-weight-grid">
 <label>1人<input id="speakerWeight1" type="number" min="0" max="999" value="45" required></label>
 <label>2人<input id="speakerWeight2" type="number" min="0" max="999" value="35" required></label>
 <label>3人<input id="speakerWeight3" type="number" min="0" max="999" value="15" required></label>
 <label>4人<input id="speakerWeight4" type="number" min="0" max="999" value="5" required></label>
 <label>5人<input id="speakerWeight5" type="number" min="0" max="999" value="0" required></label>
 <label>6人<input id="speakerWeight6" type="number" min="0" max="999" value="0" required></label>
-</div><p class="hint compact-hint">相対値で抽選します。0は選択なし。合計100にする必要はありません。</p></details>
+</div><p class="hint compact-hint">相対値で抽選します。0は選択なし。合計100にする必要はありません。</p></section>
 <div class="toggle-grid"><label class="check"><input id="greetStart" type="checkbox" checked>開始時に挨拶</label><label class="check"><input id="greetEnd" type="checkbox" checked>終了時に挨拶</label></div>
 <div class="compact-setting-grid single-row"><label class="compact-field"><span>コメントの鮮度上限</span><span class="value-unit"><input id="freshness" type="number" min="5" max="180" value="15" required><span>秒</span></span></label></div>
 <p class="hint compact-hint">上限を超えた古い応答は読み上げません。開始済みの掛け合いは最後まで再生します。</p>
 
-<details class="sub-settings"><summary>画像・通信の詳細設定</summary>
+<section class="inline-setting-group sub-settings"><h3>画像・通信の詳細設定</h3>
 <div class="compact-setting-grid">
 <label class="compact-field"><span>画像取得間隔</span><span class="value-unit"><input id="sampleInterval" type="number" min="1" max="60" value="8" required><span>秒</span></span></label>
 <label class="compact-field"><span>解析画像</span><select id="analysisFrameCount"><option value="2" selected>2枚</option><option value="3">3枚</option><option value="4">4枚</option><option value="5">5枚</option><option value="6">6枚</option></select></label>
 <label class="compact-field"><span>画像幅</span><select id="imageWidth"><option value="320">320px</option><option value="640" selected>640px</option><option value="960">960px</option></select></label>
-</div><p class="hint compact-hint">枚数・画像幅を増やすほど場面の流れを捉えやすくなりますが、送信量と応答時間も増える場合があります。</p></details>
+</div><p class="hint compact-hint">枚数・画像幅を増やすほど場面の流れを捉えやすくなりますが、送信量と応答時間も増える場合があります。</p></section>
 </div></details>
-<details class="card setting-section" id="settings-vault"><summary class="setting-summary"><span>キー・パスワードの暗号化保存</span><span id="summary-vault" class="setting-summary-value">保存なし</span></summary><div class="setting-body">
+<details class="card setting-section" id="settings-vault" open><summary class="setting-summary"><span>キー・パスワードの暗号化保存</span><span id="summary-vault" class="setting-summary-value">保存なし</span></summary><div class="setting-body">
 <p class="hint compact-hint">APIキーとOBSパスワードだけを端末内に暗号化保存します。合言葉は保存しません。</p>
 <label>合言葉（保存時は12文字以上）<input id="vaultPass" type="password" autocomplete="off" maxlength="200"></label>
 <label>合言葉の確認（保存時のみ）<input id="vaultConfirm" type="password" autocomplete="off" maxlength="200"></label>

@@ -2,7 +2,6 @@
   'use strict';
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
-  const sectionStateKey = 'ai-live-commentator-settings-sections-v1';
   const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
   const numberRules = { talkativeness:[0,2], conversationHistoryCount:[0,20], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6], speakerWeight1:[0,999], speakerWeight2:[0,999], speakerWeight3:[0,999], speakerWeight4:[0,999], speakerWeight5:[0,999], speakerWeight6:[0,999] };
   let controller = null, obs = null, audioContext = null, activeAudio = null, wakeLock = null;
@@ -35,18 +34,9 @@
     try{$('summary-vault').textContent=localStorage.getItem('ai-live-commentator-vault-v1')?'保存あり':'保存なし';}
     catch{$('summary-vault').textContent='保存状態不明';}
   }
-  function restoreSettingSections(){
-    const sections=[...document.querySelectorAll('details.setting-section')];
-    let state=null;try{state=JSON.parse(localStorage.getItem(sectionStateKey)||'null');}catch{}
-    if(state&&typeof state==='object')for(const section of sections)if(typeof state[section.id]==='boolean')section.open=state[section.id];
-  }
-  function saveSettingSections(){
-    const state=Object.fromEntries([...document.querySelectorAll('details.setting-section')].map(section=>[section.id,section.open]));
-    try{localStorage.setItem(sectionStateKey,JSON.stringify(state));}catch{}
-  }
   function initSettingSections(){
-    restoreSettingSections();
-    for(const section of document.querySelectorAll('details.setting-section'))section.addEventListener('toggle',saveSettingSections);
+    for(const section of document.querySelectorAll('details.setting-section'))section.open=section.id==='settings-vault';
+    try{localStorage.removeItem('ai-live-commentator-settings-sections-v1');}catch{}
     $('settings').addEventListener('input',updateSettingSummaries);
     $('settings').addEventListener('change',updateSettingSummaries);
     updateSettingSummaries();
