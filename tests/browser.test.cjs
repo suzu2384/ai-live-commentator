@@ -89,6 +89,16 @@ const results=[];
   assert.equal(await p.locator('#speakerWeight1').isVisible(),true);assert.equal(await p.locator('#sampleInterval').isVisible(),true);
   await x.close();
  });
+ await test('friend cards use two columns when wide and one column on mobile',async()=>{
+  const x=await setup();const p=x.page;
+  await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('4');
+  const desktop=await p.locator('#profiles .friend:not([hidden])').evaluateAll(cards=>cards.map(c=>{const r=c.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width)};}));
+  assert.equal(desktop.length,4);assert.equal(desktop[0].y,desktop[1].y);assert.ok(desktop[1].x>desktop[0].x);assert.equal(desktop[2].y,desktop[3].y);
+  await p.setViewportSize({width:390,height:844});
+  const mobile=await p.locator('#profiles .friend:not([hidden])').evaluateAll(cards=>cards.map(c=>Math.round(c.getBoundingClientRect().x)));
+  assert.equal(new Set(mobile).size,1);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await x.close();
+ });
  await test('OBS authentication and preview send no Gemini request',async()=>{const x=await setup();await x.page.locator('#testObs').click();await stopped(x.page);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);await x.close();});
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
  await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await x.page.locator('#output').selectOption('voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
