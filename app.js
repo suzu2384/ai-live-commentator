@@ -51,12 +51,20 @@
     $('settings').addEventListener('change',updateSettingSummaries);
     updateSettingSummaries();
   }
+  function settingLabel(id){
+    const label=$(id).closest('label');
+    if(!label)return id;
+    const title=label.querySelector(':scope > span:first-child');
+    if(title?.textContent.trim())return title.textContent.trim();
+    for(const node of label.childNodes)if(node.nodeType===Node.TEXT_NODE&&node.textContent.trim())return node.textContent.trim();
+    return id;
+  }
   function settings() {
     const s = {};
     for (const id of savedIds) s[id] = $(id).type === 'checkbox' ? $(id).checked : $(id).value.trim();
     for (const [id,[min,max]] of Object.entries(numberRules)) {
       const value = Number(s[id]);
-      if (s[id] === '' || !Number.isInteger(value) || value < min || value > max){revealSetting(id);throw new C.AppError(`${$(id).parentElement.firstChild.textContent.trim()}は${min}〜${max}の整数で指定してください。`);}
+      if (s[id] === '' || !Number.isInteger(value) || value < min || value > max){revealSetting(id);throw new C.AppError(`${settingLabel(id)}は${min}〜${max}の整数で指定してください。`);}
       s[id] = value;
     }
     if (![320,640,960].includes(s.imageWidth)){revealSetting('imageWidth');throw new C.AppError('画像サイズを選択してください。');}
