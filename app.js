@@ -550,11 +550,14 @@
     for(let i=0;i<6;i++){
       const d={...defaultProfile(i),...saved[i]},section=document.createElement('section');section.className='card friend';section.dataset.index=i;
       const heading=document.createElement('h2');heading.textContent=`友達 ${i+1}`;section.append(heading);
-      for(const [field,label,type,min,max,step] of [['name','呼び名','text',null,40,null],['personality','性格・話し方','text',null,300,null],['speaker','VOICEVOX スタイルID','number',0,99999,1],['speedScale','VOICEVOX 話速（0.5〜2.0）','number',0.5,2,0.05],['bouyomiVoice','棒読みちゃん 声ID（0＝選択中）','number',0,65535,1]]){
+      const voiceGrid=document.createElement('div');voiceGrid.className='friend-voice-grid';
+      for(const [field,label,type,min,max,step] of [['name','呼び名','text',null,40,null],['personality','性格・話し方','text',null,300,null],['speaker','VOICEVOX スタイルID','number',0,99999,1],['speedScale','VOICEVOX 話速','number',0.5,2,0.05],['bouyomiVoice','棒読みちゃん 声ID','number',0,65535,1]]){
         const l=document.createElement('label');l.textContent=label;const input=document.createElement('input');input.id=`p${i+1}-${field}`;input.type=type;input.setAttribute('form','settings');
         if(type==='number'){input.min=min;input.max=max;input.step=step;}else input.maxLength=max;
-        input.value=typeof d[field]==='string'||typeof d[field]==='number'?d[field]:defaultProfile(i)[field];l.append(input);section.append(l);
+        input.value=typeof d[field]==='string'||typeof d[field]==='number'?d[field]:defaultProfile(i)[field];l.append(input);
+        (type==='number'?voiceGrid:section).append(l);
       }
+      section.append(voiceGrid);
       const button=document.createElement('button');button.type='button';button.textContent='この友達の音声テスト';
       button.addEventListener('click',()=>operation(async signal=>{const s=settings(),profile=readProfiles()[i];lastSettings=s;await unlockAudio(s);setStatus('音声テスト中');await speak(`${profile.name}です。よろしくね。`,{...s,...profile},null,signal);log(`${profile.name}の音声テスト完了。`);}));
       section.append(button);$('profiles').append(section);

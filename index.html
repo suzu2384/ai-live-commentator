@@ -14,7 +14,7 @@
 <script src="core.js" defer></script><script src="vault.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
-<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v3.4</span></header>
+<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v3.5</span></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -34,23 +34,28 @@
 <details class="card setting-section" id="settings-video"><summary class="setting-summary"><span><span class="step">01</span> 映像</span><span id="summary-video" class="setting-summary-value">PS Remote Play</span></summary><div class="setting-body">
 <label>接続先<input id="obsUrl" type="url" value="ws://127.0.0.1:4455" required></label>
 <div class="fields"><label>OBSパスワード<input id="obsPassword" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます"></label><label>映像ソース名<input id="sourceName" value="PS Remote Play" required maxlength="200"></label></div>
-<button type="button" id="testObs">映像確認</button><p class="hint">同じLANのPCなら ws://192.168.1.10:4455 のように指定します。OBSに登録したソース名を指定してください。ゲームだけが映るソースを選びます。</p></div></details>
+<div class="setting-action"><button type="button" id="testObs">映像確認</button><span class="hint">OBSに登録したゲーム映像のソース名を指定します。</span></div></div></details>
 <details class="card setting-section" id="settings-ai"><summary class="setting-summary"><span><span class="step">02</span> AI</span><span id="summary-ai" class="setting-summary-value">APIキー未入力</span></summary><div class="setting-body">
 <div class="setting-meta"><span class="badge small">Gemini 3.1 Flash-Lite</span></div>
 <label>Gemini APIキー<input id="apiKey" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます" required></label>
 <label class="check"><input id="freeTier" type="checkbox">このキーのプロジェクトが Free Tier・課金未設定だと確認しました</label>
-<p class="hint">アプリは課金状態を判定できません。画像・文章はGoogleへ送信されます。無料枠では製品改善に利用される条件があります。</p>
-<div class="actions wrap"><button type="button" id="testText">文章だけで接続テスト</button><span class="hint">API送信1回を使用</span></div></div></details>
+<p class="hint compact-hint">画像・文章はGoogleへ送信されます。課金状態はこのアプリでは確認できません。</p>
+<div class="setting-action"><button type="button" id="testText">文章だけで接続テスト</button><span class="hint">API送信1回を使用</span></div></div></details>
 <details class="card setting-section" id="settings-voice"><summary class="setting-summary"><span><span class="step">03</span> 読み上げ</span><span id="summary-voice" class="setting-summary-value">棒読みちゃん</span></summary><div class="setting-body">
 <label>出力先<select id="output"><option value="bouyomi">棒読みちゃん（PC側で再生）</option><option value="voicevox">VOICEVOX直接（ブラウザで再生）</option></select></label>
-<div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><p class="hint">0＝棒読みちゃんで選択中の声。VOICEVOX連携済みなら、その声を選んでおきます。HTTP連携を有効にしてください。同じLANのPCなら http://192.168.1.10:50080 のように指定します。</p></div>
-<div id="voicevoxFields" hidden><div class="fields"><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label></div><p class="hint">同じLANのPCなら http://192.168.1.10:50021 のように指定します。音声は操作中のブラウザで再生されます。OBSではその音声を取り込みます。</p></div>
-<button type="button" id="testVoice">音声テスト（友達1）</button><p class="hint">人数・声・話速・性格は「友達」タブで設定します。</p><p class="hint">停止後も、棒読みちゃんへ送信済みの音声は残る場合があります。</p></div></details>
+<div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><p class="hint compact-hint">HTTP連携を有効にしてください。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
+<div id="voicevoxFields" hidden><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label><p class="hint compact-hint">音声はこのブラウザで再生します。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
+<div class="setting-action"><button type="button" id="testVoice">音声テスト（友達1）</button><span class="hint">声・話速・性格は「友達」で設定</span></div></div></details>
 <details class="card setting-section" id="settings-frequency" open><summary class="setting-summary"><span><span class="step">04</span> 話し方と頻度</span><span id="summary-frequency" class="setting-summary-value">よく話す / API 30秒 / 2枚</span></summary><div class="setting-body"><div class="setting-meta"><button type="button" id="preset" class="subtle">よく話す設定</button></div>
 <label>おしゃべり度<select id="talkativeness"><option value="0">控えめ — 出来事を中心に</option><option value="1">標準 — 移動中も時々</option><option value="2" selected>よく話す — 相づち・感想も</option></select></label>
 <label>キャラクター設定<textarea id="persona" rows="2" maxlength="1000">学生時代の友達が家に集まってゲームをしている雰囲気。気取らない感想と相づち、軽いツッコミ。煽りは弱め。</textarea></label>
-<label>会話履歴として送る発言数<input id="conversationHistoryCount" type="number" min="0" max="20" value="6" required></label><p class="hint">直近の発言を「友達名: 発言」の形でGeminiへ送り、同じ相づちや反応パターンへの偏りを抑えます。1回の掛け合いで2人が話した場合は2発言として数えます。0で履歴を送りません。増やすほど入力テキスト量は少し増えます。</p>
-<div class="fields"><label>API送信の最短間隔（秒）<input id="apiInterval" type="number" min="30" max="600" value="30" required></label><label>発言の最短間隔（秒）<input id="speechInterval" type="number" min="15" max="600" value="20" required></label><label>変化が少ない時の解析（秒）<input id="quietInterval" type="number" min="30" max="600" value="60" required></label></div>
+<div class="compact-setting-grid">
+<label class="compact-field"><span>会話履歴</span><span class="value-unit"><input id="conversationHistoryCount" type="number" min="0" max="20" value="6" required><span>発言</span></span></label>
+<label class="compact-field"><span>API最短間隔</span><span class="value-unit"><input id="apiInterval" type="number" min="30" max="600" value="30" required><span>秒</span></span></label>
+<label class="compact-field"><span>発言最短間隔</span><span class="value-unit"><input id="speechInterval" type="number" min="15" max="600" value="20" required><span>秒</span></span></label>
+<label class="compact-field"><span>変化が少ない時</span><span class="value-unit"><input id="quietInterval" type="number" min="30" max="600" value="60" required><span>秒</span></span></label>
+</div>
+<p class="hint compact-hint">会話履歴は0で送信しません。増やすほど直近の掛け合いを参照しやすくなります。</p>
 <details class="speaker-weight-settings"><summary>1回に話す人数の重み</summary><div class="speaker-weight-grid">
 <label>1人<input id="speakerWeight1" type="number" min="0" max="999" value="45" required></label>
 <label>2人<input id="speakerWeight2" type="number" min="0" max="999" value="35" required></label>
@@ -58,18 +63,24 @@
 <label>4人<input id="speakerWeight4" type="number" min="0" max="999" value="5" required></label>
 <label>5人<input id="speakerWeight5" type="number" min="0" max="999" value="0" required></label>
 <label>6人<input id="speakerWeight6" type="number" min="0" max="999" value="0" required></label>
-</div><p class="hint">通常実況で今回しゃべる最大人数を、この相対的な重みから毎回抽選します。合計100にする必要はありません。0は選ばない設定です。参加人数の上限を超える欄は無視します。抽選された上限を埋める必要はなく、AIが1人だけにすることもあります。</p></details>
-<div class="fields"><label class="check"><input id="greetStart" type="checkbox" checked>実況開始時に短い挨拶を入れる</label><label class="check"><input id="greetEnd" type="checkbox" checked>通常終了時に締めの挨拶を入れる</label></div><p class="hint">開始・終了の挨拶も「1回に話す人数の重み」から今回の発言人数上限を抽選し、友達ごとの声で読み上げます。抽選された上限を埋める必要はありません。「実況を終了」は締めの挨拶後に終了、「即停止」は挨拶せずすぐ停止します。</p><p class="hint">自分で停止するまで続けます。混雑・通信エラーは待って再開、認証・設定エラーは修正待ちになります。Googleの無料枠・頻度制限は別途適用されます。</p>
-<div class="freshness"><label>コメントの鮮度上限（秒）<input id="freshness" type="number" min="5" max="180" value="15" required></label><p class="hint">現在画像の取得開始からこの時間を超えたら、応答待ちを打ち切り、古いコメントは読み上げません。会話の最初の発言について、棒読みちゃんは送信完了まで、直接再生は再生開始までを判定します。開始できた掛け合いは後半も鮮度で打ち切らず再生します。</p></div>
+</div><p class="hint compact-hint">相対値で抽選します。0は選択なし。合計100にする必要はありません。</p></details>
+<div class="toggle-grid"><label class="check"><input id="greetStart" type="checkbox" checked>開始時に挨拶</label><label class="check"><input id="greetEnd" type="checkbox" checked>終了時に挨拶</label></div>
+<div class="compact-setting-grid single-row"><label class="compact-field"><span>コメントの鮮度上限</span><span class="value-unit"><input id="freshness" type="number" min="5" max="180" value="15" required><span>秒</span></span></label></div>
+<p class="hint compact-hint">上限を超えた古い応答は読み上げません。開始済みの掛け合いは最後まで再生します。</p>
 
-<details><summary>画像・通信の詳細設定</summary><div class="fields"><label>画像取得間隔（秒）<input id="sampleInterval" type="number" min="1" max="60" value="8" required></label><label>解析画像枚数<select id="analysisFrameCount"><option value="2" selected>2枚</option><option value="3">3枚</option><option value="4">4枚</option><option value="5">5枚</option><option value="6">6枚</option></select></label><label>送信画像の横幅<select id="imageWidth"><option value="320">320px</option><option value="640" selected>640px</option><option value="960">960px</option></select></label></div><p class="hint">JPEG品質75。画像取得は解析・読み上げとは独立して1〜60秒間隔で続け、取得開始時刻を基準に次回取得を予約します。常に最新2〜6枚を保持します。OBSの1回の取得自体が設定間隔より長い場合は、取得完了後すぐ次回へ進みます。枚数を増やすと場面の流れを捉えやすくなる一方、送信量と応答時間も増える場合があります。APIの通信上限は180秒。鮮度上限が先なら、その時点で待機を打ち切ります。</p></details>
+<details class="sub-settings"><summary>画像・通信の詳細設定</summary>
+<div class="compact-setting-grid">
+<label class="compact-field"><span>画像取得間隔</span><span class="value-unit"><input id="sampleInterval" type="number" min="1" max="60" value="8" required><span>秒</span></span></label>
+<label class="compact-field"><span>解析画像</span><select id="analysisFrameCount"><option value="2" selected>2枚</option><option value="3">3枚</option><option value="4">4枚</option><option value="5">5枚</option><option value="6">6枚</option></select></label>
+<label class="compact-field"><span>画像幅</span><select id="imageWidth"><option value="320">320px</option><option value="640" selected>640px</option><option value="960">960px</option></select></label>
+</div><p class="hint compact-hint">枚数・画像幅を増やすほど場面の流れを捉えやすくなりますが、送信量と応答時間も増える場合があります。</p></details>
 </div></details>
 <details class="card setting-section" id="settings-vault"><summary class="setting-summary"><span>キー・パスワードの暗号化保存</span><span id="summary-vault" class="setting-summary-value">保存なし</span></summary><div class="setting-body">
-<p class="hint">APIキーとOBSパスワードを、このブラウザに暗号化して保存します。次回は合言葉1つで解除できます。合言葉は保存しません。</p>
+<p class="hint compact-hint">APIキーとOBSパスワードだけを端末内に暗号化保存します。合言葉は保存しません。</p>
 <label>合言葉（保存時は12文字以上）<input id="vaultPass" type="password" autocomplete="off" maxlength="200"></label>
 <label>合言葉の確認（保存時のみ）<input id="vaultConfirm" type="password" autocomplete="off" maxlength="200"></label>
 <div class="actions wrap"><button type="button" id="vaultSave">暗号化して保存</button><button type="button" id="vaultUnlock">解除</button><button type="button" id="vaultLock">ロック</button><button type="button" id="vaultDelete">保存を削除</button></div>
-<p id="vaultState" class="hint" role="status">保存状態を確認中</p><p class="hint">解除中の情報はこのページから利用できます。共有PCでは使用後にロックしてください。合言葉を忘れた場合は再入力・再保存が必要です。</p></div></details>
+<p id="vaultState" class="hint" role="status">保存状態を確認中</p></div></details>
 <div class="settings-footer"><button type="button" id="save">設定を保存</button><span id="saveState" class="hint">通常の設定保存にはキー類を含めません。</span></div>
 </form></div>
 <div id="panel-friends" role="tabpanel" aria-labelledby="tab-friends" hidden>

@@ -75,3 +75,43 @@ button:focus-visible,summary:focus-visible{outline-color:var(--accent)}
   .ai-bubble{font-size:10px;padding:3px 7px 4px}
   header p{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px}
 }
+
+
+/* v3.5 compact settings layout */
+.setting-action{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 8px}
+.setting-action .hint{margin:0}
+.compact-hint{margin:5px 0 10px;line-height:1.55}
+.compact-setting-grid{display:grid;grid-template-columns:repeat(4,minmax(108px,1fr));gap:10px;margin:8px 0}
+.compact-setting-grid.single-row{grid-template-columns:minmax(190px,260px);margin-top:12px}
+.compact-field{display:flex;flex-direction:column;justify-content:space-between;gap:6px;margin:0;padding:10px 11px;border:1px solid #2b3a44;border-radius:9px;background:#111a20;color:#afbec8}
+.compact-field>span:first-child{font-size:11px;line-height:1.35}
+.compact-field input,.compact-field select{width:auto;max-width:100%;margin:0;padding:7px 8px;font-variant-numeric:tabular-nums}
+.compact-field input[type=number]{width:72px;text-align:right}
+.value-unit{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:11px}
+.value-unit input{flex:0 0 72px}
+.toggle-grid{display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin:12px 0 4px}
+.toggle-grid .check{margin:0}
+.sub-settings{margin:10px 0 4px;padding:10px 0 0}
+.sub-settings>summary{margin-bottom:8px;color:#c8d5dd}
+.speaker-weight-grid{grid-template-columns:repeat(6,minmax(64px,1fr));gap:8px}
+.speaker-weight-grid label{margin:0}
+.speaker-weight-grid input{padding:7px 8px;text-align:right}
+#profiles .friend-voice-grid{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:10px;margin:6px 0 12px}
+#profiles .friend-voice-grid label{margin:0}
+#profiles .friend-voice-grid input{max-width:140px}
+@media(max-width:1180px){
+  .compact-setting-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}
+  .speaker-weight-grid{grid-template-columns:repeat(3,minmax(70px,1fr))}
+}
+@media(max-width:520px){
+  .compact-setting-grid,.compact-setting-grid.single-row{grid-template-columns:1fr 1fr}
+  .compact-field{padding:9px}
+  .compact-field input[type=number]{width:64px}
+  .value-unit input{flex-basis:64px}
+  .speaker-weight-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #profiles .friend-voice-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:380px){
+  .compact-setting-grid,.compact-setting-grid.single-row{grid-template-columns:1fr}
+  #profiles .friend-voice-grid{grid-template-columns:1fr}
+}
