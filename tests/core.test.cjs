@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const C = require('../core.js');
 const wrap = (value, finish='STOP') => ({candidates:[{finishReason:finish,content:{parts:[{thought:true,text:'private'},{text:JSON.stringify(value)}]}}]});
 const profiles=[{id:'p1',name:'友達1',personality:'明るい'},{id:'p2',name:'友達2',personality:'落ち着いている'}];
-const analysis={speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね'}]};
+const analysis={speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね',speechText:'けしきがいいね'}]};
 test('response parsing excludes thoughts and rejects incomplete output',()=>{
   assert.deepEqual(C.parseAnalysis(wrap(analysis),profiles),analysis);
   assert.throws(()=>C.parseAnalysis(wrap(analysis,'MAX_TOKENS'),profiles));
@@ -35,12 +35,15 @@ test('analysis payload enforces sampled turn limit and carries recent speakers',
   const s={persona:'相方',talkativeness:2,profiles,turnLimit:2,recentSpeakerIds:['p1','p2','p1']};
   const payload=C.makePayload(frames,s,[],['友達1: ほんまやな','友達2: 次も見てみよか']);
   assert.equal(payload.generationConfig.responseSchema.properties.turns.maxItems,2);
+  const turnSchema=payload.generationConfig.responseSchema.properties.turns.items;
+  assert.deepEqual(turnSchema.required,['speakerId','text','speechText']);assert.equal(turnSchema.properties.speechText.type,'STRING');
   assert.ok(payload.contents[0].parts.at(-1).text.includes('今回の発言人数上限: 2人'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('p1 → p2 → p1'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('直近の会話履歴（古い順、発言者名つき）'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('友達1: ほんまやな\n友達2: 次も見てみよか'));
   assert.ok(payload.systemInstruction.parts[0].text.includes('相づちだけの返答が何度も続く会話パターンを避ける'));
   assert.ok(payload.systemInstruction.parts[0].text.includes('相づち自体は禁止せず'));
+  assert.ok(payload.systemInstruction.parts[0].text.includes('「性」が文脈上「さが」なら「さが」'));
   const tooMany={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p2',text:'二つ目だよ'},{speakerId:'p1',text:'三つ目だよ'}]};
   assert.throws(()=>C.parseAnalysis(wrap(tooMany),profiles,2));
 });
@@ -109,7 +112,7 @@ test('503 retry hint is preserved',async()=>{
 });
 test('speaker subset is accepted; inactive speakers, long text and oversized exchanges are rejected',()=>{
   assert.equal(C.parseAnalysis(wrap(analysis),profiles).turns.length,1);
-  for(const turns of [[{speakerId:'p3',text:'こんにちは'}],[{speakerId:'p1',text:'x'.repeat(81)}],Array(7).fill(analysis.turns[0])])
+  for(const turns of [[{speakerId:'p3',text:'こんにちは'}],[{speakerId:'p1',text:'x'.repeat(81)}],[{speakerId:'p1',text:'こんにちは',speechText:'x'.repeat(121)}],Array(7).fill(analysis.turns[0])])
     assert.throws(()=>C.parseAnalysis(wrap({...analysis,turns}),profiles));
   assert.throws(()=>C.parseAnalysis(wrap({...analysis,speak:false}),profiles));
 });

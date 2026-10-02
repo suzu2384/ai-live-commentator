@@ -17,7 +17,7 @@ const results=[];
  async function setup(config={}){
   const ctx=await browser.newContext({viewport:{width:1360,height:768}});const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const host=config.host||'127.0.0.1';
-  const events={images:0,api:0,analysisImages:[],turnLimits:[],promptTexts:[],talks:[],queries:0,voices:[],speeds:[],synths:0,identifies:0,unexpected:[]};let held=null;
+  const events={images:0,api:0,analysisImages:[],turnLimits:[],promptTexts:[],talks:[],queries:0,voiceTexts:[],voices:[],speeds:[],synths:0,identifies:0,unexpected:[]};let held=null;
   await page.clock.install();
   await page.route('https://**/*',async r=>{
    if(!r.request().url().startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent')){events.unexpected.push(r.request().url());return r.abort();}
@@ -35,7 +35,7 @@ const results=[];
   });
   await page.route(`http://${host}:50021/**`,async r=>{
    const u=new URL(r.request().url());
-   if(u.pathname==='/audio_query'){events.queries++;events.voices.push(u.searchParams.get('speaker'));return r.fulfill({contentType:'application/json',body:'{}'});}
+   if(u.pathname==='/audio_query'){events.queries++;events.voiceTexts.push(u.searchParams.get('text'));events.voices.push(u.searchParams.get('speaker'));return r.fulfill({contentType:'application/json',body:'{}'});}
    if(u.pathname==='/synthesis'){
     events.synths++;events.speeds.push(JSON.parse(r.request().postData()||'{}').speedScale);if(config.holdSynth || events.synths===config.holdSynthAt){held=r;return;}
     return r.fulfill({contentType:'audio/wav',body:wave(config.waveSamples)});
@@ -139,6 +139,18 @@ const results=[];
  await test('OBS authentication and preview send no Gemini request',async()=>{const x=await setup();await x.page.locator('#testObs').click();await stopped(x.page);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);await x.close();});
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
  await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await x.page.locator('#output').selectOption('voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
+ await test('speechText drives Bouyomi while the displayed comment keeps text',async()=>{
+  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがわかわらないね'}]})}]}}]};
+  const x=await setup({answer:reading});await start(x);await idle(x.page);
+  assert.deepEqual(x.events.talks,['このさがわかわらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));
+  await stop(x.page);await x.close();
+ });
+ await test('speechText drives VOICEVOX while the displayed comment keeps text',async()=>{
+  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがわかわらないね'}]})}]}}]};
+  const x=await setup({answer:reading});await x.page.locator('#output').selectOption('voicevox');await start(x);await idle(x.page);
+  assert.deepEqual(x.events.voiceTexts,['このさがわかわらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));
+  await stop(x.page);await x.close();
+ });
  await test('start greeting uses the configured speaker-count weight',async()=>{
   const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'じゃあ今日も見ていこう'}]})}]}}]};
   const x=await setup({answer:intro,before:async p=>{

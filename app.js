@@ -281,6 +281,7 @@
     await playVoicevoxAudio(audio,s,frame,signal);
     return true;
   }
+  function spokenText(turn){const value=typeof turn?.speechText==='string'&&turn.speechText.trim()?turn.speechText:turn?.text;return C.plainSpeech(String(value??''));}
   function greetingPayload(kind,s,history,maxTurns){
     maxTurns=Math.max(1,Math.min(s.profiles.length,Number(maxTurns)||1));
     const ending=kind==='end';
@@ -289,9 +290,9 @@
       ? '実況を通常終了する直前の締めの挨拶を作る。今回見えていた状況に軽く触れてもよいが、確認できない成果・勝敗・進捗は断定しない。「また見よう」「おつかれ」など自然に締める。'
       : '実況開始直後の短い挨拶を作る。まだゲーム内容を見ていないので、ゲーム名・状況・成果を推測せず、「始まったね」「今日も見ていこう」程度の自然な開始挨拶にする。';
     const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n直近の状況: ${context}\n${task}\n今回の発言人数上限は${maxTurns}人。上限を埋める必要はなく、1人だけでもよい。各5〜25文字程度の自然な口語。全員を必ず話させない。架空の思い出は作らない。`}];
-    return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。指定された開始または終了の挨拶だけを短く返す。読み上げ用の普通の日本語だけにする。'}]},
+    return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。指定された開始または終了の挨拶だけを短く返す。各turnのtextは表示用の自然な日本語、speechTextは同じ内容の読み上げ専用表記にする。speechTextでは意味や言葉を変えず、助詞や多義語など誤読しそうな箇所だけ実際の発音に合わせてひらがな・カタカナへ直す。助詞の「は」は「わ」、「へ」は「え」、「を」は「お」とし、「性」が文脈上「さが」なら「さが」とする。'}]},
       contents:[{role:'user',parts}],generationConfig:{candidateCount:1,maxOutputTokens:512,thinkingConfig:{thinkingLevel:'MINIMAL',includeThoughts:false},responseMimeType:'application/json',
-        responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:1,maxItems:maxTurns,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'}},required:['speakerId','text']}}},required:['speak','summary','turns']}}};
+        responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:1,maxItems:maxTurns,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'},speechText:{type:'STRING'}},required:['speakerId','text','speechText']}}},required:['speak','summary','turns']}}};
   }
   async function playGreetingTurns(turns,s,signal,label){
     const items=turns.map(turn=>({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)})).filter(x=>x.profile);
@@ -302,7 +303,7 @@
     };
     if(!items.length)return;
     if(s.output==='voicevox'){
-      let audio=await generateVoicevoxAudio(items[0].turn.text,{...s,...items[0].profile},null,signal);
+      let audio=await generateVoicevoxAudio(spokenText(items[0].turn),{...s,...items[0].profile},null,signal);
       for(let i=0;i<items.length;i++){
         const item=items[i],next=items[i+1];
         setStatus(next?`${label}を再生中・次の音声を先読み中`:`${label}を再生中`);
@@ -311,14 +312,14 @@
         if(next){
           prefetchController=new AbortController();
           const abort=()=>prefetchController.abort();signal.addEventListener('abort',abort,{once:true});unlink=()=>signal.removeEventListener('abort',abort);
-          prefetch=generateVoicevoxAudio(next.turn.text,{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
+          prefetch=generateVoicevoxAudio(spokenText(next.turn),{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
         }
         try{await playback;}catch(e){prefetchController?.abort();unlink?.();throw e;}
         delivered(item);
         if(prefetch){const prepared=await prefetch;unlink?.();if(prepared.error)throw prepared.error;audio=prepared.value;}
       }
     }else{
-      for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);if(!await speak(item.turn.text,{...s,...item.profile},null,signal,i>0))break;delivered(item);}
+      for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);if(!await speak(spokenText(item.turn),{...s,...item.profile},null,signal,i>0))break;delivered(item);}
     }
   }
   async function greeting(kind,runtime,signal,{tolerateFailure=false}={}){
@@ -498,7 +499,7 @@
     try{
       if(s.output==='voicevox'){
         let item=turns[0];setStatus(state.analysisInFlight?'VOICEVOXの音声生成中・裏でGemini解析中':'VOICEVOXの音声生成中');
-        let audio=await generateVoicevoxAudio(item.turn.text,{...s,...item.profile},current,signal);
+        let audio=await generateVoicevoxAudio(spokenText(item.turn),{...s,...item.profile},current,signal);
         for(let i=0;i<turns.length;i++){
           C.check(signal);item=turns[i];const next=turns[i+1];
           if(i===0){checkFresh(current,s);state.lastConversationStart=performance.now();}
@@ -509,7 +510,7 @@
           if(next){
             prefetchController=new AbortController();
             const abort=()=>prefetchController.abort();signal.addEventListener('abort',abort,{once:true});unlink=()=>signal.removeEventListener('abort',abort);
-            prefetch=generateVoicevoxAudio(next.turn.text,{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
+            prefetch=generateVoicevoxAudio(spokenText(next.turn),{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
           }
           try{await playback;}catch(e){prefetchController?.abort();unlink?.();throw e;}
           delivered(item.turn,item.profile);
@@ -518,7 +519,7 @@
       }else{
         for(const {turn,profile} of turns){
           C.check(signal);setStatus(state.analysisInFlight?'棒読みちゃんへ送信中・裏でGemini解析中':'棒読みちゃんへ送信中');
-          if(!await speak(turn.text,{...s,...profile},conversationStarted?null:current,signal,conversationStarted))break;
+          if(!await speak(spokenText(turn),{...s,...profile},conversationStarted?null:current,signal,conversationStarted))break;
           if(!conversationStarted)state.lastConversationStart=performance.now();
           delivered(turn,profile);
         }
