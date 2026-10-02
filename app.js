@@ -43,52 +43,107 @@
     updateSettingSummaries();
   }
   let contentLibrary=[];
+  function splitContentName(value){
+    const name=typeof value==='string'?value.trim():'';
+    const match=name.match(/^([^：:]+)[：:](.+)$/);
+    if(!match)return {main:name,sub:'',raw:name};
+    const main=match[1].trim(),sub=match[2].trim();
+    if(!main||!sub)return {main:name,sub:'',raw:name};
+    return {main,sub,raw:`${main}：${sub}`};
+  }
+  function normalizeContentLibrary(values){
+    const unique=[];
+    for(const value of values){
+      if(typeof value!=='string')continue;
+      const item=splitContentName(value.slice(0,100));
+      if(!item.raw)continue;
+      if(item.sub&&!unique.includes(item.main))unique.push(item.main);
+      if(!unique.includes(item.raw))unique.push(item.raw);
+    }
+    return unique;
+  }
   function loadContentLibrary(){
     try{
       const raw=JSON.parse(localStorage.getItem(contentLibraryKey)||'[]');
-      if(!Array.isArray(raw))return [];
-      const unique=[];
-      for(const value of raw){
-        if(typeof value!=='string')continue;
-        const name=value.trim().slice(0,100);
-        if(name&&!unique.includes(name))unique.push(name);
-      }
-      return unique;
+      return Array.isArray(raw)?normalizeContentLibrary(raw):[];
     }catch{return [];}
   }
   function saveContentLibrary(){
     try{localStorage.setItem(contentLibraryKey,JSON.stringify(contentLibrary));}
     catch{log('対象コンテンツ一覧を保存できませんでした。ブラウザ設定を確認してください。','warn');}
   }
+  function contentGroups(){
+    const groups=[];
+    for(const raw of contentLibrary){
+      const item=splitContentName(raw);
+      if(item.sub)continue;
+      groups.push({main:item.main,children:contentLibrary.map(splitContentName).filter(child=>child.sub&&child.main===item.main)});
+    }
+    return groups;
+  }
   function renderContentOptions(selected=$('contentName').value){
+    selected=splitContentName(selected).raw;
     const select=$('contentName');select.replaceChildren();
     const none=document.createElement('option');none.value='';none.textContent='なし';select.append(none);
-    for(const name of contentLibrary){const option=document.createElement('option');option.value=name;option.textContent=name;select.append(option);}
+    for(const group of contentGroups()){
+      const main=document.createElement('option');main.value=group.main;main.textContent=group.main;main.dataset.level='main';select.append(main);
+      for(const child of group.children){
+        const option=document.createElement('option');option.value=child.raw;option.textContent=`　${child.sub}`;option.dataset.level='sub';select.append(option);
+      }
+    }
     select.value=contentLibrary.includes(selected)?selected:'';
+  }
+  function deleteButton(name,main=false){
+    const button=document.createElement('button');button.type='button';button.className='content-delete-button';button.textContent='削除';
+    if(main)button.dataset.contentMain=name;else button.dataset.contentName=name;
+    return button;
   }
   function renderContentManageList(){
     const container=$('contentManageList');container.replaceChildren();
     if(!contentLibrary.length){
       const empty=document.createElement('p');empty.className='content-empty';empty.textContent='対象コンテンツはまだ登録されていません。';container.append(empty);return;
     }
-    for(const name of contentLibrary){
-      const row=document.createElement('div');row.className='content-manage-row';
-      const label=document.createElement('span');label.textContent=name;
-      const button=document.createElement('button');button.type='button';button.className='content-delete-button';button.textContent='削除';button.dataset.contentName=name;
-      row.append(label,button);container.append(row);
+    for(const group of contentGroups()){
+      const section=document.createElement('section');section.className='content-manage-group';
+      const mainRow=document.createElement('div');mainRow.className='content-main-row';
+      const mainLabel=document.createElement('strong');mainLabel.textContent=group.main;
+      mainRow.append(mainLabel,deleteButton(group.main,true));section.append(mainRow);
+      if(group.children.length){
+        const children=document.createElement('div');children.className='content-sub-list';
+        for(const child of group.children){
+          const row=document.createElement('div');row.className='content-sub-row';
+          const branch=document.createElement('span');branch.className='content-branch';branch.textContent='└';
+          const label=document.createElement('span');label.className='content-sub-name';label.textContent=child.sub;
+          row.append(branch,label,deleteButton(child.raw));children.append(row);
+        }
+        section.append(children);
+      }
+      container.append(section);
     }
   }
   function addContent(){
-    const input=$('newContentName'),name=input.value.trim();
-    if(!name)return;
-    if(contentLibrary.includes(name)){log(`対象コンテンツ「${name}」は登録済みです。`,'warn');input.select();return;}
-    contentLibrary.push(name);saveContentLibrary();renderContentOptions(name);renderContentManageList();input.value='';input.focus();
+    const input=$('newContentName'),item=splitContentName(input.value.slice(0,100));
+    if(!item.raw)return;
+    if(contentLibrary.includes(item.raw)){log(`対象コンテンツ「${item.raw}」は登録済みです。`,'warn');input.select();return;}
+    if(item.sub&&!contentLibrary.includes(item.main))contentLibrary.push(item.main);
+    contentLibrary.push(item.raw);contentLibrary=normalizeContentLibrary(contentLibrary);
+    saveContentLibrary();renderContentOptions(item.raw);renderContentManageList();input.value='';input.focus();
   }
   function deleteContent(name){
+    name=splitContentName(name).raw;
     if(!contentLibrary.includes(name))return;
     if(!confirm(`「${name}」を対象コンテンツ一覧から削除しますか？`))return;
     const selected=$('contentName').value;contentLibrary=contentLibrary.filter(item=>item!==name);saveContentLibrary();
     renderContentOptions(selected===name?'':selected);renderContentManageList();
+  }
+  function deleteContentMain(main){
+    const group=contentGroups().find(item=>item.main===main);if(!group)return;
+    const count=group.children.length;
+    const message=count?`「${main}」とサブ項目${count}件を削除しますか？`:`「${main}」を対象コンテンツ一覧から削除しますか？`;
+    if(!confirm(message))return;
+    const selected=splitContentName($('contentName').value);
+    contentLibrary=contentLibrary.filter(raw=>{const item=splitContentName(raw);return item.main!==main;});
+    saveContentLibrary();renderContentOptions(selected.main===main?'':selected.raw);renderContentManageList();
   }
   function openContentDialog(){renderContentManageList();$('contentDialog').showModal();setTimeout(()=>$('newContentName').focus(),0);}
   function closeContentDialog(){$('contentDialog').close();}
@@ -104,7 +159,7 @@
   function settings() {
     const s = {};
     for (const id of savedIds) s[id] = $(id).type === 'checkbox' ? $(id).checked : $(id).value.trim();
-    s.contentName=$('contentName').value.trim();
+    s.contentName=splitContentName($('contentName').value).raw;
     if(s.contentName&&!contentLibrary.includes(s.contentName))s.contentName='';
     for (const [id,[min,max]] of Object.entries(numberRules)) {
       const value = Number(s[id]);
@@ -578,7 +633,7 @@
   $('doneContentDialog').addEventListener('click',closeContentDialog);
   $('addContent').addEventListener('click',addContent);
   $('newContentName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addContent();}});
-  $('contentManageList').addEventListener('click',e=>{const button=e.target.closest('[data-content-name]');if(button)deleteContent(button.dataset.contentName);});
+  $('contentManageList').addEventListener('click',e=>{const child=e.target.closest('[data-content-name]');if(child){deleteContent(child.dataset.contentName);return;}const main=e.target.closest('[data-content-main]');if(main)deleteContentMain(main.dataset.contentMain);});
   $('contentDialog').addEventListener('click',e=>{if(e.target===$('contentDialog'))closeContentDialog();});
   $('apiKey').addEventListener('input',()=>{$('freeTier').checked=false;});$('settings').addEventListener('submit',e=>e.preventDefault());
   setInterval(()=>{
@@ -661,7 +716,7 @@
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
   contentLibrary=loadContentLibrary();renderContentOptions('');
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};for(const id of savedIds){if(stored[id]===undefined)continue;if($(id).type==='checkbox')$(id).checked=stored[id]===true;else if(['string','number'].includes(typeof stored[id]))$(id).value=stored[id];}}catch{}
-  renderContentOptions(typeof stored.contentName==='string'?stored.contentName:'');
+  renderContentOptions(typeof stored.contentName==='string'?splitContentName(stored.contentName).raw:'');
   if(stored.analysisFrameCount===undefined)$('analysisFrameCount').value='2';
   $('participantCount').value=String([1,2,3,4,5,6].includes(Number(stored.participantCount))?stored.participantCount:1);
   const profiles=Array.isArray(stored.profiles)?stored.profiles:[];

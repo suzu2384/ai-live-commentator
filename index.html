@@ -10,11 +10,11 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=4.0">
-<script src="core.js?v=4.0" defer></script><script src="vault.js?v=4.0" defer></script><script src="app.js?v=4.0" defer></script>
+<link rel="stylesheet" href="style.css?v=4.1">
+<script src="core.js?v=4.1" defer></script><script src="vault.js?v=4.1" defer></script><script src="app.js?v=4.1" defer></script>
 </head>
 <body>
-<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v4.0</span></header>
+<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v4.1</span></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -115,11 +115,11 @@
 <footer>ローカルで操作 · 画像解析はGemini API · 秘密情報は任意で端末内に暗号化保存</footer>
 </main><dialog id="contentDialog" class="content-dialog" aria-labelledby="contentDialogTitle">
   <div class="content-dialog-head">
-    <div><h2 id="contentDialogTitle">対象コンテンツを管理</h2><p>実況時に選ぶゲーム・番組・動画などを登録します。</p></div>
+    <div><h2 id="contentDialogTitle">対象コンテンツを管理</h2><p>「メイン項目：サブ項目」で階層化できます。メイン項目も選択できます。</p></div>
     <button type="button" id="closeContentDialog" class="content-dialog-close" aria-label="閉じる">×</button>
   </div>
   <div class="content-add-row">
-    <input id="newContentName" maxlength="100" placeholder="例：The Division 2" aria-label="対象コンテンツ名">
+    <input id="newContentName" maxlength="100" placeholder="例：ゲーム：The Division 2" aria-label="対象コンテンツ名">
     <button type="button" id="addContent" class="primary">＋ 追加</button>
   </div>
   <div id="contentManageList" class="content-manage-list"></div>

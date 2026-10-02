@@ -148,3 +148,19 @@ button:focus-visible,summary:focus-visible{outline-color:var(--accent)}
   .content-dialog-head,.content-add-row,.content-dialog-actions{padding-left:14px;padding-right:14px}
   .content-manage-list{padding-left:14px;padding-right:14px}
 }
+
+
+/* v4.1 hierarchical target-content management */
+.content-manage-group{margin:0 0 12px;border:1px solid var(--line);border-radius:10px;background:#111a20;overflow:hidden}
+.content-main-row,.content-sub-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px}
+.content-main-row{padding:11px 12px;background:#1b2a34}
+.content-main-row strong{font-size:13px;color:var(--text);overflow-wrap:anywhere}
+.content-sub-list{border-top:1px solid var(--line);padding:3px 0}
+.content-sub-row{grid-template-columns:18px minmax(0,1fr) auto;padding:8px 12px 8px 18px}
+.content-sub-row+.content-sub-row{border-top:1px solid #25343d}
+.content-branch{color:#617887;text-align:center}
+.content-sub-name{color:#c4d1d8;overflow-wrap:anywhere}
+.content-main-row .content-delete-button,.content-sub-row .content-delete-button{padding:5px 10px;font-size:11px}
+@media(max-width:520px){
+  .content-sub-row{padding-left:12px}
+}
