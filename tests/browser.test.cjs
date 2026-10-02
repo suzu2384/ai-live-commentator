@@ -77,6 +77,21 @@ const results=[];
   await p.setViewportSize({width:390,height:844});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/mobile.png'),fullPage:true});await x.close();
  });
+ await test('target content can be managed, selected, persisted and removed',async()=>{
+  const x=await setup();const p=x.page;
+  assert.deepEqual(await p.locator('#contentName option').allTextContents(),['なし']);
+  await p.locator('#manageContents').click();assert.equal(await p.locator('#contentDialog').getAttribute('open'),'');
+  await p.locator('#newContentName').fill('The Division 2');await p.locator('#addContent').click();
+  assert.deepEqual(await p.locator('#contentName option').allTextContents(),['なし','The Division 2']);
+  assert.equal(await p.locator('#contentName').inputValue(),'The Division 2');
+  await p.locator('#doneContentDialog').click();await p.locator('#save').click();await p.reload();
+  assert.equal(await p.locator('#contentName').inputValue(),'The Division 2');
+  assert.deepEqual(await p.locator('#contentName option').allTextContents(),['なし','The Division 2']);
+  await p.locator('details.setting-section').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+  await p.locator('#manageContents').click();p.once('dialog',d=>d.accept());await p.locator('[data-content-name="The Division 2"]').click();
+  assert.equal(await p.locator('#contentName').inputValue(),'');assert.deepEqual(await p.locator('#contentName option').allTextContents(),['なし']);
+  await x.close();
+ });
  await test('only top-level setting sections collapse and startup opens vault only',async()=>{
   const x=await setup();const p=x.page;
   await p.locator('#output').selectOption('voicevox');await p.locator('#analysisFrameCount').selectOption('4');await p.locator('#sampleInterval').fill('1');

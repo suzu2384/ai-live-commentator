@@ -44,6 +44,18 @@ test('analysis payload enforces sampled turn limit and carries recent speakers',
   const tooMany={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p2',text:'二つ目だよ'},{speakerId:'p1',text:'三つ目だよ'}]};
   assert.throws(()=>C.parseAnalysis(wrap(tooMany),profiles,2));
 });
+test('target content guidance is sent only when a content is selected',()=>{
+  const frames=[{data:'data:image/jpeg;base64,AQ=='},{data:'data:image/jpeg;base64,Ag=='}];
+  const selected=C.makePayload(frames,{persona:'相方',talkativeness:1,profiles,contentName:'The Division 2'},[],[]);
+  const selectedText=selected.contents[0].parts.at(-1).text;
+  assert.ok(selectedText.includes('現在見ている対象コンテンツは「The Division 2」'));
+  assert.ok(selectedText.includes('このコンテンツについて既知の知識があれば'));
+  assert.ok(selectedText.includes('知識を披露すること自体を目的にせず'));
+  const none=C.makePayload(frames,{persona:'相方',talkativeness:1,profiles,contentName:''},[],[]);
+  const noneText=none.contents[0].parts.at(-1).text;
+  assert.equal(noneText.includes('対象コンテンツ'),false);
+  assert.equal(noneText.includes('このコンテンツについて既知の知識があれば'),false);
+});
 test('analysis payload accepts only two to six ordered frames',()=>{
   const s={persona:'相方',talkativeness:1,profiles};
   assert.doesNotThrow(()=>C.makePayload(Array.from({length:6},(_,i)=>({data:`data:image/jpeg;base64,${Buffer.from([i]).toString('base64')}`})),s,[],[]));

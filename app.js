@@ -2,6 +2,7 @@
   'use strict';
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
+  const contentLibraryKey = 'ai-live-commentator-content-library-v1';
   const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
   const numberRules = { talkativeness:[0,2], conversationHistoryCount:[0,20], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6], speakerWeight1:[0,999], speakerWeight2:[0,999], speakerWeight3:[0,999], speakerWeight4:[0,999], speakerWeight5:[0,999], speakerWeight6:[0,999] };
   let controller = null, obs = null, audioContext = null, activeAudio = null, wakeLock = null;
@@ -41,6 +42,57 @@
     $('settings').addEventListener('change',updateSettingSummaries);
     updateSettingSummaries();
   }
+  let contentLibrary=[];
+  function loadContentLibrary(){
+    try{
+      const raw=JSON.parse(localStorage.getItem(contentLibraryKey)||'[]');
+      if(!Array.isArray(raw))return [];
+      const unique=[];
+      for(const value of raw){
+        if(typeof value!=='string')continue;
+        const name=value.trim().slice(0,100);
+        if(name&&!unique.includes(name))unique.push(name);
+      }
+      return unique;
+    }catch{return [];}
+  }
+  function saveContentLibrary(){
+    try{localStorage.setItem(contentLibraryKey,JSON.stringify(contentLibrary));}
+    catch{log('対象コンテンツ一覧を保存できませんでした。ブラウザ設定を確認してください。','warn');}
+  }
+  function renderContentOptions(selected=$('contentName').value){
+    const select=$('contentName');select.replaceChildren();
+    const none=document.createElement('option');none.value='';none.textContent='なし';select.append(none);
+    for(const name of contentLibrary){const option=document.createElement('option');option.value=name;option.textContent=name;select.append(option);}
+    select.value=contentLibrary.includes(selected)?selected:'';
+  }
+  function renderContentManageList(){
+    const container=$('contentManageList');container.replaceChildren();
+    if(!contentLibrary.length){
+      const empty=document.createElement('p');empty.className='content-empty';empty.textContent='対象コンテンツはまだ登録されていません。';container.append(empty);return;
+    }
+    for(const name of contentLibrary){
+      const row=document.createElement('div');row.className='content-manage-row';
+      const label=document.createElement('span');label.textContent=name;
+      const button=document.createElement('button');button.type='button';button.className='content-delete-button';button.textContent='削除';button.dataset.contentName=name;
+      row.append(label,button);container.append(row);
+    }
+  }
+  function addContent(){
+    const input=$('newContentName'),name=input.value.trim();
+    if(!name)return;
+    if(contentLibrary.includes(name)){log(`対象コンテンツ「${name}」は登録済みです。`,'warn');input.select();return;}
+    contentLibrary.push(name);saveContentLibrary();renderContentOptions(name);renderContentManageList();input.value='';input.focus();
+  }
+  function deleteContent(name){
+    if(!contentLibrary.includes(name))return;
+    if(!confirm(`「${name}」を対象コンテンツ一覧から削除しますか？`))return;
+    const selected=$('contentName').value;contentLibrary=contentLibrary.filter(item=>item!==name);saveContentLibrary();
+    renderContentOptions(selected===name?'':selected);renderContentManageList();
+  }
+  function openContentDialog(){renderContentManageList();$('contentDialog').showModal();setTimeout(()=>$('newContentName').focus(),0);}
+  function closeContentDialog(){$('contentDialog').close();}
+
   function settingLabel(id){
     const label=$(id).closest('label');
     if(!label)return id;
@@ -52,6 +104,8 @@
   function settings() {
     const s = {};
     for (const id of savedIds) s[id] = $(id).type === 'checkbox' ? $(id).checked : $(id).value.trim();
+    s.contentName=$('contentName').value.trim();
+    if(s.contentName&&!contentLibrary.includes(s.contentName))s.contentName='';
     for (const [id,[min,max]] of Object.entries(numberRules)) {
       const value = Number(s[id]);
       if (s[id] === '' || !Number.isInteger(value) || value < min || value > max){revealSetting(id);throw new C.AppError(`${settingLabel(id)}は${min}〜${max}の整数で指定してください。`);}
@@ -69,7 +123,7 @@
   }
   function save(s) {
     // Explicit allowlist: secrets and free-tier confirmation are never persisted.
-    const data = {...Object.fromEntries(savedIds.map(id => [id, s[id]])), participantCount:s.participantCount, profiles:s.allProfiles};
+    const data = {...Object.fromEntries(savedIds.map(id => [id, s[id]])), contentName:s.contentName, participantCount:s.participantCount, profiles:s.allProfiles};
     try { localStorage.setItem(storageKey, JSON.stringify(data)); $('saveState').textContent = '設定を保存しました。キー類の保存は「暗号化して保存」から行えます。'; }
     catch { $('saveState').textContent = 'ブラウザが保存を許可していません。このタブ内では使えます。'; }
   }
@@ -519,6 +573,13 @@
   $('save').addEventListener('click',()=>{try{const s=settings();save(s);updateStats();}catch(e){log(e.message,'warn');}});
   $('preset').addEventListener('click',()=>{for(const [id,value] of Object.entries({talkativeness:2,apiInterval:30,speechInterval:20,quietInterval:60}))$(id).value=value;updateSettingSummaries();log('よく話す設定を適用しました。「設定を保存」または「実況を開始」で保存します。');});
   $('clearLog').addEventListener('click',()=>$('log').replaceChildren());$('output').addEventListener('change',outputFields);
+  $('manageContents').addEventListener('click',openContentDialog);
+  $('closeContentDialog').addEventListener('click',closeContentDialog);
+  $('doneContentDialog').addEventListener('click',closeContentDialog);
+  $('addContent').addEventListener('click',addContent);
+  $('newContentName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addContent();}});
+  $('contentManageList').addEventListener('click',e=>{const button=e.target.closest('[data-content-name]');if(button)deleteContent(button.dataset.contentName);});
+  $('contentDialog').addEventListener('click',e=>{if(e.target===$('contentDialog'))closeContentDialog();});
   $('apiKey').addEventListener('input',()=>{$('freeTier').checked=false;});$('settings').addEventListener('submit',e=>e.preventDefault());
   setInterval(()=>{
     if(!busy){$('elapsed').textContent='';return;}
@@ -598,7 +659,9 @@
   }));
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
+  contentLibrary=loadContentLibrary();renderContentOptions('');
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};for(const id of savedIds){if(stored[id]===undefined)continue;if($(id).type==='checkbox')$(id).checked=stored[id]===true;else if(['string','number'].includes(typeof stored[id]))$(id).value=stored[id];}}catch{}
+  renderContentOptions(typeof stored.contentName==='string'?stored.contentName:'');
   if(stored.analysisFrameCount===undefined)$('analysisFrameCount').value='2';
   $('participantCount').value=String([1,2,3,4,5,6].includes(Number(stored.participantCount))?stored.participantCount:1);
   const profiles=Array.isArray(stored.profiles)?stored.profiles:[];

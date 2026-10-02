@@ -72,13 +72,17 @@
     const maxTurns=Math.max(1,Math.min(6,Number(settings.turnLimit)||6));
     const recentSpeakers=Array.isArray(settings.recentSpeakerIds)?settings.recentSpeakerIds:[];
     const recentConversation=Array.isArray(conversationHistory)?conversationHistory:[];
+    const contentName=typeof settings.contentName==='string'?settings.contentName.trim():'';
+    const contentGuidance=contentName
+      ? `\n現在見ている対象コンテンツは「${contentName}」。\nこのコンテンツについて既知の知識があれば、画面の理解や自然な会話に活用してよい。固有名詞・人物・場所・システムなども、確信できる場合は自然に使う。\n知識を披露すること自体を目的にせず、友達同士の自然な会話を優先する。`
+      : '';
     const parts = [];
     for (const [i, frame] of frames.entries()) {
       if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(frame.data)) throw new AppError('OBSの画像形式が不正です。');
       const suffix=i===0?'（最も前）':i===frames.length-1?'（現在）':'';
       parts.push({ text: `画像${i+1}${suffix}` }, { inlineData: { mimeType: 'image/jpeg', data: frame.data.split(',')[1] } });
     }
-    parts.push({ text: `共通の雰囲気: ${settings.persona}\n参加者（この中から必要な人だけ話す）: ${JSON.stringify(settings.profiles.map(({id,name,personality})=>({id,name,personality})))}\n今回の発言人数上限: ${maxTurns}人。上限を埋める必要はなく、1人だけでもよい。\n直近の話者: ${recentSpeakers.length?recentSpeakers.join(' → '):'なし'}。同じ人に偏りすぎないよう自然に話者を選ぶ。ただし状況に合う人を優先し、機械的な順番にはしない。\n最近の状況: ${history.join(' / ')}\n直近の会話履歴（古い順、発言者名つき）:\n${recentConversation.length?recentConversation.join('\n'):'なし'}\n画像1から画像${frames.length}まで古い順です。最後の画像を現在として、途中の変化も含めて判断して。` });
+    parts.push({ text: `共通の雰囲気: ${settings.persona}${contentGuidance}\n参加者（この中から必要な人だけ話す）: ${JSON.stringify(settings.profiles.map(({id,name,personality})=>({id,name,personality})))}\n今回の発言人数上限: ${maxTurns}人。上限を埋める必要はなく、1人だけでもよい。\n直近の話者: ${recentSpeakers.length?recentSpeakers.join(' → '):'なし'}。同じ人に偏りすぎないよう自然に話者を選ぶ。ただし状況に合う人を優先し、機械的な順番にはしない。\n最近の状況: ${history.join(' / ')}\n直近の会話履歴（古い順、発言者名つき）:\n${recentConversation.length?recentConversation.join('\n'):'なし'}\n画像1から画像${frames.length}まで古い順です。最後の画像を現在として、途中の変化も含めて判断して。` });
     return { systemInstruction: { parts: [{ text: instructions + speechGuidance(settings.talkativeness) }] }, contents: [{ role: 'user', parts }],
       generationConfig: { candidateCount: 1, maxOutputTokens: 1536, thinkingConfig: { thinkingLevel: 'MINIMAL', includeThoughts: false }, responseMimeType: 'application/json',
         responseSchema: { type: 'OBJECT', properties: { speak: { type: 'BOOLEAN' }, summary: { type: 'STRING' }, turns: { type: 'ARRAY', maxItems: maxTurns, items: { type: 'OBJECT', properties: { speakerId: { type: 'STRING', enum: settings.profiles.map(p=>p.id) }, text: { type: 'STRING' } }, required: ['speakerId','text'] } } }, required: ['speak', 'summary', 'turns'] } } };
