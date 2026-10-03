@@ -240,6 +240,13 @@ const results=[];
   assert.equal(await x.page.locator('#lastSpeechText').textContent(),'読み上げ：はよいこうや');
   await stop(x.page);await x.close();
  });
+ await test('source punctuation is preserved in kana speechText',async()=>{
+  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'句読点',turns:[{speakerId:'p1',text:'早よ行こうや、間に合わへんで！',speechText:'はよいこうや、まにあわへんで！'}]})}]}}]};
+  const x=await setup({answer:reading});await start(x);await idle(x.page);
+  assert.deepEqual(x.events.talks,['はよいこうや、まにあわへんで！']);
+  assert.equal(await x.page.locator('#lastSpeechText').textContent(),'読み上げ：はよいこうや、まにあわへんで！');
+  await stop(x.page);await x.close();
+ });
  await test('speechText drives Bouyomi while the displayed comment keeps text',async()=>{
   const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがわかわらないね'}]})}]}}]};
   const x=await setup({answer:reading});await start(x);await idle(x.page);
@@ -264,7 +271,8 @@ const results=[];
   await p.locator('#start').click();await idle(p);
   assert.ok(x.events.promptTexts[0].includes('speechTextはtext全文を読み仮名へ変換'));
   assert.ok(x.events.promptTexts[0].includes('漢字・英字・数字は一切含めず'));
-  assert.ok(x.events.promptTexts[0].includes('「早よ行こうや」ならspeechTextは「はよいこうや」'));
+  assert.ok(x.events.promptTexts[0].includes('同じ順序でspeechTextにも必ず残す'));
+  assert.ok(x.events.promptTexts[0].includes('「早よ行こうや、間に合わへんで！」ならspeechTextは「はよいこうや、まにあわへんで！」'));
   await stop(p);await x.close();
  });
  await test('start greeting uses the configured speaker-count weight',async()=>{

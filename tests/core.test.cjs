@@ -123,6 +123,16 @@ test('speechText must be a full kana reading with no kanji letters or digits',()
     assert.throws(()=>C.parseAnalysis(wrap(invalid),profiles));
   }
 });
+test('speechText preserves source punctuation while allowing extra Japanese commas',()=>{
+  const ok={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや、間に合わへんで！',speechText:'はよいこうや、まにあわへんで！'}]};
+  assert.equal(C.parseAnalysis(wrap(ok),profiles).turns[0].speechText,'はよいこうや、まにあわへんで！');
+  const extraComma={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや！',speechText:'はよ、いこうや！'}]};
+  assert.equal(C.parseAnalysis(wrap(extraComma),profiles).turns[0].speechText,'はよ、いこうや！');
+  for(const speechText of ['はよいこうやまにあわへんで！','はよいこうや、まにあわへんで','はよいこうや。まにあわへんで！']){
+    const invalid={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや、間に合わへんで！',speechText}]};
+    assert.throws(()=>C.parseAnalysis(wrap(invalid),profiles));
+  }
+});
 test('speaker subset is accepted; inactive speakers, long text and oversized exchanges are rejected',()=>{
   assert.equal(C.parseAnalysis(wrap(analysis),profiles).turns.length,1);
   for(const turns of [[{speakerId:'p3',text:'こんにちは'}],[{speakerId:'p1',text:'x'.repeat(81)}],[{speakerId:'p1',text:'こんにちは',speechText:'x'.repeat(121)}],Array(7).fill(analysis.turns[0])])
