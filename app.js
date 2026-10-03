@@ -486,12 +486,19 @@
     try{C.localUrl(s.obsUrl,'ws:');}catch(e){revealSetting('obsUrl');throw e;}
     const id=s.output==='bouyomi'?'bouyomiUrl':'voicevoxUrl';try{C.localUrl(s[id],'http:');}catch(e){revealSetting(id);throw e;}
   }
-  async function waitRecovery(ms,signal){
+  async function waitRecovery(ms,signal,label='自動再開まで'){
     const until=performance.now()+ms;
     while(performance.now()<until){
-      C.check(signal);setStatus(`自動再開まで ${Math.ceil((until-performance.now())/1000)}秒`);
+      C.check(signal);setStatus(`${label} ${Math.ceil((until-performance.now())/1000)}秒`);
       await C.sleep(Math.min(1000,until-performance.now()),signal);
     }
+  }
+  function retryHintNote(error){
+    if(error?.code!=='429'||!Number.isFinite(error.retryAfter)||error.retryAfter<=0)return '';
+    const seconds=Math.ceil(error.retryAfter/1000),source=error.retrySource||'サーバー';
+    return error.retryAfter>300000
+      ? ` ${source}の待機指示は約${seconds}秒ですが、配信継続のため自動再試行は最大300秒間隔に制限します。`
+      : ` ${source}の待機指示は約${seconds}秒です。`;
   }
   async function captureLoop(s,state,signal) {
     const interval=s.sampleInterval*1000;
@@ -539,6 +546,7 @@
       const speechEpochAtStart=state.speechEpoch,startedDuringSpeech=state.speaking;
       try {
         const result=await analyze(frames,s,key,history,spoken,speakerHistory,state,signal,quietMode);
+        state.rateLimitStreak=0;
         state.analysisVersion++;
         if(result.summary){history.push(result.summary);if(history.length>6)history.shift();}
         const candidate={result,frame:current,version:state.analysisVersion,prefetchedDuringSpeech:startedDuringSpeech||state.speaking||state.speechEpoch!==speechEpochAtStart};
@@ -560,10 +568,14 @@
           state.lastAnalysis=-Infinity;
           setStatus('鮮度切れ・最新映像で再解析中');
         } else {
+          if(e.code==='429')state.rateLimitStreak=(state.rateLimitStreak||0)+1;
+          else state.rateLimitStreak=0;
           log(e.message,'warn');
-          const delay=C.recoveryDelay(e);
-          log(`${Math.ceil(delay/1000)}秒待機し、その間も映像取得と読み上げを継続して最新映像で再開します。停止ボタンで終了できます。`,'warn');
-          await C.sleep(delay,signal);state.lastAnalysis=-Infinity;
+          const delay=C.recoveryDelay(e,state.rateLimitStreak);
+          const note=retryHintNote(e);
+          log(`${Math.ceil(delay/1000)}秒待機し、その間も映像取得と読み上げを継続して最新映像で再開します。停止ボタンで終了できます。${note}`,'warn');
+          await waitRecovery(delay,signal,e.code==='429'?'頻度制限・再試行まで':'自動再開まで');
+          state.lastAnalysis=-Infinity;
         }
       } finally {
         state.analysisInFlight=false;
@@ -715,7 +727,7 @@
   $('start').addEventListener('click',()=>operation(async signal=>{
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();$('latency').textContent='—';
-    const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,speechEpoch:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
+    const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,speechEpoch:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],rateLimitStreak:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
     streaming=true;$('finish').disabled=true;
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}

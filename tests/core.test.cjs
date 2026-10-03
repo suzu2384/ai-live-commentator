@@ -126,13 +126,18 @@ test('user stop stays cancellation, including during recovery sleep',async()=>{
   const ac=new AbortController();const p=C.deadline(token=>C.sleep(10000,token),10000,ac.signal,'timeout');ac.abort();await assert.rejects(p,{name:'AbortError'});
   const ac2=new AbortController();const waiting=C.sleep(30000,ac2.signal);ac2.abort();await assert.rejects(waiting,{name:'AbortError'});
 });
-test('fixed short cooldown never grows; server retry hints override it',()=>{
+test('429 retries use bounded backoff while other transient hints are preserved',()=>{
   for(let i=0;i<100;i++)assert.equal(C.recoveryDelay({code:'503'}),5000);
   assert.equal(C.recoveryDelay({code:'NETWORK'}),5000);
   assert.equal(C.recoveryDelay({code:'STALE'}),0);
-  assert.equal(C.recoveryDelay({code:'429'}),30000);
+  assert.equal(C.recoveryDelay({code:'429'},1),30000);
+  assert.equal(C.recoveryDelay({code:'429'},2),60000);
+  assert.equal(C.recoveryDelay({code:'429'},3),120000);
+  assert.equal(C.recoveryDelay({code:'429'},4),300000);
+  assert.equal(C.recoveryDelay({code:'429'},10),300000);
+  assert.equal(C.recoveryDelay({code:'429',retryAfter:3600000},1),300000);
+  assert.equal(C.recoveryDelay({code:'429',retryAfter:45000},1),45000);
   assert.equal(C.recoveryDelay({code:'503',retryAfter:120000}),120000);
-  assert.equal(C.recoveryDelay({code:'429',retryAfter:3600000}),3600000);
   assert.equal(C.needsSettings({code:'AUTH'}),true);
   assert.equal(C.needsSettings({code:'503'}),false);
 });
@@ -159,8 +164,13 @@ test('speaker subset is accepted; inactive speakers, long text and oversized exc
     assert.throws(()=>C.parseAnalysis(wrap({...analysis,turns}),profiles));
   assert.throws(()=>C.parseAnalysis(wrap({...analysis,speak:false}),profiles));
 });
-test('429 reads Retry-After and RetryInfo without echoing response details',async()=>{
-  await assert.rejects(C.gemini('test',{},undefined,async()=>({status:429,ok:false,headers:{get:()=> '1200'},json:async()=>({error:{details:[{'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay:'1500s'}]}})})),e=>e.code==='429'&&e.retryAfter===1500000);
+test('429 prefers structured RetryInfo over Retry-After and keeps both diagnostics',async()=>{
+  await assert.rejects(C.gemini('test',{},undefined,async()=>({status:429,ok:false,headers:{get:()=> '61475'},json:async()=>({error:{details:[{'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay:'61.475s'}]}})})),e=>
+    e.code==='429'&&e.retryAfter===61475&&e.retryAfterInfo===61475&&e.retryAfterHeader===61475000&&e.retrySource==='RetryInfo');
+});
+test('429 falls back to Retry-After but recovery caps absurdly long server hints',async()=>{
+  let error;try{await C.gemini('test',{},undefined,async()=>({status:429,ok:false,headers:{get:()=> '61475'},json:async()=>({error:{details:[]}})}));}catch(e){error=e;}
+  assert.equal(error.retryAfter,61475000);assert.equal(error.retrySource,'Retry-After');assert.equal(C.recoveryDelay(error,1),300000);
 });
 test('plain speech strips executable tag and plugin syntax',()=>{
   assert.equal(C.plainSpeech('v)（音声ファイル C:\\evil.wav）<script>'), 'v音声ファイル Cevil.wavscript');

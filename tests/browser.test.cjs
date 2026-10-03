@@ -401,9 +401,20 @@ const results=[];
  });
  await test('stop cancels pending analysis, with no late speech',async()=>{const x=await setup({hold:true,max:20});await start(x);await x.page.waitForFunction(()=>document.getElementById('status').textContent==='Geminiの応答待ち');await x.page.locator('#stop').click();await stopped(x.page);await x.held()?.fulfill({contentType:'application/json',body:JSON.stringify(answer)}).catch(()=>{});assert.equal(x.events.talks.length,0);assert.equal(x.events.api,1);await x.close();});
  await test('429 backs off without stopping; stop cancels waiting',async()=>{
-  const x=await setup({status:429});await start(x);await recovery(x.page);assert.equal(x.events.api,1);
+  const x=await setup({status:429});await start(x);await x.page.waitForFunction(()=>document.getElementById('status').textContent.includes('頻度制限・再試行まで'));assert.equal(x.events.api,1);
   await x.page.clock.fastForward(29000);assert.equal(x.events.api,1);assert.equal(await x.page.locator('#stop').isEnabled(),true);
   await stop(x.page);await x.page.clock.fastForward(900000);assert.equal(x.events.api,1);await x.close();
+ });
+ await test('repeated 429 retries at 30 then 60 seconds and resumes after success',async()=>{
+  const x=await setup({status:429,failCount:2});const p=x.page;await start(x);
+  await p.waitForFunction(()=>document.getElementById('status').textContent.includes('頻度制限・再試行まで'));assert.equal(x.events.api,1);
+  await p.clock.fastForward(31000);
+  for(let i=0;i<200&&x.events.api<2;i++)await new Promise(r=>setTimeout(r,10));
+  assert.equal(x.events.api,2);await p.waitForFunction(()=>document.getElementById('status').textContent.includes('頻度制限・再試行まで'));
+  await p.clock.fastForward(61000);
+  for(let i=0;i<300&&x.events.api<3;i++)await new Promise(r=>setTimeout(r,10));
+  assert.equal(x.events.api,3);await idle(p);assert.deepEqual(x.events.talks,['景色がいいね']);
+  await stop(p);await x.close();
  });
  await test('503 retries at a fixed 5 seconds while capture keeps refreshing frames',async()=>{
   const x=await setup({status:503,failCount:4});const p=x.page;await start(x);await recovery(p);

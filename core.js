@@ -150,10 +150,17 @@
     if (r.status === 429 || r.status >= 500) {
       const error = new AppError(r.status === 429 ? 'Geminiの利用上限・頻度制限です（HTTP 429）。' : `Geminiが一時的に利用できません（HTTP ${r.status}）。`, String(r.status));
       const header = r.headers?.get('retry-after');
-      error.retryAfter = header ? (/^\d+$/.test(header) ? Number(header)*1000 : Math.max(0,Date.parse(header)-Date.now())) : 0;
+      const headerMs=header ? (/^\d+$/.test(header) ? Number(header)*1000 : Math.max(0,Date.parse(header)-Date.now())) : 0;
+      let retryInfoMs=0;
       try { const body=await r.json(); for (const d of body.error?.details || []) {
-        if (d['@type']==='type.googleapis.com/google.rpc.RetryInfo' && /^\d+(\.\d+)?s$/.test(d.retryDelay)) error.retryAfter=Math.max(error.retryAfter||0,parseFloat(d.retryDelay)*1000);
-      } } catch {} check(signal); throw error;
+        if (d['@type']==='type.googleapis.com/google.rpc.RetryInfo' && /^\d+(\.\d+)?s$/.test(d.retryDelay)) retryInfoMs=Math.max(retryInfoMs,parseFloat(d.retryDelay)*1000);
+      } } catch {}
+      error.retryAfterHeader=Number.isFinite(headerMs)?headerMs:0;
+      error.retryAfterInfo=Number.isFinite(retryInfoMs)?retryInfoMs:0;
+      // RetryInfo is the structured Google hint. Prefer it over Retry-After when both exist.
+      error.retryAfter=error.retryAfterInfo||error.retryAfterHeader||0;
+      error.retrySource=error.retryAfterInfo?'RetryInfo':error.retryAfterHeader?'Retry-After':'';
+      check(signal); throw error;
     }
     if ([401, 403].includes(r.status)) throw new AppError('Geminiの認証・権限エラーです。APIキーとプロジェクト設定を確認してください。', 'AUTH');
     if (r.status === 404) throw new AppError(`${MODEL}を利用できません。別モデルには切り替えません。`, '404');
@@ -172,12 +179,18 @@
     if (result.turns.every(t=>spoken.includes(t.text))) return '直近と同じ発言';
     return '';
   }
-  function recoveryDelay(error) {
+  function recoveryDelay(error, consecutive429=1) {
     // Stale analysis should immediately restart from the newest frame.
     if(error.code==='STALE')return 0;
-    // Fixed cooldown; repeated failures never extend it. Server retry hints take priority.
-    return Math.max(error.code === '429' ? 30000 : 5000,
-      Number.isFinite(error.retryAfter) ? error.retryAfter : 0);
+    if(error.code==='429'){
+      // Long-running stream: keep retrying, but back off to avoid a tight retry loop.
+      const step=Math.max(1,Math.floor(Number(consecutive429)||1));
+      const schedule=[30000,60000,120000,300000];
+      const base=schedule[Math.min(step-1,schedule.length-1)];
+      const hinted=Number.isFinite(error.retryAfter)?Math.max(0,error.retryAfter):0;
+      return Math.max(base,Math.min(hinted,300000));
+    }
+    return Math.max(5000,Number.isFinite(error.retryAfter)?error.retryAfter:0);
   }
   function needsSettings(error) {
     return ['CONFIG','AUTH','404','400','401','403','OBS_AUTH','OBS_SOURCE'].includes(error.code);
