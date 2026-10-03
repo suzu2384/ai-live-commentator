@@ -357,7 +357,7 @@
       ? '実況を通常終了する直前の締めの挨拶を作る。今回見えていた状況に軽く触れてもよいが、確認できない成果・勝敗・進捗は断定しない。「また見よう」「おつかれ」など自然に締める。'
       : '実況開始直後の短い挨拶を作る。まだゲーム内容を見ていないので、ゲーム名・状況・成果を推測せず、「始まったね」「今日も見ていこう」程度の自然な開始挨拶にする。';
     const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n直近の状況: ${context}\n${task}\n今回の発言人数は${turnCount}人。speak=trueの場合は異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。話す必要がない場合だけspeak=false、turns=[]にする。各5〜25文字程度の自然な口語。架空の思い出は作らない。`}];
-    return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。指定された開始または終了の挨拶だけを短く返す。各turnのtextは表示用の自然な日本語、speechTextは同じ内容の読み上げ専用表記にする。speechTextは原則としてtextと同じ表記を使い、意味や言葉を変えない。固有名詞・多義語・特殊な読みなど、誤読しそうな単語だけ必要に応じてひらがな・カタカナへ直す。助詞の「は」「へ」「を」は表記を変更しない。「性」が文脈上「さが」なら単語だけ「さが」とする。'}]},
+    return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。指定された開始または終了の挨拶だけを短く返す。各turnのtextは表示用の自然な日本語、speechTextは同じ内容を実際に声に出すとおりの読みだけで書く。speechTextはtext全文を読み仮名へ変換し、内容・意味・口調・言葉は変えない。漢字・英字・数字は一切含めず、ひらがな・カタカナ・長音・空白・句読点だけを使う。表記上の綴りではなく実際の発音を書く。方言や崩した言い方も実際の読みへ直す。たとえばtextが「早よ行こうや」ならspeechTextは「はよいこうや」とする。英字や数字を含む語も実際の読みをかなで書く。'}]},
       contents:[{role:'user',parts}],generationConfig:{candidateCount:1,maxOutputTokens:512,thinkingConfig:{thinkingLevel:'MINIMAL',includeThoughts:false},responseMimeType:'application/json',
         responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',maxItems:turnCount,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'},speechText:{type:'STRING'}},required:['speakerId','text','speechText']}}},required:['speak','summary','turns']}}};
   }

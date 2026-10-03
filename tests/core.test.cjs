@@ -43,13 +43,13 @@ test('analysis payload requires the sampled speaker count and carries recent spe
   assert.ok(payload.contents[0].parts.at(-1).text.includes('友達1: ほんまやな\n友達2: 次も見てみよか'));
   assert.ok(payload.systemInstruction.parts[0].text.includes('相づちだけの返答が何度も続く会話パターンを避ける'));
   assert.ok(payload.systemInstruction.parts[0].text.includes('相づち自体は禁止せず'));
-  assert.ok(payload.systemInstruction.parts[0].text.includes('助詞の「は」「へ」「を」は表記を変更せず、そのまま残す'));
-  assert.ok(payload.systemInstruction.parts[0].text.includes('「性」が文脈上「さが」なら単語だけ「さが」'));
-  assert.ok(!payload.systemInstruction.parts[0].text.includes('助詞の「は」は「わ」'));
-  const exactTwo={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p2',text:'二つ目だよ'}]};
+  assert.ok(payload.systemInstruction.parts[0].text.includes('speechTextはtext全文を読み仮名へ変換'));
+  assert.ok(payload.systemInstruction.parts[0].text.includes('漢字・英字・数字は一切含めず'));
+  assert.ok(payload.systemInstruction.parts[0].text.includes('「早よ行こうや」ならspeechTextは「はよいこうや」'));
+  const exactTwo={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ',speechText:'ひとつめだよ'},{speakerId:'p2',text:'二つ目だよ',speechText:'ふたつめだよ'}]};
   assert.equal(C.parseAnalysis(wrap(exactTwo),profiles,2).turns.length,2);
   assert.throws(()=>C.parseAnalysis(wrap(analysis),profiles,2));
-  const duplicate={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p1',text:'二つ目だよ'}]};
+  const duplicate={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ',speechText:'ひとつめだよ'},{speakerId:'p1',text:'二つ目だよ',speechText:'ふたつめだよ'}]};
   assert.throws(()=>C.parseAnalysis(wrap(duplicate),profiles,2));
 });
 test('target content guidance is sent only when a content is selected',()=>{
@@ -114,6 +114,14 @@ test('fixed short cooldown never grows; server retry hints override it',()=>{
 });
 test('503 retry hint is preserved',async()=>{
   await assert.rejects(C.gemini('test',{},undefined,async()=>({status:503,ok:false,headers:{get:()=> '20'},json:async()=>({})})),e=>e.code==='503'&&e.retryAfter===20000);
+});
+test('speechText must be a full kana reading with no kanji letters or digits',()=>{
+  const dialect={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや',speechText:'はよいこうや'}]};
+  assert.equal(C.parseAnalysis(wrap(dialect),profiles).turns[0].speechText,'はよいこうや');
+  for(const speechText of ['早よいこうや','HPひくいで','あと3かい','']){
+    const invalid={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや',speechText}]};
+    assert.throws(()=>C.parseAnalysis(wrap(invalid),profiles));
+  }
 });
 test('speaker subset is accepted; inactive speakers, long text and oversized exchanges are rejected',()=>{
   assert.equal(C.parseAnalysis(wrap(analysis),profiles).turns.length,1);
