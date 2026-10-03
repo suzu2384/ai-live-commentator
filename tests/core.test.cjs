@@ -134,14 +134,10 @@ test('speechText must be a full kana reading with no kanji letters or digits',()
     assert.throws(()=>C.parseAnalysis(wrap(invalid),profiles));
   }
 });
-test('speechText preserves source punctuation while allowing extra Japanese commas',()=>{
-  const ok={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや、間に合わへんで！',speechText:'はよいこうや、まにあわへんで！'}]};
-  assert.equal(C.parseAnalysis(wrap(ok),profiles).turns[0].speechText,'はよいこうや、まにあわへんで！');
-  const extraComma={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや！',speechText:'はよ、いこうや！'}]};
-  assert.equal(C.parseAnalysis(wrap(extraComma),profiles).turns[0].speechText,'はよ、いこうや！');
-  for(const speechText of ['はよいこうやまにあわへんで！','はよいこうや、まにあわへんで','はよいこうや。まにあわへんで！']){
-    const invalid={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや、間に合わへんで！',speechText}]};
-    assert.throws(()=>C.parseAnalysis(wrap(invalid),profiles));
+test('speechText punctuation differences are accepted instead of dropping the comment',()=>{
+  for(const speechText of ['はよいこうや、まにあわへんで！','はよいこうやまにあわへんで！','はよいこうや、まにあわへんで','はよいこうや。まにあわへんで！']){
+    const response={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや、間に合わへんで！',speechText}]};
+    assert.equal(C.parseAnalysis(wrap(response),profiles).turns[0].speechText,speechText);
   }
 });
 test('speaker subset is accepted; inactive speakers, long text and oversized exchanges are rejected',()=>{

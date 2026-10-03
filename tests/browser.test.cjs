@@ -240,6 +240,14 @@ const results=[];
   assert.equal(await x.page.locator('#lastSpeechText').textContent(),'読み上げ：はよいこうや');
   await stop(x.page);await x.close();
  });
+ await test('missing punctuation in speechText is still read instead of rejected',async()=>{
+  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'句読点なし',turns:[{speakerId:'p1',text:'早よ行こうや、間に合わへんで！',speechText:'はよいこうやまにあわへんで'}]})}]}}]};
+  const x=await setup({answer:reading});await start(x);await idle(x.page);
+  assert.deepEqual(x.events.talks,['はよいこうやまにあわへんで']);
+  assert.equal(await x.page.locator('#lastSpeechText').textContent(),'読み上げ：はよいこうやまにあわへんで');
+  assert.ok(!(await x.page.locator('#log').innerText()).includes('句読点が欠落'));
+  await stop(x.page);await x.close();
+ });
  await test('source punctuation is preserved in kana speechText',async()=>{
   const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'句読点',turns:[{speakerId:'p1',text:'早よ行こうや、間に合わへんで！',speechText:'はよいこうや、まにあわへんで！'}]})}]}}]};
   const x=await setup({answer:reading});await start(x);await idle(x.page);

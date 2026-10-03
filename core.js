@@ -110,16 +110,6 @@
     if (!text.trim()) throw new AppError('Geminiから空の応答が返りました。', 'RESPONSE');
     return text;
   }
-  function preservesSpeechPunctuation(text,speechText) {
-    const marks=value=>[...String(value)].filter(c=>'、。！？!?'.includes(c));
-    const required=marks(text),actual=marks(speechText);let i=0;
-    for(const mark of actual){
-      if(i<required.length&&mark===required[i]){i++;continue;}
-      if(mark==='、')continue;
-      return false;
-    }
-    return i===required.length;
-  }
   function parseAnalysis(body, profiles, expectedTurns=null, forceSpeak=false) {
     const raw = candidateText(body); if (raw === null) return { speak: false, summary: '安全フィルターにより見送り', turns: [] };
     let a; try { a = JSON.parse(raw); } catch { throw new AppError('Geminiの応答形式が不正です。今回は読み上げません。', 'RESPONSE'); }
@@ -141,8 +131,6 @@
       if(speechText.length<2||speechText.length>120)throw new AppError('読み上げ用テキストの長さが設定範囲外です。今回は読み上げません。','RESPONSE');
       if(!/^[ぁ-ゖゝゞゟァ-ヺヽヾヿー\s、。！？!?〜～・…,.]+$/u.test(speechText))
         throw new AppError('Geminiの読み上げ用テキストに漢字・英数字などが含まれています。今回は読み上げません。','RESPONSE');
-      if(!preservesSpeechPunctuation(text,speechText))
-        throw new AppError('Geminiの読み上げ用テキストから元の句読点が欠落・変更しています。今回は読み上げません。','RESPONSE');
       return { speakerId:t.speakerId, text, speechText };
     });
     if(new Set(turns.map(t=>t.speakerId)).size!==turns.length)
