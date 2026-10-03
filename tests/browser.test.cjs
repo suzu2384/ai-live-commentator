@@ -402,7 +402,8 @@ const results=[];
   assert.ok(html.includes('class="bubble"'));assert.ok(html.includes('.bubble:before'));assert.ok(html.includes('.bubble:after'));
   assert.ok(html.includes('width:fit-content'));assert.ok(html.includes('max-width:100%'));
   assert.ok(html.includes('clip-path:polygon(0 0,100% 0,50% 100%)'));
-  assert.ok(html.includes('-webkit-text-stroke:2px #163d4e'));
+  assert.ok(html.includes('-webkit-text-stroke:3px #0f2935'));
+  assert.ok(html.includes('paint-order:stroke fill'));
   assert.ok(html.includes('font-weight:700'));
   assert.ok(html.includes('"Meiryo"'));assert.ok(html.includes('景色がいいね'));
   assert.equal(html.includes('class="name"'),false);
@@ -419,6 +420,21 @@ const results=[];
   assert.deepEqual(fonts,['Meiryo']);
   await x.close();
  });
+ await test('OBS bubble forces long comments into at most two explicit non-wrapping lines',async()=>{
+  const longAnswer={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'長文',turns:[{speakerId:'p1',text:'この先の景色もかなり変わってきたしそろそろ何かありそうな感じするね'}]})}]}}]};
+  const x=await setup({answer:longAnswer,before:async p=>{
+    await p.locator('#tab-connect').click();await p.locator('#obsOverlayEnabled').check();await p.locator('#tab-live').click();
+  }});const p=x.page;
+  await start(x);await idle(p);
+  for(let i=0;i<200&&!x.events.overlayUrls.length;i++)await new Promise(r=>setTimeout(r,10));
+  const html=decodeURIComponent(x.events.overlayUrls[0].slice(x.events.overlayUrls[0].indexOf(',')+1));
+  assert.equal((html.match(/class="line"/g)||[]).length,2);
+  assert.ok(html.includes('.line{display:block;white-space:nowrap}'));
+  const create=x.events.obsRequests.find(r=>r.type==='CreateInput'&&r.data.inputName==='みんコメ 吹き出し');
+  assert.ok(create.data.inputSettings.width>700);
+  assert.ok(create.data.inputSettings.height>=420);
+  await stop(p);await x.close();
+ });
  await test('OBS bubble shows friend name by default and saves font/name preferences',async()=>{
   const x=await setup();const p=x.page;
   await p.locator('#tab-connect').click();
@@ -431,7 +447,7 @@ const results=[];
   for(let i=0;i<200&&!x.events.overlayUrls.length;i++)await new Promise(r=>setTimeout(r,10));
   const html=decodeURIComponent(x.events.overlayUrls[0].slice(x.events.overlayUrls[0].indexOf(',')+1));
   assert.ok(html.includes('class="name"'));assert.ok(html.includes('友達1'));
-  assert.ok(html.includes('font-weight:400'));assert.ok(html.includes('-webkit-text-stroke:2px #163d4e'));
+  assert.ok(html.includes('font-weight:400'));assert.ok(html.includes('-webkit-text-stroke:3px #0f2935'));
   await stopped(p);await x.close();
  });
  await test('OBS font manager adds and removes custom font names',async()=>{

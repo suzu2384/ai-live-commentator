@@ -17,11 +17,11 @@ try{
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=4.30">
-<script src="core.js?v=4.30" defer></script><script src="vault.js?v=4.30" defer></script><script src="app.js?v=4.30" defer></script>
+<link rel="stylesheet" href="style.css?v=4.31">
+<script src="core.js?v=4.31" defer></script><script src="vault.js?v=4.31" defer></script><script src="app.js?v=4.31" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.png?v=4.30" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.30</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.png?v=4.31" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.31</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -120,7 +120,7 @@ try{
 </div>
 <label class="check"><input id="obsOverlayShowName" type="checkbox" checked>友達の名前を表示</label>
 <label class="check"><input id="obsOverlayBold" type="checkbox">文字を太字</label>
-<p class="hint compact-hint">現在シーンに「みんコメ 吹き出し」という Browser Source を自動作成・追加します。短文は1行を優先し、長文はBrowser Source自体を横に広げて原則2行程度に収めます。文字には友達色を濃くしたエッジを付け、太字は任意です。しっぽにも吹き出し本体と同じ縁を付けます。フォントは「管理」からOBS側PCに入っているフォント名を自分で登録できます。</p>
+<p class="hint compact-hint">現在シーンに「みんコメ 吹き出し」という Browser Source を自動作成・追加します。短文は1行、長文は最大2行に明示分割し、長い方の行に合わせてBrowser Source自体を横に広げます。文字には友達色をさらに濃くした太めのエッジを付け、太字は任意です。しっぽにも吹き出し本体と同じ縁を付けます。フォントは「管理」からOBS側PCに入っているフォント名を自分で登録できます。</p>
 <div class="setting-action"><button type="button" id="testObsOverlay">コメント表示テスト</button><span class="hint">Geminiは使いません</span></div>
 </div></section></div></details>
 <details class="card setting-section" id="settings-ai"><summary class="setting-summary"><span>Gemini</span><span id="summary-ai" class="setting-summary-value">APIキー未入力</span></summary><div class="setting-body">

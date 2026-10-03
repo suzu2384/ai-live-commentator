@@ -416,7 +416,7 @@
     const index=Math.max(0,Math.min(5,(Number(String(profile?.id||'').replace(/^p/,''))||1)-1));
     return obsOverlayColors[index];
   }
-  function darkenHex(hex,factor=.48){
+  function darkenHex(hex,factor=.32){
     const n=parseInt(String(hex).replace('#',''),16);
     if(!Number.isFinite(n))return '#20242a';
     const c=shift=>Math.max(0,Math.min(255,Math.round(((n>>shift)&255)*factor)));
@@ -430,10 +430,22 @@
     const name=normalizeFontName(value);
     return name?`"${name}",system-ui,-apple-system,"Segoe UI",sans-serif`:'system-ui,-apple-system,"Segoe UI",sans-serif';
   }
+  function splitBubbleLines(text){
+    const chars=Array.from(String(text??'').trim());
+    if(chars.length<=18)return [chars.join('')];
+    const mid=Math.ceil(chars.length/2);
+    let cut=mid;
+    for(let distance=0;distance<=6;distance++){
+      const candidates=[mid+distance,mid-distance];
+      const found=candidates.find(i=>i>3&&i<chars.length-3&&/[、。！？!? 　]/u.test(chars[i-1]));
+      if(found!==undefined){cut=found;break;}
+    }
+    return [chars.slice(0,cut).join('').trim(),chars.slice(cut).join('').trim()].filter(Boolean).slice(0,2);
+  }
   function obsBubbleDocument(profile,turn,s){
     const color=obsOverlayColor(profile),edgeColor=darkenHex(color),fontSize=s.obsOverlayFontSize,fontFamily=obsOverlayFontFamily(s.obsOverlayFont);
     const fontWeight=s.obsOverlayBold?700:400;
-    const stroke=Math.max(1,Math.min(3,Math.round(fontSize*.045)));
+    const stroke=Math.max(2,Math.min(5,Math.round(fontSize*.075)));
     const nameSize=Math.max(15,Math.round(fontSize*.48));
     const radius=Math.max(20,Math.round(fontSize*.72));
     const position=String(s.obsOverlayPosition||'bottom-left');
@@ -443,16 +455,18 @@
     const outerPos=tailCenter?'left:50%;transform:translateX(-50%);':tailRight?'right:52px;':'left:52px;';
     const innerPos=tailCenter?'left:50%;transform:translateX(-50%);':tailRight?'right:55px;':'left:55px;';
     const nameHtml=s.obsOverlayShowName?`<div class="name">${escapeHtml(profile.name)}</div>`:'';
+    const textHtml=splitBubbleLines(turn.text).map(line=>`<span class="line">${escapeHtml(line)}</span>`).join('');
     return `<!doctype html><html><head><meta charset="utf-8"><style>
 html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:${fontFamily}}
-body{box-sizing:border-box;padding:24px 8px 48px;display:flex;align-items:${vertical};justify-content:${horizontal}}
+body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${vertical};justify-content:${horizontal}}
 .bubble{position:relative;display:inline-block;width:fit-content;max-width:100%;min-width:0;box-sizing:border-box;padding:${Math.max(18,Math.round(fontSize*.5))}px ${Math.max(24,Math.round(fontSize*.72))}px;border-radius:${radius}px;background:${color}e8;border:2px solid rgba(255,255,255,.34);box-shadow:0 10px 28px rgba(0,0,0,.35);color:#fff}
 .bubble:before{content:"";position:absolute;bottom:-31px;${outerPos}width:42px;height:31px;background:rgba(255,255,255,.34);clip-path:polygon(0 0,100% 0,50% 100%)}
 .bubble:after{content:"";position:absolute;bottom:-26px;${innerPos}width:36px;height:27px;background:${color};clip-path:polygon(0 0,100% 0,50% 100%)}
-.name,.text{font-weight:${fontWeight};-webkit-text-stroke:${stroke}px ${edgeColor};paint-order:stroke fill;text-shadow:0 2px 3px ${edgeColor}aa}
-.name{font-size:${nameSize}px;line-height:1.15;opacity:.92;margin-bottom:6px;white-space:nowrap}
-.text{font-size:${fontSize}px;line-height:1.28;letter-spacing:.01em;overflow-wrap:anywhere;word-break:break-word}
-</style></head><body><div class="bubble">${nameHtml}<div class="text">${escapeHtml(turn.text)}</div></div></body></html>`;
+.name,.text{font-weight:${fontWeight};-webkit-text-stroke:${stroke}px ${edgeColor};paint-order:stroke fill;text-shadow:0 2px 2px rgba(0,0,0,.32)}
+.name{font-size:${nameSize}px;line-height:1.15;opacity:.96;margin-bottom:6px;white-space:nowrap}
+.text{font-size:${fontSize}px;line-height:1.24;letter-spacing:0}
+.line{display:block;white-space:nowrap}
+</style></head><body><div class="bubble">${nameHtml}<div class="text">${textHtml}</div></div></body></html>`;
   }
   function obsOverlayGeometry(position,baseWidth,baseHeight,boxWidth,boxHeight){
     const margin=Math.max(20,Math.round(Math.min(baseWidth,baseHeight)*0.035));
@@ -514,17 +528,17 @@ body{box-sizing:border-box;padding:24px 8px 48px;display:flex;align-items:${vert
     const browserKind=existing?.inputKind||kinds.find(k=>String(k).startsWith('browser_source'));
     if(!browserKind)throw new C.AppError('OBSで Browser Source を利用できません。OBSのBrowser Source機能を確認してください。','OBS_OVERLAY');
     const baseWidth=Number(video.baseWidth)||1920,baseHeight=Number(video.baseHeight)||1080;
-    const charCount=Math.max(1,Array.from(String(turn.text||'')).length);
+    const lines=splitBubbleLines(turn.text);
+    const longest=Math.max(1,...lines.map(line=>Array.from(line).length));
     const nameCount=s.obsOverlayShowName?Array.from(String(profile.name||'')).length:0;
-    const glyphWidth=s.obsOverlayFontSize*1.08;
-    const desiredCharsPerLine=charCount<=18?charCount:Math.ceil(charCount/2);
-    const textWidth=desiredCharsPerLine*glyphWidth;
-    const nameWidth=nameCount*Math.max(15,Math.round(s.obsOverlayFontSize*.48))*1.06;
+    const glyphWidth=s.obsOverlayFontSize*1.1;
+    const textWidth=longest*glyphWidth;
+    const nameWidth=nameCount*Math.max(15,Math.round(s.obsOverlayFontSize*.48))*1.08;
     const bubblePad=Math.max(24,Math.round(s.obsOverlayFontSize*.72))*2;
-    const outerPad=16;
+    const outerPad=24;
     const targetWidth=Math.max(textWidth,nameWidth)+bubblePad+outerPad;
-    const boxWidth=Math.round(Math.max(320,Math.min(baseWidth-24,targetWidth)));
-    const boxHeight=Math.round(Math.max(320,Math.min(baseHeight-24,s.obsOverlayFontSize*6.6)));
+    const boxWidth=Math.round(Math.max(360,Math.min(baseWidth-16,targetWidth)));
+    const boxHeight=Math.round(Math.max(420,Math.min(baseHeight-16,s.obsOverlayFontSize*8.0)));
     const html=obsBubbleDocument(profile,turn,s);
     const inputSettings={
       is_local_file:false,url:'data:text/html;charset=utf-8,'+encodeURIComponent(html),
