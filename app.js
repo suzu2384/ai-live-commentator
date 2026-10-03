@@ -432,18 +432,15 @@
     const horizontal=position.endsWith('right')?'flex-end':position.endsWith('center')?'center':'flex-start';
     const vertical=position.startsWith('top')?'flex-start':'flex-end';
     const tailRight=position.endsWith('right'),tailCenter=position.endsWith('center');
-    const tailPos=tailCenter?'left:50%;transform:translateX(-50%);':tailRight?'right:56px;':'left:56px;';
-    const tailBorder=tailRight
-      ? `border-width:28px 0 0 24px;border-color:${color}e8 transparent transparent transparent;`
-      : `border-width:28px 24px 0 0;border-color:${color}e8 transparent transparent transparent;`;
+    const tailPos=tailCenter?'left:50%;transform:translateX(-50%) rotate(45deg);':tailRight?'right:58px;transform:rotate(45deg);':'left:58px;transform:rotate(45deg);';
     const nameHtml=s.obsOverlayShowName?`<div class="name">${escapeHtml(profile.name)}</div>`:'';
     return `<!doctype html><html><head><meta charset="utf-8"><style>
 html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:${fontFamily}}
-body{box-sizing:border-box;padding:18px 30px 42px;display:flex;align-items:${vertical};justify-content:${horizontal}}
-.bubble{position:relative;display:inline-block;width:fit-content;max-width:calc(100% - 60px);min-width:0;box-sizing:border-box;padding:${Math.max(18,Math.round(fontSize*.5))}px ${Math.max(24,Math.round(fontSize*.72))}px;border-radius:${radius}px;background:${color}e8;border:2px solid rgba(255,255,255,.24);box-shadow:0 10px 28px rgba(0,0,0,.35);color:#fff}
-.bubble:after{content:"";position:absolute;bottom:-28px;${tailPos}width:0;height:0;border-style:solid;${tailBorder}filter:drop-shadow(0 6px 4px rgba(0,0,0,.22))}
+body{box-sizing:border-box;padding:28px 30px 48px;display:flex;align-items:${vertical};justify-content:${horizontal}}
+.bubble{position:relative;display:inline-block;width:fit-content;max-width:calc(100% - 60px);min-width:0;box-sizing:border-box;padding:${Math.max(18,Math.round(fontSize*.5))}px ${Math.max(24,Math.round(fontSize*.72))}px;border-radius:${radius}px;background:${color}e8;border:2px solid rgba(255,255,255,.34);box-shadow:0 10px 28px rgba(0,0,0,.35);color:#fff}
+.bubble:after{content:"";position:absolute;bottom:-15px;${tailPos}width:26px;height:26px;background:${color};border-right:2px solid rgba(255,255,255,.34);border-bottom:2px solid rgba(255,255,255,.34);box-shadow:5px 5px 7px rgba(0,0,0,.16)}
 .name{font-size:${nameSize}px;font-weight:800;line-height:1.15;opacity:.85;margin-bottom:6px;white-space:nowrap}
-.text{font-size:${fontSize}px;font-weight:700;line-height:1.32;letter-spacing:.015em;text-shadow:0 2px 3px rgba(0,0,0,.38);overflow-wrap:anywhere;word-break:break-word}
+.text{font-size:${fontSize}px;font-weight:700;line-height:1.28;letter-spacing:.01em;text-shadow:0 2px 3px rgba(0,0,0,.38);overflow-wrap:anywhere;word-break:break-word}
 </style></head><body><div class="bubble">${nameHtml}<div class="text">${escapeHtml(turn.text)}</div></div></body></html>`;
   }
   function obsOverlayGeometry(position,baseWidth,baseHeight,boxWidth,boxHeight){
@@ -506,8 +503,11 @@ body{box-sizing:border-box;padding:18px 30px 42px;display:flex;align-items:${ver
     const browserKind=existing?.inputKind||kinds.find(k=>String(k).startsWith('browser_source'));
     if(!browserKind)throw new C.AppError('OBSで Browser Source を利用できません。OBSのBrowser Source機能を確認してください。','OBS_OVERLAY');
     const baseWidth=Number(video.baseWidth)||1920,baseHeight=Number(video.baseHeight)||1080;
-    const boxWidth=Math.max(460,Math.min(940,baseWidth-80));
-    const boxHeight=Math.max(210,Math.min(330,Math.round(s.obsOverlayFontSize*5.2)));
+    const charCount=Math.max(1,Array.from(String(turn.text||'')).length);
+    const horizontalPad=Math.max(24,Math.round(s.obsOverlayFontSize*.72))*2+60;
+    const targetTwoLineWidth=Math.ceil(charCount/2)*s.obsOverlayFontSize*1.05+horizontalPad;
+    const boxWidth=Math.round(Math.max(460,Math.min(baseWidth-80,targetTwoLineWidth)));
+    const boxHeight=Math.round(Math.max(360,Math.min(baseHeight-40,s.obsOverlayFontSize*7.2)));
     const html=obsBubbleDocument(profile,turn,s);
     const inputSettings={
       is_local_file:false,url:'data:text/html;charset=utf-8,'+encodeURIComponent(html),
@@ -659,11 +659,8 @@ body{box-sizing:border-box;padding:18px 30px 42px;display:flex;align-items:${ver
     const current=frames[frames.length-1];
     const turnCount=C.pickWeightedSpeakerCount(s.speakerCountWeights,s.profiles.length);
     const analysisSettings={...s,turnCount,quietMode,recentSpeakerIds:[...speakerHistory,...state.activeSpeakerIds].slice(-8)};
-    const profileNames=new Map(s.profiles.map(p=>[p.id,p.name]));
-    const deliveredConversation=spoken.map((text,i)=>({speakerId:speakerHistory[i],text}));
-    const activeConversation=state.activeTurnTexts.map((text,i)=>({speakerId:state.activeSpeakerIds[i],text}));
     const recentConversation=s.conversationHistoryCount>0
-      ? [...deliveredConversation,...activeConversation].slice(-s.conversationHistoryCount).map(item=>`${profileNames.get(item.speakerId)||item.speakerId}: ${item.text}`)
+      ? spoken.slice(-s.conversationHistoryCount)
       : [];
     const remaining=current.capturedAt+s.freshness*1000-performance.now();
     if(remaining<=0) throw new C.AppError('画像取得中に鮮度上限に達しました。','STALE');

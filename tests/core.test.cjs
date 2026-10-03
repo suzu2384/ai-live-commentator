@@ -40,10 +40,11 @@ test('analysis payload requires the sampled speaker count and carries recent spe
   assert.deepEqual(turnSchema.required,['speakerId','text']);assert.deepEqual(Object.keys(turnSchema.properties),['speakerId','text']);
   assert.ok(payload.contents[0].parts.at(-1).text.includes('今回の候補発言人数: 2人'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('p1 → p2 → p1'));
-  assert.ok(payload.contents[0].parts.at(-1).text.includes('直近の会話履歴（古い順、発言者名つき）'));
-  assert.ok(payload.contents[0].parts.at(-1).text.includes('友達1: ほんまやな\n友達2: 次も見てみよか'));
-  assert.ok(payload.systemInstruction.parts[0].text.includes('相づちだけの返答が何度も続く会話パターンを避ける'));
-  assert.ok(payload.systemInstruction.parts[0].text.includes('相づち自体は禁止せず'));
+  assert.ok(payload.contents[0].parts.at(-1).text.includes('過去に読み上げ済みの発言（古い順・返答対象ではなく重複回避用）'));
+  assert.ok(payload.contents[0].parts.at(-1).text.includes('・友達1: ほんまやな\n・友達2: 次も見てみよか'));
+  assert.ok(payload.systemInstruction.parts[0].text.includes('別のAPIリクエストで生成された過去発言へ返事・同意・質問への回答をしない'));
+  assert.ok(payload.systemInstruction.parts[0].text.includes('turns[1]以降だけは、同じ今回のturns内で直前にある発言へ自然に反応してよい'));
+  assert.ok(payload.systemInstruction.parts[0].text.includes('「本当だね」「そうだね」「たしかに」「わかる」「ほんとそれ」'));
   assert.ok(payload.systemInstruction.parts[0].text.includes('textは表示と読み上げの両方にそのまま使う'));
   const exactTwo={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p2',text:'二つ目だよ'}]};
   assert.equal(C.parseAnalysis(wrap(exactTwo),profiles,2).turns.length,2);
@@ -76,7 +77,8 @@ test('quiet-mode payload favors relaxed friend chat and explicitly forbids rushi
   const text=quiet.contents[0].parts.at(-1).text;
   assert.ok(text.includes('「雑談モード」'));
   assert.ok(text.includes('現在画面を逐一実況する必要はない'));
-  assert.ok(text.includes('対象コンテンツ、直前の会話、画面の雰囲気'));
+  assert.ok(text.includes('対象コンテンツ、現在画面の雰囲気、最近の状況'));
+  assert.ok(text.includes('過去の発言内容は重複回避の参考だけにして、そこへの返事から新しい雑談を始めない'));
   assert.ok(text.includes('停滞を責める・急かす・進行を要求する発言は禁止'));
   assert.ok(text.includes('「進もう」「次へ行こう」「動こう」「何か起きないかな」'));
   assert.ok(text.includes('飲み物を取りに行く'));
