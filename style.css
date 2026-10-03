@@ -456,3 +456,33 @@ html[data-theme="sand"]{
   line-height:1.55;
   overflow-wrap:anywhere;
 }
+
+
+/* v4.15 header brand logo */
+.brand{
+  flex:1 1 auto;
+  min-width:0;
+  gap:0
+}
+.brand-copy{min-width:0}
+.brand-heading{
+  margin:0;
+  line-height:0
+}
+.brand-logo{
+  display:block;
+  width:180px;
+  height:auto;
+  max-width:100%;
+  filter:drop-shadow(0 6px 16px var(--brand-shadow))
+}
+.brand-copy>p{
+  margin:2px 0 0 3px
+}
+@media(max-width:520px){
+  .brand-logo{width:160px}
+  .brand-copy>p{display:none}
+}
+@media(max-width:380px){
+  .brand-logo{width:140px}
+}
