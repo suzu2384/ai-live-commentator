@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const C = require('../core.js');
 const wrap = (value, finish='STOP') => ({candidates:[{finishReason:finish,content:{parts:[{thought:true,text:'private'},{text:JSON.stringify(value)}]}}]});
 const profiles=[{id:'p1',name:'友達1',personality:'明るい'},{id:'p2',name:'友達2',personality:'落ち着いている'}];
-const analysis={speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね',speechText:'けしきがいいね'}]};
+const analysis={speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね'}]};
 test('response parsing excludes thoughts and rejects incomplete output',()=>{
   assert.deepEqual(C.parseAnalysis(wrap(analysis),profiles),analysis);
   assert.throws(()=>C.parseAnalysis(wrap(analysis,'MAX_TOKENS'),profiles));
@@ -37,24 +37,22 @@ test('analysis payload requires the sampled speaker count and carries recent spe
   assert.equal(payload.generationConfig.responseSchema.properties.turns.minItems,2);
   assert.equal(payload.generationConfig.responseSchema.properties.turns.maxItems,2);
   const turnSchema=payload.generationConfig.responseSchema.properties.turns.items;
-  assert.deepEqual(turnSchema.required,['speakerId','text','speechText']);assert.equal(turnSchema.properties.speechText.type,'STRING');
+  assert.deepEqual(turnSchema.required,['speakerId','text']);assert.deepEqual(Object.keys(turnSchema.properties),['speakerId','text']);
   assert.ok(payload.contents[0].parts.at(-1).text.includes('今回の候補発言人数: 2人'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('p1 → p2 → p1'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('直近の会話履歴（古い順、発言者名つき）'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('友達1: ほんまやな\n友達2: 次も見てみよか'));
   assert.ok(payload.systemInstruction.parts[0].text.includes('相づちだけの返答が何度も続く会話パターンを避ける'));
   assert.ok(payload.systemInstruction.parts[0].text.includes('相づち自体は禁止せず'));
-  assert.ok(payload.systemInstruction.parts[0].text.includes('speechTextはtext全文を読み仮名へ変換'));
-  assert.ok(payload.systemInstruction.parts[0].text.includes('漢字・英字・数字は一切含めず'));
-  assert.ok(payload.systemInstruction.parts[0].text.includes('「早よ行こうや」ならspeechTextは「はよいこうや」'));
-  const exactTwo={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ',speechText:'ひとつめだよ'},{speakerId:'p2',text:'二つ目だよ',speechText:'ふたつめだよ'}]};
+  assert.ok(payload.systemInstruction.parts[0].text.includes('textは表示と読み上げの両方にそのまま使う'));
+  const exactTwo={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p2',text:'二つ目だよ'}]};
   assert.equal(C.parseAnalysis(wrap(exactTwo),profiles,2).turns.length,2);
   assert.throws(()=>C.parseAnalysis(wrap(analysis),profiles,2));
-  const duplicate={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ',speechText:'ひとつめだよ'},{speakerId:'p1',text:'二つ目だよ',speechText:'ふたつめだよ'}]};
+  const duplicate={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p1',text:'二つ目だよ'}]};
   assert.throws(()=>C.parseAnalysis(wrap(duplicate),profiles,2));
 });
 test('speak false may carry exact candidate turns and forceSpeak reuses them for greetings',()=>{
-  const silent={...analysis,speak:false,turns:[{speakerId:'p1',text:'今は見ておこう',speechText:'いまわみておこう'},{speakerId:'p2',text:'静かに見ようか',speechText:'しずかにみようか'}]};
+  const silent={...analysis,speak:false,turns:[{speakerId:'p1',text:'今は見ておこう'},{speakerId:'p2',text:'静かに見ようか'}]};
   const parsed=C.parseAnalysis(wrap(silent),profiles,2);
   assert.equal(parsed.speak,false);assert.equal(parsed.turns.length,2);
   const forced=C.parseAnalysis(wrap(silent),profiles,2,true);
@@ -144,23 +142,13 @@ test('429 retries use bounded backoff while other transient hints are preserved'
 test('503 retry hint is preserved',async()=>{
   await assert.rejects(C.gemini('test',{},undefined,async()=>({status:503,ok:false,headers:{get:()=> '20'},json:async()=>({})})),e=>e.code==='503'&&e.retryAfter===20000);
 });
-test('speechText must be a full kana reading with no kanji letters or digits',()=>{
-  const dialect={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや',speechText:'はよいこうや'}]};
-  assert.equal(C.parseAnalysis(wrap(dialect),profiles).turns[0].speechText,'はよいこうや');
-  for(const speechText of ['早よいこうや','HPひくいで','あと3かい','']){
-    const invalid={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや',speechText}]};
-    assert.throws(()=>C.parseAnalysis(wrap(invalid),profiles));
-  }
-});
-test('speechText punctuation differences are accepted instead of dropping the comment',()=>{
-  for(const speechText of ['はよいこうや、まにあわへんで！','はよいこうやまにあわへんで！','はよいこうや、まにあわへんで','はよいこうや。まにあわへんで！']){
-    const response={...analysis,turns:[{speakerId:'p1',text:'早よ行こうや、間に合わへんで！',speechText}]};
-    assert.equal(C.parseAnalysis(wrap(response),profiles).turns[0].speechText,speechText);
-  }
+test('display text is the only generated speech field and accepts ordinary mixed Japanese text',()=>{
+  const mixed={...analysis,turns:[{speakerId:'p1',text:'HP3でも行けそうだね？'}]};
+  assert.deepEqual(C.parseAnalysis(wrap(mixed),profiles).turns[0],{speakerId:'p1',text:'HP3でも行けそうだね？'});
 });
 test('speaker subset is accepted; inactive speakers, long text and oversized exchanges are rejected',()=>{
   assert.equal(C.parseAnalysis(wrap(analysis),profiles).turns.length,1);
-  for(const turns of [[{speakerId:'p3',text:'こんにちは'}],[{speakerId:'p1',text:'x'.repeat(81)}],[{speakerId:'p1',text:'こんにちは',speechText:'x'.repeat(121)}],Array(7).fill(analysis.turns[0])])
+  for(const turns of [[{speakerId:'p3',text:'こんにちは'}],[{speakerId:'p1',text:'x'.repeat(81)}],[{speakerId:'p1',text:'こんにちは'.repeat(121)}],Array(7).fill(analysis.turns[0])])
     assert.throws(()=>C.parseAnalysis(wrap({...analysis,turns}),profiles));
   assert.throws(()=>C.parseAnalysis(wrap({...analysis,speak:false}),profiles));
 });

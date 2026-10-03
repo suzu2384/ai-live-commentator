@@ -5,7 +5,7 @@ const path=require('node:path');
 const {createHash}=require('node:crypto');
 const entry='file://'+path.resolve(__dirname,'../index.html');
 const sha=s=>createHash('sha256').update(s).digest('base64');
-const answer={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね',speechText:'けしきがいいね'}]})}]}}]};
+const answer={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね'}]})}]}}]};
 require('node:fs').mkdirSync(path.resolve(__dirname,'../../.browser-test'),{recursive:true});
 function wave(samples=2400){
     const b=Buffer.alloc(44+samples*2);b.write('RIFF');b.writeUInt32LE(b.length-8,4);b.write('WAVE',8);b.write('fmt ',12);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(1,22);b.writeUInt32LE(24000,24);b.writeUInt32LE(48000,28);b.writeUInt16LE(2,32);b.writeUInt16LE(16,34);b.write('data',36);b.writeUInt32LE(samples*2,40);
@@ -164,7 +164,7 @@ const results=[];
   await x.close();
  });
  await test('non-contiguous friend selection is saved and limits Gemini speakers',async()=>{
-  const selectedReply={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'選択確認',turns:[{speakerId:'p4',text:'四番目も参加してるね',speechText:'よんばんめもさんかしてるね'}]})}]}}]};
+  const selectedReply={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'選択確認',turns:[{speakerId:'p4',text:'四番目も参加してるね'}]})}]}}]};
   const x=await setup({answer:selectedReply,before:async p=>{await selectParticipants(p,['p2','p4']);}});const p=x.page;
   assert.deepEqual(await p.locator('#participantSelection input:checked').evaluateAll(xs=>xs.map(x=>x.dataset.profileId)),['p2','p4']);
   await start(x);await idle(p);assert.deepEqual(x.events.speakerEnums[0],['p2','p4']);assert.equal(await p.locator('#participantCount').inputValue(),'2');
@@ -233,61 +233,29 @@ const results=[];
  await test('OBS authentication and preview send no Gemini request',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#testObs').click();await stopped(x.page);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);await x.close();});
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
  await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await setOutput(x.page,'voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
- await test('dialect reading is sent as kana-only speechText',async()=>{
-  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'方言',turns:[{speakerId:'p1',text:'早よ行こうや',speechText:'はよいこうや'}]})}]}}]};
+ await test('display text is sent directly to Bouyomi',async()=>{
+  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'この性は変わらないね？'}]})}]}}]};
   const x=await setup({answer:reading});await start(x);await idle(x.page);
-  assert.deepEqual(x.events.talks,['はよいこうや']);
-  assert.equal(await x.page.locator('#lastSpeechText').textContent(),'読み上げ：はよいこうや');
+  assert.deepEqual(x.events.talks,['この性は変わらないね?']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね？'));
   await stop(x.page);await x.close();
  });
- await test('missing punctuation in speechText is still read instead of rejected',async()=>{
-  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'句読点なし',turns:[{speakerId:'p1',text:'早よ行こうや、間に合わへんで！',speechText:'はよいこうやまにあわへんで'}]})}]}}]};
-  const x=await setup({answer:reading});await start(x);await idle(x.page);
-  assert.deepEqual(x.events.talks,['はよいこうやまにあわへんで']);
-  assert.equal(await x.page.locator('#lastSpeechText').textContent(),'読み上げ：はよいこうやまにあわへんで');
-  assert.ok(!(await x.page.locator('#log').innerText()).includes('句読点が欠落'));
-  await stop(x.page);await x.close();
- });
- await test('source punctuation is preserved in kana speechText',async()=>{
-  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'句読点',turns:[{speakerId:'p1',text:'早よ行こうや、間に合わへんで！',speechText:'はよいこうや、まにあわへんで！'}]})}]}}]};
-  const x=await setup({answer:reading});await start(x);await idle(x.page);
-  assert.deepEqual(x.events.talks,['はよいこうや、まにあわへんで！']);
-  assert.equal(await x.page.locator('#lastSpeechText').textContent(),'読み上げ：はよいこうや、まにあわへんで！');
-  await stop(x.page);await x.close();
- });
- await test('speechText drives Bouyomi while the displayed comment keeps text',async()=>{
-  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがわかわらないね'}]})}]}}]};
-  const x=await setup({answer:reading});await start(x);await idle(x.page);
-  assert.deepEqual(x.events.talks,['このさがわかわらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));assert.equal(await x.page.locator('#lastSpeechText').textContent(),'読み上げ：このさがわかわらないね');
-  await stop(x.page);await x.close();
- });
- await test('speechText drives VOICEVOX while the displayed comment keeps text',async()=>{
-  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがわかわらないね'}]})}]}}]};
+ await test('display text is sent directly to VOICEVOX',async()=>{
+  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'HP3でも行けそうだね？'}]})}]}}]};
   const x=await setup({answer:reading});await setOutput(x.page,'voicevox');await start(x);await idle(x.page);
-  assert.deepEqual(x.events.voiceTexts,['このさがわかわらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));assert.equal(await x.page.locator('#lastSpeechText').textContent(),'読み上げ：このさがわかわらないね');
+  assert.deepEqual(x.events.voiceTexts,['HP3でも行けそうだね?']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('HP3でも行けそうだね？'));
   await stop(x.page);await x.close();
  });
- await test('greeting updates the displayed speechText too',async()=>{
-  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日は見ていこう',speechText:'きょうわみていこう'}]})}]}}]};
+ await test('greeting schema uses only one comment text field',async()=>{
+  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日は見ていこう'}]})}]}}]};
   const x=await setup({answer:intro,before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
   await p.locator('#start').click();await idle(p);
-  assert.equal(await p.locator('#lastSpeechText').textContent(),'読み上げ：きょうわみていこう');
-  await stop(p);await x.close();
- });
- await test('greeting prompt requests full kana pronunciation in speechText',async()=>{
-  const x=await setup({before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
-  await p.locator('#start').click();await idle(p);
-  assert.ok(x.events.promptTexts[0].includes('speechTextはtext全文を読み仮名へ変換'));
-  assert.ok(x.events.promptTexts[0].includes('漢字・英字・数字は一切含めず'));
-  assert.ok(x.events.promptTexts[0].includes('同じ順序でspeechTextにも必ず残す'));
-  assert.ok(x.events.promptTexts[0].includes('「早よ行こうや、間に合わへんで！」ならspeechTextは「はよいこうや、まにあわへんで！」'));
-  assert.ok(x.events.promptTexts[0].includes('speakは互換用フィールド'));
+  assert.deepEqual(x.events.talks,['今日は見ていこう']);
   await stop(p);await x.close();
  });
  await test('start greeting uses candidate turns even when Gemini returns speak false',async()=>{
   const silent={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'開始',turns:[]})}]}}]};
-  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日も見ていこう',speechText:'きょうもみていこう'}]})}]}}]};
-  const silentWithCandidate={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'開始',turns:[{speakerId:'p1',text:'今日も見ていこう',speechText:'きょうもみていこう'}]})}]}}]};
+  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日も見ていこう'}]})}]}}]};
+  const silentWithCandidate={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'開始',turns:[{speakerId:'p1',text:'今日も見ていこう'}]})}]}}]};
   const x=await setup({answer:silentWithCandidate,before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
   await p.locator('#start').click();await idle(p);
   assert.equal(x.events.api,1);assert.deepEqual(x.events.talks,['きょうもみていこう']);
@@ -302,14 +270,14 @@ const results=[];
   await stop(p);await x.close();
  });
  await test('start greeting is queued even when Bouyomi already has pending audio',async()=>{
-  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日も見ていこう',speechText:'きょうもみていこう'}]})}]}}]};
+  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日も見ていこう'}]})}]}}]};
   const x=await setup({answer:intro,busy:true,before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
   await p.locator('#start').click();await idle(p);
   assert.deepEqual(x.events.talks,['きょうもみていこう']);
   await stop(p);await x.close();
  });
  await test('start greeting uses the configured speaker-count weight',async()=>{
-  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'じゃあ今日も見ていこう',speechText:'じゃあきょうもみていこう'},{speakerId:'p2',text:'楽しんでいこうか',speechText:'たのしんでいこうか'},{speakerId:'p3',text:'どんな感じか見てみよう',speechText:'どんなかんじかみてみよう'}]})}]}}]};
+  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'じゃあ今日も見ていこう'},{speakerId:'p2',text:'楽しんでいこうか'},{speakerId:'p3',text:'どんな感じか見てみよう'}]})}]}}]};
   const x=await setup({answer:intro,before:async p=>{
     await p.locator('#greetStart').check();await selectParticipants(p,['p1','p2','p3']);
     for(let n=1;n<=6;n++)await p.locator('#speakerWeight'+n).fill(n===3?'100':'0');
@@ -320,8 +288,8 @@ const results=[];
   assert.ok((await p.locator('#log').innerText()).includes('開始の挨拶'));await stop(p);await x.close();
  });
  await test('normal finish uses recent history and speaker-count weight for its closing greeting',async()=>{
-  const normalTwo={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね',speechText:'けしきがいいね'},{speakerId:'p2',text:'この先も見てみよう',speechText:'このさきもみてみよう'}]})}]}}]};
-  const closing={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'終了',turns:[{speakerId:'p1',text:'今日はこの辺かな。また見よう',speechText:'きょうわこのへんかな。またみよう'},{speakerId:'p2',text:'うん、おつかれさま',speechText:'うん、おつかれさま'}]})}]}}]};
+  const normalTwo={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'この先も見てみよう'}]})}]}}]};
+  const closing={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'終了',turns:[{speakerId:'p1',text:'今日はこの辺かな。また見よう'},{speakerId:'p2',text:'うん、おつかれさま'}]})}]}}]};
   const x=await setup({answers:[normalTwo,closing],before:async p=>{
     await p.locator('#greetEnd').check();await selectParticipants(p,['p1','p2']);
     await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');
@@ -339,7 +307,7 @@ const results=[];
   await stop(p);assert.equal(x.events.api,0);assert.equal(x.events.talks.length,0);await x.close();
  });
  await test('speaker-count weights force the sampled exact count and are saved',async()=>{
-  const two={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p1',text:'まず見てみよう',speechText:'まずみてみよう'},{speakerId:'p2',text:'うん、気になるね',speechText:'うん、きになるね'}]})}]}}]};
+  const two={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p1',text:'まず見てみよう'},{speakerId:'p2',text:'うん、気になるね'}]})}]}}]};
   const x=await setup({answer:two,before:async p=>{
     await selectParticipants(p,['p1','p2','p3']);
     for(let n=1;n<=6;n++)await p.locator('#speakerWeight'+n).fill(n===2?'100':'0');
@@ -350,7 +318,7 @@ const results=[];
   assert.equal(saved.speakerWeight2,100);assert.equal(saved.speakerWeight1,0);await x.close();
  });
  await test('sampled speaker count rejects fewer turns and duplicate speakers',async()=>{
-  const tooFew={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'不足',turns:[{speakerId:'p1',text:'一人しかいないね',speechText:'ひとりしかいないね'}]})}]}}]};
+  const tooFew={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'不足',turns:[{speakerId:'p1',text:'一人しかいないね'}]})}]}}]};
   const x=await setup({answer:tooFew,before:async p=>{await selectParticipants(p,['p1','p2']);await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');}});const p=x.page;
   await start(x);await p.waitForFunction(()=>document.getElementById('status').textContent.includes('自動再開まで'));
   assert.equal(x.events.talks.length,0);assert.ok((await p.locator('#log').innerText()).includes('発言人数が今回の抽選結果と一致しません'));
@@ -430,8 +398,8 @@ const results=[];
  });
  await test('busy Bouyomi queue is not overwritten',async()=>{const x=await setup({busy:true});await start(x);await idle(x.page);assert.equal(x.events.talks.length,0);assert.ok((await x.page.locator('#log').innerText()).includes('再生待ち'));await stop(x.page);await x.close();});
  await test('Gemini prefetches the next comment while the current VOICEVOX conversation is still active',async()=>{
-  const first={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進む',turns:[{speakerId:'p1',text:'景色がいいね',speechText:'けしきがいいね'},{speakerId:'p2',text:'この道きれいだね',speechText:'このみちきれいだね'}]})}]}}]};
-  const next={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'さらに進む',turns:[{speakerId:'p1',text:'まだ先がありそうだね',speechText:'まださきがありそうだね'},{speakerId:'p2',text:'もう少し見てみよう',speechText:'もうすこしみてみよう'}]})}]}}]};
+  const first={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進む',turns:[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'この道きれいだね'}]})}]}}]};
+  const next={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'さらに進む',turns:[{speakerId:'p1',text:'まだ先がありそうだね'},{speakerId:'p2',text:'もう少し見てみよう'}]})}]}}]};
   const x=await setup({answers:[first,next],holdSynthAt:2});const p=x.page;
   await setOutput(p,'voicevox');await p.locator('#tab-friends').click();await selectParticipants(p,['p1','p2']);
   await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');
@@ -447,7 +415,7 @@ const results=[];
   assert.ok((await p.locator('#log').innerText()).includes('次の発言候補を先読みしました。'));await stop(p);await x.close();
  });
  await test('VOICEVOX prefetches the next turn while the current turn is still playing',async()=>{
-  const multi={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p1',text:'景色がいいね',speechText:'けしきがいいね'},{speakerId:'p2',text:'この道きれいだね',speechText:'このみちきれいだね'}]})}]}}]};
+  const multi={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'この道きれいだね'}]})}]}}]};
   const x=await setup({answer:multi,holdSynthAt:2,waveSamples:48000});const p=x.page;
   await setOutput(p,'voicevox');await p.locator('#tab-friends').click();await selectParticipants(p,['p1','p2']);await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');await start(x);
   for(let i=0;i<200&&!x.held();i++)await new Promise(r=>setTimeout(r,10));assert.ok(x.held());
@@ -455,13 +423,13 @@ const results=[];
   await stop(p);await x.held()?.abort().catch(()=>{});await x.close();
  });
  await test('two speakers use one generation and distinct VOICEVOX voices in order',async()=>{
-  const multi={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p2',text:'この道きれいだね',speechText:'このみちきれいだね'},{speakerId:'p1',text:'寄り道したくなるね',speechText:'よりみちしたくなるね'}]})}]}}]};
+  const multi={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p2',text:'この道きれいだね'},{speakerId:'p1',text:'寄り道したくなるね'}]})}]}}]};
   const x=await setup({answer:multi});const p=x.page;await setOutput(p,'voicevox');await p.locator('#tab-friends').click();await selectParticipants(p,['p1','p2']);await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');
   await start(x);await idle(p);assert.equal(x.events.api,1);assert.deepEqual(x.events.voices,['2','3']);assert.ok((await p.locator('#lastComment').textContent()).includes('友達1'));
   await stop(p);await x.close();
  });
  for(const cancel of [false,true])await test(cancel?'stop during later speech cancels remaining conversation':'three speakers finish after freshness expires once conversation has started',async()=>{
-  const turns=[{speakerId:'p1',text:'景色がいいね',speechText:'けしきがいいね'},{speakerId:'p2',text:'こっちも見てみようよ',speechText:'こっちもみてみようよ'},{speakerId:'p3',text:'ちょっと寄り道しよう',speechText:'ちょっとよりみちしよう'}];
+  const turns=[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'こっちも見てみようよ'},{speakerId:'p3',text:'ちょっと寄り道しよう'}];
   const reply={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進む',turns})}]}}]};
   const x=await setup({answer:reply,holdSynthAt:2});const p=x.page;
   await setOutput(p,'voicevox');await p.locator('#tab-friends').click();await selectParticipants(p,['p1','p2','p3']);await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('0');await p.locator('#speakerWeight3').fill('100');await start(x);
