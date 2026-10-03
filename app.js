@@ -159,6 +159,32 @@
     for(const node of label.childNodes)if(node.nodeType===Node.TEXT_NODE&&node.textContent.trim())return node.textContent.trim();
     return id;
   }
+  function selectedProfileIds(){
+    return [...document.querySelectorAll('#participantSelection input[data-profile-id]:checked')].map(input=>input.dataset.profileId);
+  }
+  function syncParticipantCount(){
+    $('participantCount').value=String(selectedProfileIds().length);
+    updateSettingSummaries();
+  }
+  function updateParticipantNames(){
+    for(let i=0;i<6;i++){
+      const id=`p${i+1}`,label=document.querySelector(`[data-participant-name="${id}"]`);
+      if(label)label.textContent=$(`${id}-name`)?.value.trim()||`友達${i+1}`;
+    }
+  }
+  function renderParticipantSelection(selectedIds){
+    const valid=new Set(Array.isArray(selectedIds)?selectedIds.filter(id=>/^p[1-6]$/.test(id)):[]);
+    const root=$('participantSelection');root.replaceChildren();
+    for(let i=0;i<6;i++){
+      const id=`p${i+1}`,label=document.createElement('label'),input=document.createElement('input'),name=document.createElement('span');
+      label.className='participant-choice';input.type='checkbox';input.id=`participant-${id}`;input.dataset.profileId=id;input.checked=valid.has(id);
+      name.dataset.participantName=id;name.textContent=$(`${id}-name`)?.value.trim()||`友達${i+1}`;
+      label.classList.toggle('selected',input.checked);
+      input.addEventListener('change',()=>{label.classList.toggle('selected',input.checked);syncParticipantCount();});
+      label.append(input,name);root.append(label);
+    }
+    syncParticipantCount();
+  }
   function settings() {
     const s = {};
     for (const id of savedIds) s[id] = $(id).type === 'checkbox' ? $(id).checked : $(id).value.trim();
@@ -171,17 +197,18 @@
     }
     if (![320,640,960].includes(s.imageWidth)){revealSetting('imageWidth');throw new C.AppError('画像サイズを選択してください。');}
     if (!['bouyomi','voicevox'].includes(s.output)){revealSetting('output');throw new C.AppError('読み上げ先を選択してください。');}
-    s.participantCount=Number($('participantCount').value);
-    if(!Number.isInteger(s.participantCount)||s.participantCount<1||s.participantCount>6)throw new C.AppError('人数は1〜6人を選択してください。');
+    s.selectedProfileIds=selectedProfileIds();
+    if(!s.selectedProfileIds.length){revealSetting('participantSelection');throw new C.AppError('参加する友達を1人以上選択してください。');}
+    s.participantCount=s.selectedProfileIds.length;$('participantCount').value=String(s.participantCount);
     s.speakerCountWeights=Array.from({length:6},(_,i)=>s[`speakerWeight${i+1}`]);
-    if(s.speakerCountWeights.slice(0,s.participantCount).every(w=>w===0)){revealSetting('speakerWeight1');throw new C.AppError('参加人数以内の発言人数の重みを1つ以上0より大きくしてください。');}
-    s.allProfiles=readProfiles(); s.profiles=s.allProfiles.slice(0,s.participantCount);
+    if(s.speakerCountWeights.slice(0,s.participantCount).every(w=>w===0)){revealSetting('speakerWeight1');throw new C.AppError('選択した友達の人数以内の発言人数の重みを1つ以上0より大きくしてください。');}
+    s.allProfiles=readProfiles();const selected=new Set(s.selectedProfileIds);s.profiles=s.allProfiles.filter(p=>selected.has(p.id));
     s.speaker=s.profiles[0].speaker; s.speedScale=s.profiles[0].speedScale; s.bouyomiVoice=s.profiles[0].bouyomiVoice;
     return s;
   }
   function save(s) {
     // Explicit allowlist: secrets and free-tier confirmation are never persisted.
-    const data = {...Object.fromEntries(savedIds.map(id => [id, s[id]])), contentName:s.contentName, participantCount:s.participantCount, profiles:s.allProfiles};
+    const data = {...Object.fromEntries(savedIds.map(id => [id, s[id]])), contentName:s.contentName, selectedProfileIds:s.selectedProfileIds, participantCount:s.participantCount, profiles:s.allProfiles};
     try { localStorage.setItem(storageKey, JSON.stringify(data)); $('saveState').textContent = '設定を保存しました。キー類の保存は「暗号化して保存」から行えます。'; }
     catch { $('saveState').textContent = 'ブラウザが保存を許可していません。このタブ内では使えます。'; }
   }
@@ -679,17 +706,16 @@
       for(const [field,label,type,min,max,step] of [['name','呼び名','text',null,40,null],['personality','性格・話し方','text',null,300,null],['speaker','VOICEVOX スタイルID','number',0,99999,1],['speedScale','VOICEVOX 話速','number',0.5,2,0.05],['bouyomiVoice','棒読みちゃん 声ID','number',0,65535,1]]){
         const l=document.createElement('label');l.textContent=label;const input=document.createElement('input');input.id=`p${i+1}-${field}`;input.type=type;input.setAttribute('form','settings');
         if(type==='number'){input.min=min;input.max=max;input.step=step;}else input.maxLength=max;
-        input.value=typeof d[field]==='string'||typeof d[field]==='number'?d[field]:defaultProfile(i)[field];l.append(input);
-        (type==='number'?voiceGrid:section).append(l);
+        input.value=typeof d[field]==='string'||typeof d[field]==='number'?d[field]:defaultProfile(i)[field];
+        if(field==='name')input.addEventListener('input',updateParticipantNames);
+        l.append(input);(type==='number'?voiceGrid:section).append(l);
       }
       section.append(voiceGrid);
       const button=document.createElement('button');button.type='button';button.textContent='この友達の音声テスト';
       button.addEventListener('click',()=>operation(async signal=>{const s=settings(),profile=readProfiles()[i];lastSettings=s;await unlockAudio(s);setStatus('音声テスト中');await speak(`${profile.name}です。よろしくね。`,{...s,...profile},null,signal);log(`${profile.name}の音声テスト完了。`);}));
       section.append(button);$('profiles').append(section);
     }
-    showProfiles();
   }
-  function showProfiles(){for(const el of $('profiles').children)el.hidden=Number(el.dataset.index)>=Number($('participantCount').value);}
   function readProfiles(){return Array.from({length:6},(_,i)=>{
     const p=defaultProfile(i);
     for(const f of ['name','personality']){p[f]=$(`${p.id}-${f}`).value.trim();if(!p[f])throw new C.AppError('友達の呼び名と性格を入力してください。');}
@@ -697,7 +723,6 @@
     const speed=$(`${p.id}-speedScale`).value;p.speedScale=Number(speed);if(speed===''||!Number.isFinite(p.speedScale)||p.speedScale<0.5||p.speedScale>2)throw new C.AppError('VOICEVOXの話速は0.5〜2.0で指定してください。');
     return p;
   });}
-  $('participantCount').addEventListener('change',showProfiles);
   const vaultKey='ai-live-commentator-vault-v1';
   function lockSecrets(){$('apiKey').value='';$('obsPassword').value='';$('vaultPass').value='';$('vaultConfirm').value='';$('freeTier').checked=false;updateSettingSummaries();}
   function vaultState(){try{$('vaultState').textContent=localStorage.getItem(vaultKey)?'暗号化した情報があります。合言葉を入力して解除できます。':'暗号化した情報はまだありません。';}catch{$('vaultState').textContent='ブラウザが保存を許可していません。';}updateSettingSummaries();}
@@ -729,9 +754,11 @@
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};for(const id of savedIds){if(stored[id]===undefined)continue;if($(id).type==='checkbox')$(id).checked=stored[id]===true;else if(['string','number'].includes(typeof stored[id]))$(id).value=stored[id];}}catch{}
   renderContentOptions(typeof stored.contentName==='string'?splitContentName(stored.contentName).raw:'');
   if(stored.analysisFrameCount===undefined)$('analysisFrameCount').value='2';
-  $('participantCount').value=String([1,2,3,4,5,6].includes(Number(stored.participantCount))?stored.participantCount:1);
+  const legacyCount=[1,2,3,4,5,6].includes(Number(stored.participantCount))?Number(stored.participantCount):1;
+  const storedSelected=Array.isArray(stored.selectedProfileIds)?[...new Set(stored.selectedProfileIds.filter(id=>/^p[1-6]$/.test(id)))]:[];
+  const selectedIds=storedSelected.length?storedSelected:Array.from({length:legacyCount},(_,i)=>`p${i+1}`);
   const profiles=Array.isArray(stored.profiles)?stored.profiles:[];
   if(!profiles.length)profiles.push({...defaultProfile(0),speaker:stored.speaker??3,bouyomiVoice:stored.bouyomiVoice??0});
-  buildProfiles(profiles);vaultState();outputFields();initSettingSections();updateStats();
+  buildProfiles(profiles);renderParticipantSelection(selectedIds);vaultState();outputFields();initSettingSections();updateStats();
   log('準備できました。映像確認と音声テストを済ませてから開始してください。');
 })();

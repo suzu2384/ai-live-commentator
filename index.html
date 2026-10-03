@@ -10,11 +10,11 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=4.3">
-<script src="core.js?v=4.3" defer></script><script src="vault.js?v=4.3" defer></script><script src="app.js?v=4.3" defer></script>
+<link rel="stylesheet" href="style.css?v=4.4">
+<script src="core.js?v=4.4" defer></script><script src="vault.js?v=4.4" defer></script><script src="app.js?v=4.4" defer></script>
 </head>
 <body>
-<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v4.3</span></header>
+<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v4.4</span></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -37,7 +37,12 @@
 <div class="card-head"><div><h2>今回の実況</h2><p id="summary-live" class="section-meta">対象なし / 1人 / よく話す</p></div></div>
 <div class="content-setting-row"><label class="content-select-label">対象コンテンツ<select id="contentName"><option value="">なし</option></select></label><button type="button" id="manageContents">管理</button></div>
 <p class="hint compact-hint">選択したコンテンツについて、Geminiの既知の知識を画面理解と自然な会話に利用します。</p>
-<label>参加する友達の上限<select id="participantCount"><option value="1">1人</option><option value="2">2人</option><option value="3">3人</option><option value="4">4人</option><option value="5">5人</option><option value="6">6人</option></select></label>
+<fieldset class="participant-picker">
+<legend>参加する友達</legend>
+<div id="participantSelection" class="participant-selection" aria-describedby="participantHint"></div>
+<input id="participantCount" type="hidden" value="1">
+<p id="participantHint" class="hint compact-hint">今回の実況に参加させる友達を1人以上選びます。友達の内容は「友達」タブで編集できます。</p>
+</fieldset>
 <div class="toggle-grid"><label class="check"><input id="greetStart" type="checkbox" checked>開始時に挨拶</label><label class="check"><input id="greetEnd" type="checkbox" checked>終了時に挨拶</label></div>
 </section>
 
@@ -51,7 +56,7 @@
 
 <section class="card live-section">
 <div class="card-head"><h2>掛け合い</h2></div>
-<p class="hint compact-hint">1回の解析で何人まで話すかを相対値で抽選します。参加人数を超える欄は無視します。</p>
+<p class="hint compact-hint">1回の解析で何人まで話すかを相対値で抽選します。選択した友達の人数を超える欄は無視します。</p>
 <div class="speaker-weight-grid">
 <label>1人<input id="speakerWeight1" type="number" min="0" max="999" value="45" required></label>
 <label>2人<input id="speakerWeight2" type="number" min="0" max="999" value="35" required></label>
@@ -86,7 +91,7 @@
 </div>
 
 <div id="panel-friends" role="tabpanel" aria-labelledby="tab-friends" hidden>
-<section class="card"><div class="card-head"><h2>友達の設定</h2></div><p class="hint">呼び名・性格・話し方・声を友達ごとに設定します。参加人数は「実況」タブで選びます。</p></section>
+<section class="card"><div class="card-head"><h2>友達の設定</h2></div><p class="hint">呼び名・性格・話し方・声を友達ごとに設定します。参加する友達は「実況」タブで選びます。</p></section>
 <div id="profiles"></div>
 <p class="hint">変更は「設定を保存」または実況開始で保存されます。VOICEVOX話速は0.5〜2.0で、1.0が標準です。声のIDはお使いの読み上げソフトで確認してください。</p>
 </div>
@@ -107,7 +112,7 @@
 <label>出力先<select id="output"><option value="bouyomi">棒読みちゃん（PC側で再生）</option><option value="voicevox">VOICEVOX直接（ブラウザで再生）</option></select></label>
 <div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><p class="hint compact-hint">HTTP連携を有効にしてください。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
 <div id="voicevoxFields" hidden><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label><p class="hint compact-hint">音声はこのブラウザで再生します。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
-<div class="setting-action"><button type="button" id="testVoice">音声テスト（友達1）</button><span class="hint">声・話速・性格は「友達」で設定</span></div></div></details>
+<div class="setting-action"><button type="button" id="testVoice">音声テスト（参加友達の先頭）</button><span class="hint">声・話速・性格は「友達」で設定</span></div></div></details>
 <details class="card setting-section" id="settings-vault" open><summary class="setting-summary"><span>キー・パスワードの暗号化保存</span><span id="summary-vault" class="setting-summary-value">保存なし</span></summary><div class="setting-body">
 <p class="hint compact-hint">APIキーとOBSパスワードだけを端末内に暗号化保存します。合言葉は保存しません。</p>
 <label>合言葉（保存時は12文字以上）<input id="vaultPass" type="password" autocomplete="off" maxlength="200"></label>
@@ -134,9 +139,9 @@
 <h3>Geminiが遅い・503・429が出る</h3><p>503・通信エラーなどは5秒、429は30秒の固定待機にし、連続エラーでも延長しません。通常時のAPI最短間隔とは別に、Gemini側の待機中もOBS画像の取得は続け、待機終了時点の最新映像で再開します。OBS自体の接続エラー時だけ画像取得も止まり、再接続後に履歴を貯め直します。APIがもっと長い待機時間を返した場合は従います。回数で停止しません。429には日次枠不足も含まれ、待ってもすぐ解消するとは限りません。Google側の上限は回避できません。</p><p>401・403など認証や設定の問題は、同じ要求を繰り返さず修正待ちになります。設定を直し「設定を適用して再開」を押してください。いつでも「停止」で終了できます。接続・音声テストは単発の診断です。</p>
 <h3>画像取得・解析・読み上げのタイミング</h3><p>画像取得・Gemini解析・読み上げは独立して動きます。取得周期は「前回の取得完了から待つ」のではなく、前回の取得開始時刻を基準にします。たとえば1秒間隔・4枚なら、解析時点のおおむね直近3秒ぶんの流れを送ります。VOICEVOXで発言中でも画像履歴は更新され、API送信条件を満たせばGemini解析も1本だけ裏で進みます。未再生の解析結果は最新1件だけ保持し、より新しい結果が来れば差し替えます。VOICEVOXの現在の掛け合いが終わった時点で候補が鮮度内なら、発言間隔を再度待たず続けて再生します。棒読みちゃんはPC側の実再生完了をブラウザから確認できないため、同じ精度で「話し終わり」へ同期はできません。実行中の秒表示は処理ステータスの経過時間ではなく「最終取得から何秒前か」を表示します。</p>
 <h3>鮮度切れ・発言が少ない</h3><p>古い映像への発言を防ぐため、現在画像の取得開始から鮮度上限を超えた応答・音声を破棄します。まず画像幅320pxや、鮮度上限を少し長くする設定を試せます。「よく話す設定」も利用できます。鮮度を確認するのは会話の最初の発言が始まるまでです。開始できた掛け合いは後半も最後まで再生します。停止ボタンや通信エラー・通常のタイムアウトでは途中でも中断します。</p>
-<h3>発言人数の重み</h3><p>通常実況・開始挨拶・終了挨拶では、1〜6人それぞれの重みから毎回「今回の発言人数上限」を抽選します。初期値は45 / 35 / 15 / 5 / 0 / 0。合計100は不要で、0にした人数は選ばれません。参加人数を超える欄は無視します。抽選された上限を必ず埋めるわけではなく、1人だけや無言もあります。通常実況では直近の話者履歴も渡して、同じ人への偏りを抑えます。</p>
+<h3>発言人数の重み</h3><p>通常実況・開始挨拶・終了挨拶では、1〜6人それぞれの重みから毎回「今回の発言人数上限」を抽選します。初期値は45 / 35 / 15 / 5 / 0 / 0。合計100は不要で、0にした人数は選ばれません。選択した友達の人数を超える欄は無視します。抽選された上限を必ず埋めるわけではなく、1人だけや無言もあります。通常実況では直近の話者履歴も渡して、同じ人への偏りを抑えます。</p>
 <h3>開始・終了の挨拶</h3><p>「実況開始時に短い挨拶」を有効にすると、監視開始前にGeminiが短い挨拶を生成します。話す人数の上限は通常実況と同じ重み設定から毎回抽選します。開始時はゲーム内容をまだ断定しません。「実況を終了」は映像監視を止め、今回の直近履歴と同じ人数重みを使った締めの挨拶を再生してから終了します。「即停止」は挨拶を生成せず、通信・ブラウザ音声をすぐ停止します。開始・終了の挨拶もGemini API送信回数に含まれます。</p>
-<h3>友達の掛け合い</h3><p>人数は1〜6人の上限です。毎回全員を話させず、その場に合う1人以上が短く発言します。1回のAPI応答で最大6発言を生成します。「会話履歴として送る発言数」で、直近の誰が何を言ったかをGeminiへ渡す件数を0〜20発言から指定できます。履歴がある場合も相づち自体は禁止せず、同意だけの反応が続きすぎないよう会話の偏りを抑える材料として使います。VOICEVOX直接は現在の発言を再生しながら次の1発言だけ先読み生成し、発言間の待ち時間を短縮します。棒読みちゃんは順番にキューへ送るため、ほかのアプリの発言が混ざる場合があります。送信済み音声の停止は棒読みちゃん側で行ってください。</p>
+<h3>友達の掛け合い</h3><p>友達1〜6から今回参加するメンバーを個別に選びます。選択した全員を毎回話させるわけではなく、その場に合う1人以上が短く発言します。1回のAPI応答で最大6発言を生成します。「会話履歴として送る発言数」で、直近の誰が何を言ったかをGeminiへ渡す件数を0〜20発言から指定できます。履歴がある場合も相づち自体は禁止せず、同意だけの反応が続きすぎないよう会話の偏りを抑える材料として使います。VOICEVOX直接は現在の発言を再生しながら次の1発言だけ先読み生成し、発言間の待ち時間を短縮します。棒読みちゃんは順番にキューへ送るため、ほかのアプリの発言が混ざる場合があります。送信済み音声の停止は棒読みちゃん側で行ってください。</p>
 <h3>保存とロック</h3><p>通常設定はブラウザ内に保存します。キーとOBSパスワードは「暗号化して保存」を選んだ場合だけ、合言葉で暗号化して保存します。AES-GCM 256bit、PBKDF2-SHA256 60万回を使用し、合言葉は保存しません。解除中のページやPC自体が侵害された場合まで守る機能ではありません。ブラウザデータの削除・フォルダ移動・別ブラウザでは保存情報が利用できなくなることがあります。</p>
 <h3>同じLAN内の別PCへ接続する</h3><p>接続先PCのIPv4を指定します（例: OBSは ws://192.168.1.10:4455、VOICEVOXは http://192.168.1.10:50021、棒読みちゃんは http://192.168.1.10:50080）。許可範囲は10.x.x.x、172.16.x.x〜172.31.x.x、192.168.x.xです。PC名ではなくIPアドレスを使ってください。</p><p>接続先PCで各ソフトをLANから接続できる待受状態にし、Windowsファイアウォールのプライベートネットワークで必要なTCPポートをローカルサブネットから許可します。ルーターのポート開放は不要です。OBSは認証を有効にし、ゲストWi-Fiなど端末間通信が禁止されていないかも確認してください。</p><p>VOICEVOXのエンジンが127.0.0.1だけで待ち受けている場合は、LANのIPで待ち受ける起動設定が別途必要です。エンジンの --host にPCのLAN IPを指定する方法があります。CORS許可も引き続き必要です。棒読みちゃんもHTTP連携がLANから接続を受け付ける構成か確認してください。</p><p>VOICEVOX直接は接続先PCで音声を合成し、操作中の端末で再生します。接続先PCから音を出したい場合は棒読みちゃんを使います。HTTPSで公開したページからの ws/http 接続はブラウザに拒否される場合があります。ローカルHTMLでの利用を基本とし、ブラウザの保護を無効化しないでください。</p>
 <h3>スマホ・外出先・長時間の利用</h3><p>画面はスマホ幅にも対応し、同じLAN内のPCへも接続できます。接続にはブラウザの制限と接続先ソフトの設定が影響します。外出先からのインターネット経由の接続には対応していません。タブを閉じると終了し、非表示・スリープ・画面ロックで監視や音声が中断することがあります。無人での常時稼働は保証できません。</p>
