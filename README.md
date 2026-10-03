@@ -1,4 +1,4 @@
-# みんコメAI — ブラウザ版 v3.4
+# みんコメAI — ブラウザ版 v4.32
 
 OBSの映像をGemini 3.1 Flash-Liteが見て、AIの仲間たちが同じ場所に集まっているような短い感想・掛け合いを添えます。サーバー・インストール・ビルドは不要です。
 
@@ -193,3 +193,9 @@ WebSocketの有効化、パスワード、ポート、OBSに登録したソー�
 - [VOICEVOX Engine](https://github.com/VOICEVOX/voicevox_engine)
 - [棒読みちゃん](https://chi.usamimi.info/Program/Application/BouyomiChan/)
 - [Web Crypto deriveKey](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/deriveKey)
+
+## v4.32 ロゴとアイコン
+
+指定された横長ロゴを `assets/header-logo.svg`、人物グループのアイコンを `assets/icon.svg` としてパストレースしました。SVGにPNGを埋め込む方式ではなく、文字も含めてパスで描画し、外部フォントは不要です。トレースでは細かいグラデーション・輪郭を簡略化しています。
+
+ヘッダーはSVG、faviconはSVG・32px PNG・ICO、ホーム画面は192／512px PNG、iPhone向けは180pxのapple-touch-iconを参照します。古い画像のキャッシュを避けるため参照URLを更新しています。追加済みのホーム画面アイコンが変わらない場合は、ショートカットを削除してもう一度追加してください。
