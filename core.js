@@ -218,7 +218,11 @@
               const p = this.pending.get(m.d.requestId); if (!p) return;
               this.pending.delete(m.d.requestId);
               if (m.d.requestStatus?.result) p.resolve(m.d.responseData || {});
-              else p.reject(new AppError(`OBS画像取得失敗（コード ${Number(m.d.requestStatus?.code) || 0}）。映像ソース名を確認してください。`, 'OBS_SOURCE'));
+              else {
+                const code=Number(m.d.requestStatus?.code)||0;
+                const error=new AppError(`${p.errorMessage || 'OBS操作に失敗しました'}（コード ${code}）。`,p.errorCode||'OBS_REQUEST');
+                error.obsCode=code;p.reject(error);
+              }
             }
           } catch (e) { fail(e instanceof AppError || e.name === 'AbortError' ? e : new AppError('OBSから不正な応答を受信しました。')); }
         };
@@ -226,7 +230,10 @@
       this.abortListener = () => this.close(); this.lifetimeSignal = signal; signal?.addEventListener('abort', this.abortListener, { once: true });
       check(signal);
     }
-    async screenshot(sourceName, width, signal) {
+    async request(requestType, requestData={}, signal, options={}) {
+      const timeout=Number.isFinite(options.timeout)?Math.max(100,options.timeout):15000;
+      const errorCode=options.errorCode||'OBS_REQUEST';
+      const errorMessage=options.errorMessage||`OBS操作 ${requestType} に失敗しました`;
       return deadline(token => new Promise((resolve, reject) => {
         check(token);
         if (!this.ready || this.socket?.readyState !== WebSocket.OPEN) { reject(new AppError('OBSに接続されていません。', 'NETWORK')); return; }
@@ -234,10 +241,21 @@
         const stop = () => { this.pending.delete(id); reject(abortError()); };
         token.addEventListener('abort', stop, { once: true });
         const finish = fn => value => { token.removeEventListener('abort', stop); fn(value); };
-        this.pending.set(id, { resolve: finish(resolve), reject: finish(reject) });
-        this.socket.send(JSON.stringify({ op: 6, d: { requestType: 'GetSourceScreenshot', requestId: id,
-          requestData: { sourceName, imageFormat: 'jpeg', imageWidth: width, imageCompressionQuality: 75 } } }));
-      }), 15000, signal, 'OBSの画像取得がタイムアウトしました。');
+        this.pending.set(id, { resolve: finish(resolve), reject: finish(reject), errorCode, errorMessage });
+        this.socket.send(JSON.stringify({ op: 6, d: { requestType, requestId: id, requestData } }));
+      }), timeout, signal, options.timeoutMessage||`OBS操作 ${requestType} がタイムアウトしました。`);
+    }
+    notify(requestType, requestData={}) {
+      if (!this.ready || this.socket?.readyState !== WebSocket.OPEN) return false;
+      const id='notify-'+String(++this.nextId);
+      this.socket.send(JSON.stringify({op:6,d:{requestType,requestId:id,requestData}}));
+      return true;
+    }
+    async screenshot(sourceName, width, signal) {
+      return this.request('GetSourceScreenshot',
+        { sourceName, imageFormat: 'jpeg', imageWidth: width, imageCompressionQuality: 75 },
+        signal,
+        { errorCode:'OBS_SOURCE', errorMessage:'OBS画像取得失敗。映像ソース名を確認してください', timeoutMessage:'OBSの画像取得がタイムアウトしました。' });
     }
     close() {
       this.ready = false; this.lifetimeSignal?.removeEventListener('abort', this.abortListener);

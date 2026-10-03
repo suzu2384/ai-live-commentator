@@ -3,7 +3,9 @@
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
   const contentLibraryKey = 'ai-live-commentator-content-library-v1';
-  const savedIds = ['theme','obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
+  const obsOverlaySourceName='みんコメ コメント';
+  const obsOverlayColors=['#2e7fa3','#a93b6b','#3f7f46','#b47420','#6549a7','#a8443b'];
+  const savedIds = ['theme','obsUrl','sourceName','obsOverlayEnabled','obsOverlayPosition','obsOverlayFontSize','obsOverlayHold','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
   const themes={
     midnight:{scheme:'dark',color:'#0d151c'},
     graphite:{scheme:'dark',color:'#17191c'},
@@ -35,8 +37,9 @@
     }catch{}
   }
   $('theme').addEventListener('change',persistTheme);
-  const numberRules = { talkativeness:[0,2], conversationHistoryCount:[0,20], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6], speakerWeight1:[0,999], speakerWeight2:[0,999], speakerWeight3:[0,999], speakerWeight4:[0,999], speakerWeight5:[0,999], speakerWeight6:[0,999] };
+  const numberRules = { talkativeness:[0,2], conversationHistoryCount:[0,20], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6], obsOverlayFontSize:[20,72], obsOverlayHold:[0,30], speakerWeight1:[0,999], speakerWeight2:[0,999], speakerWeight3:[0,999], speakerWeight4:[0,999], speakerWeight5:[0,999], speakerWeight6:[0,999] };
   let controller = null, obs = null, audioContext = null, activeAudio = null, wakeLock = null;
+  let obsOverlayTimer=null,obsOverlayEpoch=0,obsOverlayFaulted=false;
   let phaseAt = performance.now(), lastCaptureAt = null, busy = false, lastSettings = null;
   const stats = { used:0, stale:0 };
   let resumeAction=null, finishAction=null, streaming=false, vaultBusy=false, pageEpoch=0;
@@ -63,7 +66,7 @@
     const talk=['控えめ','標準','よく話す'][Number($('talkativeness').value)]||'話し方';
     const content=$('contentName').selectedOptions?.[0]?.textContent?.trim()||'対象なし';
     $('summary-live').textContent=`${content||'対象なし'} / ${$('participantCount').value||'1'}人 / ${talk}`;
-    $('summary-video').textContent=$('sourceName').value.trim()||'映像ソース未入力';
+    $('summary-video').textContent=($('sourceName').value.trim()||'映像ソース未入力')+($('obsOverlayEnabled').checked?' / コメント表示ON':'');
     $('summary-ai').textContent=$('apiKey').value?($('freeTier').checked?'APIキー入力済み / Free確認済み':'APIキー入力済み'):'APIキー未入力';
     $('summary-voice').textContent=$('output').value==='voicevox'?'VOICEVOX':'棒読みちゃん';
     try{$('summary-vault').textContent=localStorage.getItem('ai-live-commentator-vault-v1')?'保存あり':'保存なし';}
@@ -227,6 +230,7 @@
       s[id] = value;
     }
     if (![320,640,960].includes(s.imageWidth)){revealSetting('imageWidth');throw new C.AppError('画像サイズを選択してください。');}
+    if (!['top-left','top-center','top-right','bottom-left','bottom-center','bottom-right'].includes(s.obsOverlayPosition)){revealSetting('obsOverlayPosition');throw new C.AppError('OBSコメントの表示位置を選択してください。');}
     if (!['bouyomi','voicevox'].includes(s.output)){revealSetting('output');throw new C.AppError('読み上げ先を選択してください。');}
     s.selectedProfileIds=selectedProfileIds();
     if(!s.selectedProfileIds.length){revealSetting('participantSelection');throw new C.AppError('参加する友達を1人以上選択してください。');}
@@ -249,6 +253,7 @@
   }
   $('voicevoxUrl').addEventListener('input',voicevoxSettingsLink);
   function outputFields() { voicevoxSettingsLink(); $('bouyomiFields').hidden = $('output').value !== 'bouyomi'; $('voicevoxFields').hidden = $('output').value !== 'voicevox'; updateSettingSummaries(); }
+  function overlayFields(){ $('obsOverlayFields').hidden=!$('obsOverlayEnabled').checked; updateSettingSummaries(); }
   function requireKey() {
     let key;try{key=C.normalizeKey($('apiKey').value);}catch(e){revealSetting('apiKey');throw e;}
     if (!$('freeTier').checked){revealSetting('freeTier');throw new C.AppError('このキーのプロジェクトがFree Tier・課金未設定であることを確認し、チェックを付けてください。');}
@@ -342,6 +347,101 @@
     await playVoicevoxAudio(audio,s,frame,signal);
     return true;
   }
+  function obsBgr(hex){
+    const n=parseInt(String(hex).replace('#',''),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+    return (b<<16)|(g<<8)|r;
+  }
+  function obsOverlayColor(profile){
+    const index=Math.max(0,Math.min(5,(Number(String(profile?.id||'').replace(/^p/,''))||1)-1));
+    return obsOverlayColors[index];
+  }
+  function obsOverlayGeometry(position,baseWidth,baseHeight,boxWidth,boxHeight){
+    const margin=Math.max(20,Math.round(Math.min(baseWidth,baseHeight)*0.035));
+    const right=Math.max(margin,baseWidth-boxWidth-margin),bottom=Math.max(margin,baseHeight-boxHeight-margin);
+    const centerX=Math.max(margin,Math.round((baseWidth-boxWidth)/2));
+    if(position==='top-center')return {x:centerX,y:margin};
+    if(position==='top-right')return {x:right,y:margin};
+    if(position==='bottom-left')return {x:margin,y:bottom};
+    if(position==='bottom-center')return {x:centerX,y:bottom};
+    if(position==='bottom-right')return {x:right,y:bottom};
+    return {x:margin,y:margin};
+  }
+  function clearObsOverlayTimer(){
+    if(obsOverlayTimer!==null){clearTimeout(obsOverlayTimer);obsOverlayTimer=null;}
+  }
+  function clearObsOverlayNow(){
+    clearObsOverlayTimer();obsOverlayEpoch++;
+    obs?.notify('SetInputSettings',{inputName:obsOverlaySourceName,inputSettings:{text:''},overlay:true});
+  }
+  async function ensureObsOverlay(profile,turn,s,signal){
+    C.check(signal);
+    const [sceneInfo,inputList,kindList,video]=await Promise.all([
+      obs.request('GetCurrentProgramScene',{},signal),
+      obs.request('GetInputList',{},signal),
+      obs.request('GetInputKindList',{},signal),
+      obs.request('GetVideoSettings',{},signal)
+    ]);
+    const sceneName=sceneInfo.sceneName||sceneInfo.currentProgramSceneName;
+    if(!sceneName)throw new C.AppError('OBSの現在シーンを取得できませんでした。','OBS_OVERLAY');
+    const existing=(inputList.inputs||[]).find(input=>input.inputName===obsOverlaySourceName);
+    if(existing&&!String(existing.inputKind||existing.unversionedInputKind||'').startsWith('text_gdiplus'))
+      throw new C.AppError(`OBSに「${obsOverlaySourceName}」という別種類のソースがあります。名前を変更または削除してください。`,'OBS_OVERLAY');
+    const kinds=Array.isArray(kindList.inputKinds)?kindList.inputKinds:[];
+    const textKind=existing?.inputKind||kinds.find(k=>k==='text_gdiplus_v2')||kinds.find(k=>String(k).startsWith('text_gdiplus'));
+    if(!textKind)throw new C.AppError('OBSで Text (GDI+) ソースを利用できません。Windows版OBSかプラグイン構成を確認してください。','OBS_OVERLAY');
+    const baseWidth=Number(video.baseWidth)||1920,baseHeight=Number(video.baseHeight)||1080;
+    const boxWidth=Math.max(420,Math.min(900,baseWidth-80));
+    const boxHeight=Math.max(130,Math.min(220,Math.round(s.obsOverlayFontSize*3.4)));
+    const inputSettings={
+      text:`${profile.name}\n${turn.text}`,
+      font:{face:'Yu Gothic UI',size:s.obsOverlayFontSize,style:'Regular',flags:0},
+      color:16777215,opacity:100,
+      bk_color:obsBgr(obsOverlayColor(profile)),bk_opacity:82,
+      outline:true,outline_size:2,outline_color:0,outline_opacity:90,
+      align:'left',valign:'center',
+      extents:true,extents_cx:boxWidth,extents_cy:boxHeight,extents_wrap:true,
+      read_from_file:false
+    };
+    let sceneItemId=null;
+    if(!existing){
+      const created=await obs.request('CreateInput',{sceneName,inputName:obsOverlaySourceName,inputKind:textKind,inputSettings,sceneItemEnabled:true},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBSコメント表示ソースを作成できませんでした'});
+      sceneItemId=Number(created.sceneItemId);
+      log(`OBSに「${obsOverlaySourceName}」ソースを作成しました。`);
+    }else{
+      await obs.request('SetInputSettings',{inputName:obsOverlaySourceName,inputSettings,overlay:true},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBSコメント表示を更新できませんでした'});
+      const items=await obs.request('GetSceneItemList',{sceneName},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBSシーンの項目を取得できませんでした'});
+      const item=(items.sceneItems||[]).find(x=>x.sourceName===obsOverlaySourceName);
+      if(item)sceneItemId=Number(item.sceneItemId);
+      else{
+        const created=await obs.request('CreateSceneItem',{sceneName,sourceName:obsOverlaySourceName,sceneItemEnabled:true},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBSコメント表示を現在シーンへ追加できませんでした'});
+        sceneItemId=Number(created.sceneItemId);
+      }
+    }
+    if(!Number.isInteger(sceneItemId)||sceneItemId<0)throw new C.AppError('OBSコメント表示のシーン項目IDを取得できませんでした。','OBS_OVERLAY');
+    const pos=obsOverlayGeometry(s.obsOverlayPosition,baseWidth,baseHeight,boxWidth,boxHeight);
+    await obs.request('SetSceneItemTransform',{sceneName,sceneItemId,sceneItemTransform:{positionX:pos.x,positionY:pos.y,alignment:5,scaleX:1,scaleY:1}},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBSコメント表示の位置を変更できませんでした'});
+    return ++obsOverlayEpoch;
+  }
+  async function showObsOverlay(profile,turn,s,signal,{strict=false}={}){
+    if(!s.obsOverlayEnabled||!obs?.ready||(!strict&&obsOverlayFaulted))return 0;
+    clearObsOverlayTimer();
+    try{return await ensureObsOverlay(profile,turn,s,signal);}
+    catch(e){
+      if(strict)throw e;
+      obsOverlayFaulted=true;
+      log('OBSコメント表示をこの接続中は省略します: '+(e instanceof C.AppError?e.message:'OBS表示に失敗しました。'),'warn');
+      return 0;
+    }
+  }
+  function scheduleObsOverlayHide(s,epoch){
+    if(!epoch||!s.obsOverlayEnabled)return;
+    clearObsOverlayTimer();
+    obsOverlayTimer=setTimeout(()=>{
+      obsOverlayTimer=null;
+      if(epoch!==obsOverlayEpoch||!obs?.ready)return;
+      obs?.notify('SetInputSettings',{inputName:obsOverlaySourceName,inputSettings:{text:''},overlay:true});
+    },Math.max(0,s.obsOverlayHold)*1000);
+  }
   function spokenText(turn){return C.plainSpeech(String(turn?.text??''));}
   function showLatestComment(profile,turn){
     $('lastComment').textContent=profile.name+'：'+turn.text;
@@ -372,6 +472,7 @@
       for(let i=0;i<items.length;i++){
         const item=items[i],next=items[i+1];
         setStatus(next?`${label}を再生中・次の音声を先読み中`:`${label}を再生中`);
+        const overlayEpoch=await showObsOverlay(item.profile,item.turn,s,signal);
         const playback=playVoicevoxAudio(audio,{...s,...item.profile},null,signal);
         let prefetch=null,prefetchController=null,unlink=null;
         if(next){
@@ -379,12 +480,12 @@
           const abort=()=>prefetchController.abort();signal.addEventListener('abort',abort,{once:true});unlink=()=>signal.removeEventListener('abort',abort);
           prefetch=generateVoicevoxAudio(spokenText(next.turn),{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
         }
-        try{await playback;}catch(e){prefetchController?.abort();unlink?.();throw e;}
-        delivered(item);
+        try{await playback;}catch(e){prefetchController?.abort();unlink?.();if(overlayEpoch===obsOverlayEpoch)clearObsOverlayNow();throw e;}
+        delivered(item);scheduleObsOverlayHide(s,overlayEpoch);
         if(prefetch){const prepared=await prefetch;unlink?.();if(prepared.error)throw prepared.error;audio=prepared.value;}
       }
     }else{
-      for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);if(!await speak(spokenText(item.turn),{...s,...item.profile},null,signal,true))throw new C.AppError(`${label}を読み上げ先へ送信できませんでした。`,'VOICE');delivered(item);}
+      for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);if(!await speak(spokenText(item.turn),{...s,...item.profile},null,signal,true))throw new C.AppError(`${label}を読み上げ先へ送信できませんでした。`,'VOICE');const overlayEpoch=await showObsOverlay(item.profile,item.turn,s,signal);delivered(item);scheduleObsOverlayHide(s,overlayEpoch);}
     }
   }
   function fallbackGreetingTurns(kind,s,turnCount){
@@ -428,7 +529,7 @@
   }
   async function connectObs(s,signal) {
     if(!s.sourceName){revealSetting('sourceName');throw new C.AppError('OBSの映像ソース名を入力してください。');}
-    setStatus('OBSに接続中'); obs=new C.ObsClient(); await obs.connect(s.obsUrl,$('obsPassword').value,signal); log('OBSへの接続完了。');
+    setStatus('OBSに接続中'); obs=new C.ObsClient(); await obs.connect(s.obsUrl,$('obsPassword').value,signal);obsOverlayFaulted=false; log('OBSへの接続完了。');
   }
   async function analyze(frames,s,key,history,spoken,speakerHistory,state,signal,quietMode=false) {
     const current=frames[frames.length-1];
@@ -618,6 +719,7 @@
           if(i===0){checkFresh(current,s);state.lastConversationStart=performance.now();}
           const suffix=state.analysisInFlight?'・裏でGemini解析中':'';
           setStatus((next?'VOICEVOX再生中・次の音声を先読み中':'VOICEVOXの音声再生中')+suffix);
+          const overlayEpoch=await showObsOverlay(item.profile,item.turn,s,signal);
           const playback=playVoicevoxAudio(audio,{...s,...item.profile},i===0?current:null,signal);
           let prefetch=null,prefetchController=null,unlink=null;
           if(next){
@@ -625,8 +727,8 @@
             const abort=()=>prefetchController.abort();signal.addEventListener('abort',abort,{once:true});unlink=()=>signal.removeEventListener('abort',abort);
             prefetch=generateVoicevoxAudio(spokenText(next.turn),{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
           }
-          try{await playback;}catch(e){prefetchController?.abort();unlink?.();throw e;}
-          delivered(item.turn,item.profile);
+          try{await playback;}catch(e){prefetchController?.abort();unlink?.();if(overlayEpoch===obsOverlayEpoch)clearObsOverlayNow();throw e;}
+          delivered(item.turn,item.profile);scheduleObsOverlayHide(s,overlayEpoch);
           if(prefetch){const prepared=await prefetch;unlink?.();if(prepared.error)throw prepared.error;audio=prepared.value;}
         }
       }else{
@@ -634,7 +736,8 @@
           C.check(signal);setStatus(state.analysisInFlight?'棒読みちゃんへ送信中・裏でGemini解析中':'棒読みちゃんへ送信中');
           if(!await speak(spokenText(turn),{...s,...profile},conversationStarted?null:current,signal,conversationStarted))break;
           if(!conversationStarted)state.lastConversationStart=performance.now();
-          delivered(turn,profile);
+          const overlayEpoch=await showObsOverlay(profile,turn,s,signal);
+          delivered(turn,profile);scheduleObsOverlayHide(s,overlayEpoch);
         }
       }
       return conversationStarted;
@@ -709,7 +812,7 @@
     controller=new AbortController();const signal=controller.signal;setBusy(true);let failed=false;
     try {await fn(signal);}
     catch(e){if(signal.aborted || e.name==='AbortError')log('停止しました。');else{failed=true;log('停止: '+(e instanceof C.AppError?e.message:'処理に失敗しました。接続先やブラウザの状態を確認してください。'),'warn');}}
-    finally{obs?.close();obs=null;activeAudio?.stop();activeAudio=null;await wakeLock?.release().catch(()=>{});wakeLock=null;controller=null;finishAction=null;streaming=false;lastCaptureAt=null;setBusy(false);setStatus(failed?'エラーで停止・履歴を確認してください':'停止中',failed);$('elapsed').textContent='';}
+    finally{clearObsOverlayNow();obs?.close();obs=null;activeAudio?.stop();activeAudio=null;await wakeLock?.release().catch(()=>{});wakeLock=null;controller=null;finishAction=null;streaming=false;lastCaptureAt=null;setBusy(false);setStatus(failed?'エラーで停止・履歴を確認してください':'停止中',failed);$('elapsed').textContent='';}
   }
   $('start').addEventListener('click',()=>operation(async signal=>{
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
@@ -733,8 +836,15 @@
   }));
   $('resume').addEventListener('click',()=>resumeAction?.());
   $('finish').addEventListener('click',()=>finishAction?.());
-  $('stop').addEventListener('click',()=>{controller?.abort();obs?.close();try{activeAudio?.stop();}catch{}setStatus('即停止処理中');if(lastSettings?.output==='bouyomi')log('新しい送信を即停止します。棒読みちゃんに送信済みの音声は、必要なら棒読みちゃん側で停止してください。');});
+  $('stop').addEventListener('click',()=>{clearObsOverlayNow();controller?.abort();obs?.close();try{activeAudio?.stop();}catch{}setStatus('即停止処理中');if(lastSettings?.output==='bouyomi')log('新しい送信を即停止します。棒読みちゃんに送信済みの音声は、必要なら棒読みちゃん側で停止してください。');});
   $('testObs').addEventListener('click',()=>operation(async signal=>{const s=settings();await connectObs(s,signal);setStatus('OBSの画像取得中');await getFrame(s,signal);log('映像確認完了。Geminiへの送信はありません。');}));
+  $('testObsOverlay').addEventListener('click',()=>operation(async signal=>{
+    const s=settings();if(!s.obsOverlayEnabled){revealSetting('obsOverlayEnabled');throw new C.AppError('「OBSにコメントを表示」をONにしてからテストしてください。');}
+    await connectObs(s,signal);const profile=s.profiles[0];setStatus('OBSコメント表示をテスト中');
+    const epoch=await showObsOverlay(profile,{text:'こんな感じでコメントが表示されるよ！'},s,signal,{strict:true});
+    log(`OBSコメント表示テスト: 「${obsOverlaySourceName}」を現在シーンに表示しました。`);
+    await C.sleep(2500,signal);if(epoch===obsOverlayEpoch)clearObsOverlayNow();
+  }));
   $('testVoice').addEventListener('click',()=>operation(async signal=>{const s=settings();lastSettings=s;await unlockAudio(s);setStatus('音声テスト中');const ok=await speak('こんにちは。音声テストです。',s,null,signal);if(ok)log(s.output==='bouyomi'?'棒読みちゃんへの音声テスト送信完了。実際に聞こえるか確認してください。':'音声テスト再生完了。');}));
   $('testText').addEventListener('click',()=>operation(async signal=>{
     const s=settings(),key=requireKey();reserve(s);setStatus('Gemini接続テスト中');const began=performance.now();log(`文章だけの接続テストを送信（${stats.used}回）。`);
@@ -743,7 +853,7 @@
   }));
   $('save').addEventListener('click',()=>{try{const s=settings();save(s);updateStats();}catch(e){log(e.message,'warn');}});
   $('preset').addEventListener('click',()=>{for(const [id,value] of Object.entries({talkativeness:2,apiInterval:30,speechInterval:20,quietInterval:60}))$(id).value=value;updateSettingSummaries();log('よく話す設定を適用しました。「設定を保存」または「実況を開始」で保存します。');});
-  $('clearLog').addEventListener('click',()=>$('log').replaceChildren());$('output').addEventListener('change',outputFields);
+  $('clearLog').addEventListener('click',()=>$('log').replaceChildren());$('output').addEventListener('change',outputFields);$('obsOverlayEnabled').addEventListener('change',overlayFields);
   $('manageContents').addEventListener('click',openContentDialog);
   $('closeContentDialog').addEventListener('click',closeContentDialog);
   $('doneContentDialog').addEventListener('click',closeContentDialog);
@@ -845,6 +955,6 @@
   const selectedIds=storedSelected.length?storedSelected:Array.from({length:legacyCount},(_,i)=>`p${i+1}`);
   const profiles=Array.isArray(stored.profiles)?stored.profiles:[];
   if(!profiles.length)profiles.push({...defaultProfile(0),speaker:stored.speaker??3,bouyomiVoice:stored.bouyomiVoice??0});
-  buildProfiles(profiles);renderParticipantSelection(selectedIds);vaultState();outputFields();initSettingSections();updateStats();
+  buildProfiles(profiles);renderParticipantSelection(selectedIds);vaultState();outputFields();overlayFields();initSettingSections();updateStats();
   log('準備できました。映像確認と音声テストを済ませてから開始してください。');
 })();

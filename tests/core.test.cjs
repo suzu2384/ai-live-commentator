@@ -92,6 +92,11 @@ test('analysis payload accepts only two to six ordered frames',()=>{
   assert.throws(()=>C.makePayload([{data:'data:image/jpeg;base64,AQ=='}],s,[],[]));
   assert.throws(()=>C.makePayload(Array(7).fill({data:'data:image/jpeg;base64,AQ=='}),s,[],[]));
 });
+test('OBS client exposes generic request and fire-and-forget channels',()=>{
+  assert.equal(typeof C.ObsClient.prototype.request,'function');
+  assert.equal(typeof C.ObsClient.prototype.notify,'function');
+  assert.equal(typeof C.ObsClient.prototype.screenshot,'function');
+});
 test('invalid keys and cancellation prevent network requests',async()=>{
   let calls=0;const f=()=>{calls++;};
   for(const k of ['','a b','a\rb','全角'])await assert.rejects(C.gemini(k,{},undefined,f));
