@@ -90,13 +90,16 @@
     const contentGuidance=contentName
       ? `\n現在見ている対象コンテンツは「${contentName}」。\nこのコンテンツについて既知の知識があれば、画面の理解や自然な会話に活用してよい。固有名詞・人物・場所・システムなども、確信できる場合は自然に使う。\n知識を披露すること自体を目的にせず、友達同士の自然な会話を優先する。`
       : '';
+    const quietGuidance=settings.quietMode
+      ? '\n今回は画面変化が少ないまま一定時間が経ったため「雑談モード」。ゲームを横で見ている友達同士として、現在画面を逐一実況する必要はない。対象コンテンツ、直前の会話、画面の雰囲気のどれかをきっかけに、自然な雑談へ少し話を広げてよい。プレイヤーに先へ進むことや操作を促さない。「進もう」「次へ行こう」「動こう」「何か起きないかな」など、停滞を責める・急かす・進行を要求する発言は禁止。変化が少ないこと自体を不満として口にしない。友達が同じ部屋でのんびりゲームを見ている空気を優先する。無理に話題を作る必要がなければspeak=falseでもよい。'
+      : '\n今回は画面変化を検出した通常実況モード。現在起きている変化への自然な反応を優先する。';
     const parts = [];
     for (const [i, frame] of frames.entries()) {
       if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(frame.data)) throw new AppError('OBSの画像形式が不正です。');
       const suffix=i===0?'（最も前）':i===frames.length-1?'（現在）':'';
       parts.push({ text: `画像${i+1}${suffix}` }, { inlineData: { mimeType: 'image/jpeg', data: frame.data.split(',')[1] } });
     }
-    parts.push({ text: `共通の雰囲気: ${settings.persona}${contentGuidance}\n参加者: ${JSON.stringify(settings.profiles.map(({id,name,personality})=>({id,name,personality})))}\n今回の候補発言人数: ${turnCount}人。speakの真偽にかかわらず、異なる${turnCount}人が1回ずつ発言する候補をturnsに必ず${turnCount}件入れる。同じspeakerIdを重複させない。実際に今しゃべるのが自然ならspeak=true、今は無言が自然ならspeak=falseにする。speak=falseでもturnsは空にしない。\n直近の話者: ${recentSpeakers.length?recentSpeakers.join(' → '):'なし'}。同じ人に偏りすぎないよう自然に話者を選ぶ。ただし状況に合う人を優先し、機械的な順番にはしない。\n最近の状況: ${history.join(' / ')}\n直近の会話履歴（古い順、発言者名つき）:\n${recentConversation.length?recentConversation.join('\n'):'なし'}\n画像1から画像${frames.length}まで古い順です。最後の画像を現在として、途中の変化も含めて判断して。` });
+    parts.push({ text: `共通の雰囲気: ${settings.persona}${contentGuidance}${quietGuidance}\n参加者: ${JSON.stringify(settings.profiles.map(({id,name,personality})=>({id,name,personality})))}\n今回の候補発言人数: ${turnCount}人。speakの真偽にかかわらず、異なる${turnCount}人が1回ずつ発言する候補をturnsに必ず${turnCount}件入れる。同じspeakerIdを重複させない。実際に今しゃべるのが自然ならspeak=true、今は無言が自然ならspeak=falseにする。speak=falseでもturnsは空にしない。\n直近の話者: ${recentSpeakers.length?recentSpeakers.join(' → '):'なし'}。同じ人に偏りすぎないよう自然に話者を選ぶ。ただし状況に合う人を優先し、機械的な順番にはしない。\n最近の状況: ${history.join(' / ')}\n直近の会話履歴（古い順、発言者名つき）:\n${recentConversation.length?recentConversation.join('\n'):'なし'}\n画像1から画像${frames.length}まで古い順です。最後の画像を現在として、途中の変化も含めて判断して。` });
     return { systemInstruction: { parts: [{ text: instructions + speechGuidance(settings.talkativeness) }] }, contents: [{ role: 'user', parts }],
       generationConfig: { candidateCount: 1, maxOutputTokens: 1536, thinkingConfig: { thinkingLevel: 'MINIMAL', includeThoughts: false }, responseMimeType: 'application/json',
         responseSchema: { type: 'OBJECT', properties: { speak: { type: 'BOOLEAN' }, summary: { type: 'STRING' }, turns: { type: 'ARRAY', minItems: turnCount, maxItems: turnCount, items: { type: 'OBJECT', properties: { speakerId: { type: 'STRING', enum: settings.profiles.map(p=>p.id) }, text: { type: 'STRING' }, speechText: { type: 'STRING' } }, required: ['speakerId','text','speechText'] } } }, required: ['speak', 'summary', 'turns'] } } };

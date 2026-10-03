@@ -72,6 +72,19 @@ test('target content guidance is sent only when a content is selected',()=>{
   assert.equal(noneText.includes('対象コンテンツ'),false);
   assert.equal(noneText.includes('このコンテンツについて既知の知識があれば'),false);
 });
+test('quiet-mode payload favors relaxed friend chat and explicitly forbids rushing the player',()=>{
+  const frames=[{data:'data:image/jpeg;base64,AQ=='},{data:'data:image/jpeg;base64,Ag=='}];
+  const quiet=C.makePayload(frames,{persona:'相方',talkativeness:2,profiles,turnCount:1,quietMode:true,contentName:'The Division 2'},[],[]);
+  const text=quiet.contents[0].parts.at(-1).text;
+  assert.ok(text.includes('「雑談モード」'));
+  assert.ok(text.includes('現在画面を逐一実況する必要はない'));
+  assert.ok(text.includes('対象コンテンツ、直前の会話、画面の雰囲気'));
+  assert.ok(text.includes('停滞を責める・急かす・進行を要求する発言は禁止'));
+  assert.ok(text.includes('「進もう」「次へ行こう」「動こう」「何か起きないかな」'));
+  const normal=C.makePayload(frames,{persona:'相方',talkativeness:2,profiles,turnCount:1,quietMode:false},[],[]);
+  assert.ok(normal.contents[0].parts.at(-1).text.includes('通常実況モード'));
+  assert.equal(normal.contents[0].parts.at(-1).text.includes('停滞を責める・急かす'),false);
+});
 test('analysis payload accepts only two to six ordered frames',()=>{
   const s={persona:'相方',talkativeness:1,profiles};
   assert.doesNotThrow(()=>C.makePayload(Array.from({length:6},(_,i)=>({data:`data:image/jpeg;base64,${Buffer.from([i]).toString('base64')}`})),s,[],[]));

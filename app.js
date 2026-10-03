@@ -446,10 +446,10 @@
     if(!s.sourceName){revealSetting('sourceName');throw new C.AppError('OBSの映像ソース名を入力してください。');}
     setStatus('OBSに接続中'); obs=new C.ObsClient(); await obs.connect(s.obsUrl,$('obsPassword').value,signal); log('OBSへの接続完了。');
   }
-  async function analyze(frames,s,key,history,spoken,speakerHistory,state,signal) {
+  async function analyze(frames,s,key,history,spoken,speakerHistory,state,signal,quietMode=false) {
     const current=frames[frames.length-1];
     const turnCount=C.pickWeightedSpeakerCount(s.speakerCountWeights,s.profiles.length);
-    const analysisSettings={...s,turnCount,recentSpeakerIds:[...speakerHistory,...state.activeSpeakerIds].slice(-8)};
+    const analysisSettings={...s,turnCount,quietMode,recentSpeakerIds:[...speakerHistory,...state.activeSpeakerIds].slice(-8)};
     const profileNames=new Map(s.profiles.map(p=>[p.id,p.name]));
     const deliveredConversation=spoken.map((text,i)=>({speakerId:speakerHistory[i],text}));
     const activeConversation=state.activeTurnTexts.map((text,i)=>({speakerId:state.activeSpeakerIds[i],text}));
@@ -459,7 +459,7 @@
     const remaining=current.capturedAt+s.freshness*1000-performance.now();
     if(remaining<=0) throw new C.AppError('画像取得中に鮮度上限に達しました。','STALE');
     const payload=C.makePayload(frames,analysisSettings,history,recentConversation); reserve(s); const began=performance.now();
-    setStatus(state.speaking?'読み上げ中・裏でGemini解析中':'Geminiの応答待ち'); log(`Geminiへ画像${frames.length}枚を送信（${stats.used}回・今回の発言人数${turnCount}人・鮮度上限${s.freshness}秒）。`);
+    setStatus(state.speaking?'読み上げ中・裏でGemini解析中':'Geminiの応答待ち'); log(`Geminiへ画像${frames.length}枚を送信（${stats.used}回・今回の発言人数${turnCount}人・${quietMode?'雑談モード':'通常実況'}・鮮度上限${s.freshness}秒）。`);
     const response=await C.deadline(token=>C.gemini(key,payload,token),Math.min(180000,remaining),signal,'鮮度上限に達したためGeminiの応答待ちを打ち切りました。','STALE');
     const duration=(performance.now()-began)/1000; $('latency').textContent=duration.toFixed(1)+' 秒';log(`Gemini応答 ${duration.toFixed(1)}秒。`);
     checkFresh(current,s);return C.parseAnalysis(response,s.profiles,turnCount);
@@ -529,14 +529,16 @@
         shownBufferCount=s.analysisFrameCount;if(!state.speaking)setStatus('映像監視中');
       }
       const frames=state.frames.slice(),current=frames[frames.length-1],previous=frames[frames.length-2];
+      const elapsed=(performance.now()-state.lastAnalysis)/1000,motionValue=motion(previous.pixels,current.pixels);
       if(current.capturedAt<=state.lastAnalyzedFrameAt ||
-         !C.shouldAnalyze((performance.now()-state.lastAnalysis)/1000,motion(previous.pixels,current.pixels),s.apiInterval,s.quietInterval)) {
+         !C.shouldAnalyze(elapsed,motionValue,s.apiInterval,s.quietInterval)) {
         await C.sleep(100,signal);continue;
       }
+      const quietMode=state.lastAnalysis!==-Infinity&&motionValue<.07&&elapsed>=Math.max(s.apiInterval,s.quietInterval);
       state.lastAnalysis=performance.now();state.lastAnalyzedFrameAt=current.capturedAt;state.analysisInFlight=true;
       const speechEpochAtStart=state.speechEpoch,startedDuringSpeech=state.speaking;
       try {
-        const result=await analyze(frames,s,key,history,spoken,speakerHistory,state,signal);
+        const result=await analyze(frames,s,key,history,spoken,speakerHistory,state,signal,quietMode);
         state.analysisVersion++;
         if(result.summary){history.push(result.summary);if(history.length>6)history.shift();}
         const candidate={result,frame:current,version:state.analysisVersion,prefetchedDuringSpeech:startedDuringSpeech||state.speaking||state.speechEpoch!==speechEpochAtStart};

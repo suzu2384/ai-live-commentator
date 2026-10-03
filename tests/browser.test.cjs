@@ -372,6 +372,20 @@ const results=[];
   assert.ok((await p.locator('#elapsed').textContent()).startsWith('最終取得 '));
   await stop(p);await x.held()?.abort().catch(()=>{});await x.close();
  });
+ await test('low-motion interval switches later analysis to relaxed chat mode',async()=>{
+  const x=await setup({before:async p=>{
+    await p.locator('#apiInterval').fill('30');await p.locator('#quietInterval').fill('30');await p.locator('#freshness').fill('180');
+  }});const p=x.page;
+  await start(x);await idle(p);assert.equal(x.events.api,1);
+  assert.ok(x.events.promptTexts[0].includes('通常実況モード'));
+  await p.clock.fastForward(31000);
+  for(let i=0;i<200&&x.events.api<2;i++)await new Promise(r=>setTimeout(r,10));
+  assert.ok(x.events.api>=2);
+  assert.ok(x.events.promptTexts[1].includes('「雑談モード」'));
+  assert.ok(x.events.promptTexts[1].includes('急かす・進行を要求する発言は禁止'));
+  assert.ok((await p.locator('#log').innerText()).includes('雑談モード'));
+  await stop(p);await x.close();
+ });
  await test('successful analysis continues beyond former request cap until manual stop',async()=>{
   const x=await setup();await start(x);await idle(x.page);assert.equal(x.events.api,1);assert.deepEqual(x.events.talks,['景色がいいね']);
   for(let i=0;i<21;i++){await x.page.clock.fastForward(61000);await idle(x.page);}
