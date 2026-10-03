@@ -8,6 +8,9 @@
     midnight:{scheme:'dark',color:'#0d151c'},
     graphite:{scheme:'dark',color:'#17191c'},
     aurora:{scheme:'dark',color:'#111326'},
+    crimson:{scheme:'dark',color:'#1b1014'},
+    forest:{scheme:'dark',color:'#0f1813'},
+    amber:{scheme:'dark',color:'#1b1710'},
     daylight:{scheme:'light',color:'#f3f6f9'},
     sand:{scheme:'light',color:'#f3ede3'}
   };
