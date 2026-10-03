@@ -3,7 +3,31 @@
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
   const contentLibraryKey = 'ai-live-commentator-content-library-v1';
-  const savedIds = ['obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
+  const savedIds = ['theme','obsUrl','sourceName','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
+  const themes={
+    midnight:{scheme:'dark',color:'#0d151c'},
+    graphite:{scheme:'dark',color:'#17191c'},
+    aurora:{scheme:'dark',color:'#111326'},
+    daylight:{scheme:'light',color:'#f3f6f9'},
+    sand:{scheme:'light',color:'#f3ede3'}
+  };
+  function applyTheme(value){
+    const theme=Object.hasOwn(themes,value)?value:'midnight',config=themes[theme];
+    document.documentElement.dataset.theme=theme;
+    document.documentElement.style.colorScheme=config.scheme;
+    document.querySelector('meta[name="theme-color"]').content=config.color;
+    $('theme').value=theme;
+    return theme;
+  }
+  function persistTheme(){
+    const theme=applyTheme($('theme').value);
+    try{
+      const stored=JSON.parse(localStorage.getItem(storageKey)||'{}');
+      const data=stored&&typeof stored==='object'&&!Array.isArray(stored)?stored:{};
+      data.theme=theme;localStorage.setItem(storageKey,JSON.stringify(data));
+    }catch{}
+  }
+  $('theme').addEventListener('change',persistTheme);
   const numberRules = { talkativeness:[0,2], conversationHistoryCount:[0,20], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6], speakerWeight1:[0,999], speakerWeight2:[0,999], speakerWeight3:[0,999], speakerWeight4:[0,999], speakerWeight5:[0,999], speakerWeight6:[0,999] };
   let controller = null, obs = null, audioContext = null, activeAudio = null, wakeLock = null;
   let phaseAt = performance.now(), lastCaptureAt = null, busy = false, lastSettings = null;
@@ -752,6 +776,7 @@
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
   contentLibrary=loadContentLibrary();renderContentOptions('');
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};for(const id of savedIds){if(stored[id]===undefined)continue;if($(id).type==='checkbox')$(id).checked=stored[id]===true;else if(['string','number'].includes(typeof stored[id]))$(id).value=stored[id];}}catch{}
+  applyTheme($('theme').value);
   renderContentOptions(typeof stored.contentName==='string'?splitContentName(stored.contentName).raw:'');
   if(stored.analysisFrameCount===undefined)$('analysisFrameCount').value='2';
   const legacyCount=[1,2,3,4,5,6].includes(Number(stored.participantCount))?Number(stored.participantCount):1;

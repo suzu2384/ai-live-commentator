@@ -78,13 +78,26 @@ const results=[];
  async function test(name,fn){await fn();results.push(name);console.log('PASS:',name);}
  await test('file startup, responsive layout, settings persistence excludes credentials',async()=>{
   const x=await setup();const p=x.page;await p.locator('#conversationHistoryCount').fill('4');await p.locator('#save').click();const data=await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1'));
-  assert.ok(!data.includes('fake.test-key')&&!data.includes('obs-secret')&&!data.includes('freeTier'));
+  assert.ok(!data.includes('fake.test-key')&&!data.includes('obs-secret')&&!data.includes('freeTier'));assert.equal(JSON.parse(data).theme,'midnight');
   await p.reload();await openConnect(p);assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#freeTier').isChecked(),false);assert.equal(await p.locator('#sampleInterval').getAttribute('min'),'1');assert.equal(await p.locator('#conversationHistoryCount').inputValue(),'4');assert.equal(await p.locator('#conversationHistoryCount').getAttribute('max'),'20');
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   assert.equal(await p.evaluate(()=>document.documentElement.scrollHeight>innerHeight),false);
   await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/desktop.png'),fullPage:true});
   await p.setViewportSize({width:390,height:844});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/mobile.png'),fullPage:true});await x.close();
+ });
+ await test('color themes apply immediately, persist and default old settings to midnight',async()=>{
+  const x=await setup();const p=x.page;
+  assert.equal(await p.locator('#theme').inputValue(),'midnight');assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'midnight');
+  await p.locator('#theme').selectOption('daylight');
+  assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'daylight');
+  assert.equal(await p.locator('meta[name="theme-color"]').getAttribute('content'),'#f3f6f9');
+  let stored=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1')));assert.equal(stored.theme,'daylight');
+  await p.reload();assert.equal(await p.locator('#theme').inputValue(),'daylight');assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'daylight');
+  await p.locator('#theme').selectOption('aurora');stored=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1')));assert.equal(stored.theme,'aurora');
+  await p.evaluate(()=>localStorage.setItem('ai-live-commentator-browser-v1',JSON.stringify({sourceName:'legacy'})));await p.reload();
+  assert.equal(await p.locator('#theme').inputValue(),'midnight');assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'midnight');
+  await x.close();
  });
  await test('tabs group live, friends, connection and history without changing setting ids',async()=>{
   const x=await setup();const p=x.page;

@@ -4,17 +4,24 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>みんコメAI — ブラウザ版</title>
-<meta name="theme-color" content="#0a264b">
+<meta name="theme-color" content="#0d151c">
+<script>
+try{
+  const value=JSON.parse(localStorage.getItem('ai-live-commentator-browser-v1')||'{}')?.theme;
+  const allowed=['midnight','graphite','aurora','daylight','sand'];
+  document.documentElement.dataset.theme=allowed.includes(value)?value:'midnight';
+}catch{document.documentElement.dataset.theme='midnight';}
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="みんコメAI">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=4.4">
-<script src="core.js?v=4.4" defer></script><script src="vault.js?v=4.4" defer></script><script src="app.js?v=4.4" defer></script>
+<link rel="stylesheet" href="style.css?v=4.5">
+<script src="core.js?v=4.5" defer></script><script src="vault.js?v=4.5" defer></script><script src="app.js?v=4.5" defer></script>
 </head>
 <body>
-<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v4.4</span></header>
+<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.5</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
