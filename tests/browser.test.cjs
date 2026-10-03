@@ -103,6 +103,21 @@ const results=[];
   assert.equal(await p.locator('#theme').inputValue(),'midnight');assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'midnight');
   await x.close();
  });
+ await test('selected participant border and checkbox follow every theme accent',async()=>{
+  const x=await setup();const p=x.page;
+  for(const theme of ['midnight','graphite','aurora','crimson','forest','amber','mist','lavender','rose','sage','daylight','sand']){
+    await p.locator('#theme').selectOption(theme);
+    const colors=await p.locator('#participant-p1').evaluate(input=>{
+      const choice=input.closest('.participant-choice');
+      const probe=document.createElement('span');probe.style.color='var(--accent)';document.body.append(probe);
+      const accent=getComputedStyle(probe).color;probe.remove();
+      return {accent,border:getComputedStyle(choice).borderTopColor,checkbox:getComputedStyle(input).accentColor};
+    });
+    assert.equal(colors.border,colors.accent);
+    assert.equal(colors.checkbox,colors.accent);
+  }
+  await x.close();
+ });
  await test('tabs group live, friends, connection and history without changing setting ids',async()=>{
   const x=await setup();const p=x.page;
   assert.deepEqual(await p.locator('[role=tab]').allTextContents(),['実況','友達','接続','履歴']);

@@ -385,3 +385,13 @@ footer{color:var(--footer)}
   .theme-picker span{display:none}
   .theme-picker select{min-width:112px;max-width:128px}
 }
+
+
+/* v4.8 participant selection follows the active theme */
+.participant-choice input{accent-color:var(--accent)}
+.participant-choice.selected{
+  border-color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 14%,var(--surface));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 18%,transparent);
+  color:var(--text)
+}
