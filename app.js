@@ -3,7 +3,8 @@
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
   const contentLibraryKey = 'ai-live-commentator-content-library-v1';
-  const obsOverlaySourceName='みんコメ コメント';
+  const obsOverlaySourceName='みんコメ 吹き出し';
+  const legacyObsOverlaySourceName='みんコメ コメント';
   const obsOverlayColors=['#2e7fa3','#a93b6b','#3f7f46','#b47420','#6549a7','#a8443b'];
   const savedIds = ['theme','obsUrl','sourceName','obsOverlayEnabled','obsOverlayPosition','obsOverlayFontSize','obsOverlayHold','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
   const themes={
@@ -39,7 +40,7 @@
   $('theme').addEventListener('change',persistTheme);
   const numberRules = { talkativeness:[0,2], conversationHistoryCount:[0,20], apiInterval:[30,600], speechInterval:[15,600], quietInterval:[30,600], freshness:[5,180], sampleInterval:[1,60], imageWidth:[320,960], analysisFrameCount:[2,6], obsOverlayFontSize:[20,72], obsOverlayHold:[0,30], speakerWeight1:[0,999], speakerWeight2:[0,999], speakerWeight3:[0,999], speakerWeight4:[0,999], speakerWeight5:[0,999], speakerWeight6:[0,999] };
   let controller = null, obs = null, audioContext = null, activeAudio = null, wakeLock = null;
-  let obsOverlayTimer=null,obsOverlayEpoch=0,obsOverlayFaulted=false;
+  let obsOverlayTimer=null,obsOverlayEpoch=0,obsOverlayFaulted=false,obsOverlayTarget=null;
   let phaseAt = performance.now(), lastCaptureAt = null, busy = false, lastSettings = null;
   const stats = { used:0, stale:0 };
   let resumeAction=null, finishAction=null, streaming=false, vaultBusy=false, pageEpoch=0;
@@ -347,13 +348,31 @@
     await playVoicevoxAudio(audio,s,frame,signal);
     return true;
   }
-  function obsBgr(hex){
-    const n=parseInt(String(hex).replace('#',''),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;
-    return (b<<16)|(g<<8)|r;
-  }
   function obsOverlayColor(profile){
     const index=Math.max(0,Math.min(5,(Number(String(profile?.id||'').replace(/^p/,''))||1)-1));
     return obsOverlayColors[index];
+  }
+  function escapeHtml(value){
+    return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+  function obsBubbleDocument(profile,turn,s){
+    const color=obsOverlayColor(profile),fontSize=s.obsOverlayFontSize;
+    const nameSize=Math.max(15,Math.round(fontSize*.48));
+    const radius=Math.max(20,Math.round(fontSize*.72));
+    const position=String(s.obsOverlayPosition||'bottom-left');
+    const tailRight=position.endsWith('right'),tailCenter=position.endsWith('center');
+    const tailPos=tailCenter?'left:50%;transform:translateX(-50%);':tailRight?'right:56px;':'left:56px;';
+    const tailBorder=tailRight
+      ? `border-width:28px 0 0 24px;border-color:${color}e8 transparent transparent transparent;`
+      : `border-width:28px 24px 0 0;border-color:${color}e8 transparent transparent transparent;`;
+    return `<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:"Yu Gothic UI","Meiryo",sans-serif}
+body{box-sizing:border-box;padding:18px 30px 42px;display:flex;align-items:center;justify-content:center}
+.bubble{position:relative;width:100%;box-sizing:border-box;padding:${Math.max(18,Math.round(fontSize*.5))}px ${Math.max(24,Math.round(fontSize*.72))}px;border-radius:${radius}px;background:${color}e8;border:2px solid rgba(255,255,255,.24);box-shadow:0 10px 28px rgba(0,0,0,.35);color:#fff}
+.bubble:after{content:"";position:absolute;bottom:-28px;${tailPos}width:0;height:0;border-style:solid;${tailBorder}filter:drop-shadow(0 6px 4px rgba(0,0,0,.22))}
+.name{font-size:${nameSize}px;font-weight:800;line-height:1.15;opacity:.85;margin-bottom:6px}
+.text{font-size:${fontSize}px;font-weight:700;line-height:1.32;letter-spacing:.015em;text-shadow:0 2px 3px rgba(0,0,0,.38);overflow-wrap:anywhere}
+</style></head><body><div class="bubble"><div class="name">${escapeHtml(profile.name)}</div><div class="text">${escapeHtml(turn.text)}</div></div></body></html>`;
   }
   function obsOverlayGeometry(position,baseWidth,baseHeight,boxWidth,boxHeight){
     const margin=Math.max(20,Math.round(Math.min(baseWidth,baseHeight)*0.035));
@@ -369,9 +388,34 @@
   function clearObsOverlayTimer(){
     if(obsOverlayTimer!==null){clearTimeout(obsOverlayTimer);obsOverlayTimer=null;}
   }
+  function disableObsOverlayTarget(target=obsOverlayTarget){
+    if(!target||!obs?.ready)return;
+    obs.notify('SetSceneItemEnabled',{sceneName:target.sceneName,sceneItemId:target.sceneItemId,sceneItemEnabled:false});
+  }
   function clearObsOverlayNow(){
     clearObsOverlayTimer();obsOverlayEpoch++;
-    obs?.notify('SetInputSettings',{inputName:obsOverlaySourceName,inputSettings:{text:''},overlay:true});
+    disableObsOverlayTarget();obsOverlayTarget=null;
+  }
+  async function resetObsOverlayScene(signal){
+    if(!obs?.ready)return;
+    try{
+      const [sceneInfo,inputList]=await Promise.all([
+        obs.request('GetCurrentProgramScene',{},signal),
+        obs.request('GetInputList',{},signal)
+      ]);
+      const sceneName=sceneInfo.sceneName||sceneInfo.currentProgramSceneName;if(!sceneName)return;
+      const items=await obs.request('GetSceneItemList',{sceneName},signal);
+      for(const sourceName of [obsOverlaySourceName,legacyObsOverlaySourceName]){
+        const item=(items.sceneItems||[]).find(x=>x.sourceName===sourceName);
+        if(item&&Number.isInteger(Number(item.sceneItemId)))
+          await obs.request('SetSceneItemEnabled',{sceneName,sceneItemId:Number(item.sceneItemId),sceneItemEnabled:false},signal);
+      }
+      const legacy=(inputList.inputs||[]).find(input=>input.inputName===legacyObsOverlaySourceName);
+      if(legacy&&String(legacy.inputKind||legacy.unversionedInputKind||'').startsWith('text_gdiplus'))
+        await obs.request('SetInputSettings',{inputName:legacyObsOverlaySourceName,inputSettings:{text:''},overlay:true},signal);
+    }catch(e){
+      C.check(signal);log('旧OBSコメント表示の後片付けを省略しました。','warn');
+    }
   }
   async function ensureObsOverlay(profile,turn,s,signal){
     C.check(signal);
@@ -384,42 +428,47 @@
     const sceneName=sceneInfo.sceneName||sceneInfo.currentProgramSceneName;
     if(!sceneName)throw new C.AppError('OBSの現在シーンを取得できませんでした。','OBS_OVERLAY');
     const existing=(inputList.inputs||[]).find(input=>input.inputName===obsOverlaySourceName);
-    if(existing&&!String(existing.inputKind||existing.unversionedInputKind||'').startsWith('text_gdiplus'))
+    if(existing&&!String(existing.inputKind||existing.unversionedInputKind||'').startsWith('browser_source'))
       throw new C.AppError(`OBSに「${obsOverlaySourceName}」という別種類のソースがあります。名前を変更または削除してください。`,'OBS_OVERLAY');
     const kinds=Array.isArray(kindList.inputKinds)?kindList.inputKinds:[];
-    const textKind=existing?.inputKind||kinds.find(k=>k==='text_gdiplus_v2')||kinds.find(k=>String(k).startsWith('text_gdiplus'));
-    if(!textKind)throw new C.AppError('OBSで Text (GDI+) ソースを利用できません。Windows版OBSかプラグイン構成を確認してください。','OBS_OVERLAY');
+    const browserKind=existing?.inputKind||kinds.find(k=>String(k).startsWith('browser_source'));
+    if(!browserKind)throw new C.AppError('OBSで Browser Source を利用できません。OBSのBrowser Source機能を確認してください。','OBS_OVERLAY');
     const baseWidth=Number(video.baseWidth)||1920,baseHeight=Number(video.baseHeight)||1080;
-    const boxWidth=Math.max(420,Math.min(900,baseWidth-80));
-    const boxHeight=Math.max(130,Math.min(220,Math.round(s.obsOverlayFontSize*3.4)));
+    const boxWidth=Math.max(460,Math.min(940,baseWidth-80));
+    const boxHeight=Math.max(210,Math.min(330,Math.round(s.obsOverlayFontSize*5.2)));
+    const html=obsBubbleDocument(profile,turn,s);
     const inputSettings={
-      text:`${profile.name}\n${turn.text}`,
-      font:{face:'Yu Gothic UI',size:s.obsOverlayFontSize,style:'Regular',flags:0},
-      color:16777215,opacity:100,
-      bk_color:obsBgr(obsOverlayColor(profile)),bk_opacity:82,
-      outline:true,outline_size:2,outline_color:0,outline_opacity:90,
-      align:'left',valign:'center',
-      extents:true,extents_cx:boxWidth,extents_cy:boxHeight,extents_wrap:true,
-      read_from_file:false
+      is_local_file:false,url:'data:text/html;charset=utf-8,'+encodeURIComponent(html),
+      width:boxWidth,height:boxHeight,fps:30,shutdown:false,restart_when_active:false,reroute_audio:false,
+      css:'body{background-color:rgba(0,0,0,0);margin:0;overflow:hidden;}'
     };
+    const items=await obs.request('GetSceneItemList',{sceneName},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBSシーンの項目を取得できませんでした'});
+    const legacyItem=(items.sceneItems||[]).find(x=>x.sourceName===legacyObsOverlaySourceName);
+    if(legacyItem&&Number.isInteger(Number(legacyItem.sceneItemId)))
+      obs.notify('SetSceneItemEnabled',{sceneName,sceneItemId:Number(legacyItem.sceneItemId),sceneItemEnabled:false});
+    const legacy=(inputList.inputs||[]).find(input=>input.inputName===legacyObsOverlaySourceName);
+    if(legacy&&String(legacy.inputKind||legacy.unversionedInputKind||'').startsWith('text_gdiplus'))
+      obs.notify('SetInputSettings',{inputName:legacyObsOverlaySourceName,inputSettings:{text:''},overlay:true});
     let sceneItemId=null;
     if(!existing){
-      const created=await obs.request('CreateInput',{sceneName,inputName:obsOverlaySourceName,inputKind:textKind,inputSettings,sceneItemEnabled:true},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBSコメント表示ソースを作成できませんでした'});
+      const created=await obs.request('CreateInput',{sceneName,inputName:obsOverlaySourceName,inputKind:browserKind,inputSettings,sceneItemEnabled:false},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBS吹き出しソースを作成できませんでした'});
       sceneItemId=Number(created.sceneItemId);
       log(`OBSに「${obsOverlaySourceName}」ソースを作成しました。`);
     }else{
-      await obs.request('SetInputSettings',{inputName:obsOverlaySourceName,inputSettings,overlay:true},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBSコメント表示を更新できませんでした'});
-      const items=await obs.request('GetSceneItemList',{sceneName},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBSシーンの項目を取得できませんでした'});
+      await obs.request('SetInputSettings',{inputName:obsOverlaySourceName,inputSettings,overlay:true},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBS吹き出しを更新できませんでした'});
       const item=(items.sceneItems||[]).find(x=>x.sourceName===obsOverlaySourceName);
       if(item)sceneItemId=Number(item.sceneItemId);
       else{
-        const created=await obs.request('CreateSceneItem',{sceneName,sourceName:obsOverlaySourceName,sceneItemEnabled:true},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBSコメント表示を現在シーンへ追加できませんでした'});
+        const created=await obs.request('CreateSceneItem',{sceneName,sourceName:obsOverlaySourceName,sceneItemEnabled:false},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBS吹き出しを現在シーンへ追加できませんでした'});
         sceneItemId=Number(created.sceneItemId);
       }
     }
-    if(!Number.isInteger(sceneItemId)||sceneItemId<0)throw new C.AppError('OBSコメント表示のシーン項目IDを取得できませんでした。','OBS_OVERLAY');
+    if(!Number.isInteger(sceneItemId)||sceneItemId<0)throw new C.AppError('OBS吹き出しのシーン項目IDを取得できませんでした。','OBS_OVERLAY');
+    if(obsOverlayTarget&&(obsOverlayTarget.sceneName!==sceneName||obsOverlayTarget.sceneItemId!==sceneItemId))disableObsOverlayTarget(obsOverlayTarget);
     const pos=obsOverlayGeometry(s.obsOverlayPosition,baseWidth,baseHeight,boxWidth,boxHeight);
-    await obs.request('SetSceneItemTransform',{sceneName,sceneItemId,sceneItemTransform:{positionX:pos.x,positionY:pos.y,alignment:5,scaleX:1,scaleY:1}},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBSコメント表示の位置を変更できませんでした'});
+    await obs.request('SetSceneItemTransform',{sceneName,sceneItemId,sceneItemTransform:{positionX:pos.x,positionY:pos.y,alignment:5,scaleX:1,scaleY:1}},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBS吹き出しの位置を変更できませんでした'});
+    await obs.request('SetSceneItemEnabled',{sceneName,sceneItemId,sceneItemEnabled:true},signal,{errorCode:'OBS_OVERLAY',errorMessage:'OBS吹き出しを表示できませんでした'});
+    obsOverlayTarget={sceneName,sceneItemId};
     return ++obsOverlayEpoch;
   }
   async function showObsOverlay(profile,turn,s,signal,{strict=false}={}){
@@ -429,6 +478,7 @@
     catch(e){
       if(strict)throw e;
       obsOverlayFaulted=true;
+      clearObsOverlayNow();
       log('OBSコメント表示をこの接続中は省略します: '+(e instanceof C.AppError?e.message:'OBS表示に失敗しました。'),'warn');
       return 0;
     }
@@ -439,7 +489,7 @@
     obsOverlayTimer=setTimeout(()=>{
       obsOverlayTimer=null;
       if(epoch!==obsOverlayEpoch||!obs?.ready)return;
-      obs?.notify('SetInputSettings',{inputName:obsOverlaySourceName,inputSettings:{text:''},overlay:true});
+      disableObsOverlayTarget();obsOverlayTarget=null;
     },Math.max(0,s.obsOverlayHold)*1000);
   }
   function spokenText(turn){return C.plainSpeech(String(turn?.text??''));}
@@ -529,7 +579,9 @@
   }
   async function connectObs(s,signal) {
     if(!s.sourceName){revealSetting('sourceName');throw new C.AppError('OBSの映像ソース名を入力してください。');}
-    setStatus('OBSに接続中'); obs=new C.ObsClient(); await obs.connect(s.obsUrl,$('obsPassword').value,signal);obsOverlayFaulted=false; log('OBSへの接続完了。');
+    setStatus('OBSに接続中'); obs=new C.ObsClient(); await obs.connect(s.obsUrl,$('obsPassword').value,signal);obsOverlayFaulted=false;obsOverlayTarget=null;
+    await resetObsOverlayScene(signal);
+    log('OBSへの接続完了。');
   }
   async function analyze(frames,s,key,history,spoken,speakerHistory,state,signal,quietMode=false) {
     const current=frames[frames.length-1];
@@ -842,7 +894,7 @@
     const s=settings();if(!s.obsOverlayEnabled){revealSetting('obsOverlayEnabled');throw new C.AppError('「OBSにコメントを表示」をONにしてからテストしてください。');}
     await connectObs(s,signal);const profile=s.profiles[0];setStatus('OBSコメント表示をテスト中');
     const epoch=await showObsOverlay(profile,{text:'こんな感じでコメントが表示されるよ！'},s,signal,{strict:true});
-    log(`OBSコメント表示テスト: 「${obsOverlaySourceName}」を現在シーンに表示しました。`);
+    log(`OBS吹き出し表示テスト: 「${obsOverlaySourceName}」を現在シーンに表示しました。`);
     await C.sleep(2500,signal);if(epoch===obsOverlayEpoch)clearObsOverlayNow();
   }));
   $('testVoice').addEventListener('click',()=>operation(async signal=>{const s=settings();lastSettings=s;await unlockAudio(s);setStatus('音声テスト中');const ok=await speak('こんにちは。音声テストです。',s,null,signal);if(ok)log(s.output==='bouyomi'?'棒読みちゃんへの音声テスト送信完了。実際に聞こえるか確認してください。':'音声テスト再生完了。');}));

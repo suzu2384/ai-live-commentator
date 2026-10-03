@@ -17,7 +17,7 @@ const results=[];
  async function setup(config={}){
   const ctx=await browser.newContext({viewport:{width:1360,height:768}});const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const host=config.host||'127.0.0.1';
-  const events={images:0,api:0,analysisImages:[],turnLimits:[],speakerEnums:[],promptTexts:[],talks:[],queries:0,voiceTexts:[],voices:[],speeds:[],synths:0,identifies:0,obsRequests:[],overlayTexts:[],overlayTransforms:[],unexpected:[]};let held=null;
+  const events={images:0,api:0,analysisImages:[],turnLimits:[],speakerEnums:[],promptTexts:[],talks:[],queries:0,voiceTexts:[],voices:[],speeds:[],synths:0,identifies:0,obsRequests:[],overlayUrls:[],overlayTransforms:[],overlayEnabled:[],unexpected:[]};let held=null;
   await page.clock.install();
   await page.route('https://**/*',async r=>{
    if(!r.request().url().startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent')){events.unexpected.push(r.request().url());return r.abort();}
@@ -41,7 +41,7 @@ const results=[];
     return r.fulfill({contentType:'audio/wav',body:wave(config.waveSamples)});
    }await r.abort();
   });
-  let jpeg,overlayExists=false,overlaySceneItem=false;
+  let jpeg,bubbleExists=false,bubbleSceneItem=false,legacyExists=!!config.legacyOverlay,legacySceneItem=!!config.legacyOverlay;
   await page.routeWebSocket(`ws://${host}:4455`,ws=>{
    const reply=(m,responseData={})=>ws.send(JSON.stringify({op:7,d:{requestType:m.d.requestType,requestId:m.d.requestId,requestStatus:{result:true,code:100},responseData}}));
    ws.onMessage(raw=>{
@@ -51,14 +51,31 @@ const results=[];
     const type=m.d.requestType,data=m.d.requestData||{};events.obsRequests.push({type,data});
     if(type==='GetSourceScreenshot'){events.images++;return reply(m,{imageData:jpeg.replace('image/jpeg','image/jpg')});}
     if(type==='GetCurrentProgramScene')return reply(m,{sceneName:'Gameplay',currentProgramSceneName:'Gameplay'});
-    if(type==='GetInputList')return reply(m,{inputs:overlayExists?[{inputName:'みんコメ コメント',inputKind:'text_gdiplus_v2'}]:[]});
+    if(type==='GetInputList'){
+      const inputs=[];
+      if(bubbleExists)inputs.push({inputName:'みんコメ 吹き出し',inputKind:'browser_source'});
+      if(legacyExists)inputs.push({inputName:'みんコメ コメント',inputKind:'text_gdiplus_v2'});
+      return reply(m,{inputs});
+    }
     if(type==='GetInputKindList')return reply(m,{inputKinds:['text_gdiplus_v2','browser_source']});
     if(type==='GetVideoSettings')return reply(m,{baseWidth:1920,baseHeight:1080});
-    if(type==='CreateInput'){overlayExists=true;overlaySceneItem=true;if(data.inputSettings?.text!==undefined)events.overlayTexts.push(data.inputSettings.text);return reply(m,{sceneItemId:99,inputUuid:'overlay-uuid'});}
-    if(type==='GetSceneItemList')return reply(m,{sceneItems:overlaySceneItem?[{sourceName:'みんコメ コメント',sceneItemId:99}]:[]});
-    if(type==='CreateSceneItem'){overlaySceneItem=true;return reply(m,{sceneItemId:99});}
-    if(type==='SetInputSettings'){if(data.inputName==='みんコメ コメント'&&data.inputSettings?.text!==undefined)events.overlayTexts.push(data.inputSettings.text);return reply(m,{});}
+    if(type==='GetSceneItemList'){
+      const sceneItems=[];
+      if(bubbleSceneItem)sceneItems.push({sourceName:'みんコメ 吹き出し',sceneItemId:99});
+      if(legacySceneItem)sceneItems.push({sourceName:'みんコメ コメント',sceneItemId:77});
+      return reply(m,{sceneItems});
+    }
+    if(type==='CreateInput'){
+      if(data.inputName==='みんコメ 吹き出し'){bubbleExists=true;bubbleSceneItem=true;if(data.inputSettings?.url)events.overlayUrls.push(data.inputSettings.url);return reply(m,{sceneItemId:99,inputUuid:'overlay-uuid'});}
+      events.unexpected.push('create:'+data.inputName);return reply(m,{sceneItemId:199});
+    }
+    if(type==='CreateSceneItem'){if(data.sourceName==='みんコメ 吹き出し'){bubbleSceneItem=true;return reply(m,{sceneItemId:99});}return reply(m,{sceneItemId:199});}
+    if(type==='SetInputSettings'){
+      if(data.inputName==='みんコメ 吹き出し'&&data.inputSettings?.url)events.overlayUrls.push(data.inputSettings.url);
+      return reply(m,{});
+    }
     if(type==='SetSceneItemTransform'){events.overlayTransforms.push(data.sceneItemTransform);return reply(m,{});}
+    if(type==='SetSceneItemEnabled'){events.overlayEnabled.push({sceneItemId:data.sceneItemId,enabled:data.sceneItemEnabled});return reply(m,{});}
     events.unexpected.push('obs:'+type);return reply(m,{});
    });ws.send(JSON.stringify({op:0,d:{rpcVersion:1,authentication:{salt:'salt',challenge:'challenge'}}}));
   });
@@ -345,8 +362,8 @@ const results=[];
   assert.equal(x.events.api,1);assert.equal(x.events.analysisImages[0],4);assert.equal(x.events.images,4);
   await stop(p);await x.close();
  });
- await test('OBS comment overlay creates a native text source and shows the latest friend comment',async()=>{
-  const x=await setup({before:async p=>{
+ await test('OBS comment overlay creates a speech-bubble Browser Source and fully hides it after use',async()=>{
+  const x=await setup({legacyOverlay:true,before:async p=>{
     await p.locator('#tab-connect').click();
     await p.locator('#obsOverlayEnabled').check();
     await p.locator('#obsOverlayPosition').selectOption('bottom-right');
@@ -355,14 +372,21 @@ const results=[];
     await p.locator('#tab-live').click();
   }});const p=x.page;
   await start(x);await idle(p);
-  for(let i=0;i<200&&!x.events.overlayTexts.some(t=>String(t).includes('景色がいいね'));i++)await new Promise(r=>setTimeout(r,10));
-  assert.ok(x.events.obsRequests.some(r=>r.type==='CreateInput'&&r.data.inputName==='みんコメ コメント'));
-  assert.ok(x.events.overlayTexts.some(t=>String(t).includes('友達1\n景色がいいね')));
+  for(let i=0;i<200&&!x.events.overlayUrls.length;i++)await new Promise(r=>setTimeout(r,10));
+  const create=x.events.obsRequests.find(r=>r.type==='CreateInput'&&r.data.inputName==='みんコメ 吹き出し');
+  assert.ok(create);assert.equal(create.data.inputKind,'browser_source');
+  const url=x.events.overlayUrls[0];assert.ok(url.startsWith('data:text/html;charset=utf-8,'));
+  const html=decodeURIComponent(url.slice(url.indexOf(',')+1));
+  assert.ok(html.includes('class="bubble"'));assert.ok(html.includes('.bubble:after'));
+  assert.ok(html.includes('border-radius'));assert.ok(html.includes('景色がいいね'));
   assert.ok(x.events.overlayTransforms.some(t=>t.positionX>900&&t.positionY>500));
+  assert.ok(x.events.overlayEnabled.some(e=>e.sceneItemId===99&&e.enabled===true));
+  assert.ok(x.events.overlayEnabled.some(e=>e.sceneItemId===77&&e.enabled===false));
+  await p.clock.fastForward(2100);
+  assert.ok(x.events.overlayEnabled.some(e=>e.sceneItemId===99&&e.enabled===false));
   await stop(p);
   const saved=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1')));
   assert.equal(saved.obsOverlayEnabled,true);assert.equal(saved.obsOverlayPosition,'bottom-right');
-  assert.equal(x.events.overlayTexts.at(-1),'');
   await x.close();
  });
  await test('one-second capture continues while Gemini is still responding',async()=>{
