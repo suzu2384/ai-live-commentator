@@ -3,6 +3,7 @@
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
   const contentLibraryKey = 'ai-live-commentator-content-library-v1';
+  const fontLibraryKey = 'ai-live-commentator-font-library-v1';
   const obsOverlaySourceName='みんコメ 吹き出し';
   const legacyObsOverlaySourceName='みんコメ コメント';
   const obsOverlayColors=['#2e7fa3','#a93b6b','#3f7f46','#b47420','#6549a7','#a8443b'];
@@ -80,7 +81,7 @@
     $('settings').addEventListener('change',updateSettingSummaries);
     updateSettingSummaries();
   }
-  let contentLibrary=[];
+  let contentLibrary=[],fontLibrary=[];
   function splitContentName(value){
     const name=typeof value==='string'?value.trim():'';
     const match=name.match(/^([^：:]+)[：:](.+)$/);
@@ -186,6 +187,68 @@
   function openContentDialog(){renderContentManageList();$('contentDialog').showModal();setTimeout(()=>$('newContentName').focus(),0);}
   function closeContentDialog(){$('contentDialog').close();}
 
+  function normalizeFontName(value){
+    if(typeof value!=='string')return '';
+    const name=value.trim().replace(/\s+/g,' ').slice(0,100);
+    if(!name||/[\x00-\x1f\x7f"'\\;{}<>]/u.test(name))return '';
+    return name;
+  }
+  function normalizeFontLibrary(values){
+    const unique=[];
+    for(const value of values){
+      const name=normalizeFontName(value);
+      if(name&&name.toLowerCase()!=='system'&&!unique.some(item=>item.toLocaleLowerCase()===name.toLocaleLowerCase()))unique.push(name);
+    }
+    return unique;
+  }
+  function loadFontLibrary(){
+    try{
+      const raw=JSON.parse(localStorage.getItem(fontLibraryKey)||'[]');
+      return Array.isArray(raw)?normalizeFontLibrary(raw):[];
+    }catch{return [];}
+  }
+  function saveFontLibrary(){
+    try{localStorage.setItem(fontLibraryKey,JSON.stringify(fontLibrary));}
+    catch{log('フォント一覧を保存できませんでした。ブラウザ設定を確認してください。','warn');}
+  }
+  function legacyFontName(value){
+    return ({yugothic:'Yu Gothic UI',meiryo:'Meiryo',bizudp:'BIZ UDPGothic',noto:'Noto Sans JP',msgothic:'MS PGothic'})[value]||'';
+  }
+  function renderFontOptions(selected=$('obsOverlayFont').value){
+    const select=$('obsOverlayFont');select.replaceChildren();
+    const system=document.createElement('option');system.value='system';system.textContent='システム標準';select.append(system);
+    for(const name of fontLibrary){const option=document.createElement('option');option.value=name;option.textContent=name;select.append(option);}
+    select.value=selected==='system'||fontLibrary.includes(selected)?selected:'system';
+  }
+  function renderFontManageList(){
+    const container=$('fontManageList');container.replaceChildren();
+    const system=document.createElement('div');system.className='content-manage-row';
+    const systemName=document.createElement('span');systemName.textContent='システム標準';
+    const fixed=document.createElement('span');fixed.className='hint';fixed.textContent='固定';
+    system.append(systemName,fixed);container.append(system);
+    for(const name of fontLibrary){
+      const row=document.createElement('div');row.className='content-manage-row';
+      const label=document.createElement('span');label.textContent=name;
+      const button=document.createElement('button');button.type='button';button.className='content-delete-button';button.textContent='削除';button.dataset.fontName=name;
+      row.append(label,button);container.append(row);
+    }
+  }
+  function addFont(){
+    const input=$('newFontName'),name=normalizeFontName(input.value);
+    if(!name){log('フォント名を確認してください。引用符・セミコロンなどは使えません。','warn');input.select();return;}
+    if(name.toLowerCase()==='system'){log('「system」は予約名です。','warn');input.select();return;}
+    if(fontLibrary.some(item=>item.toLocaleLowerCase()===name.toLocaleLowerCase())){log(`フォント「${name}」は登録済みです。`,'warn');input.select();return;}
+    fontLibrary.push(name);fontLibrary=normalizeFontLibrary(fontLibrary);saveFontLibrary();renderFontOptions(name);renderFontManageList();input.value='';input.focus();
+  }
+  function deleteFont(name){
+    if(!fontLibrary.includes(name))return;
+    if(!confirm(`「${name}」をフォント一覧から削除しますか？`))return;
+    const selected=$('obsOverlayFont').value;
+    fontLibrary=fontLibrary.filter(item=>item!==name);saveFontLibrary();renderFontOptions(selected===name?'system':selected);renderFontManageList();
+  }
+  function openFontDialog(){renderFontManageList();$('fontDialog').showModal();setTimeout(()=>$('newFontName').focus(),0);}
+  function closeFontDialog(){$('fontDialog').close();}
+
   function settingLabel(id){
     const label=$(id).closest('label');
     if(!label)return id;
@@ -232,7 +295,7 @@
     }
     if (![320,640,960].includes(s.imageWidth)){revealSetting('imageWidth');throw new C.AppError('画像サイズを選択してください。');}
     if (!['top-left','top-center','top-right','bottom-left','bottom-center','bottom-right'].includes(s.obsOverlayPosition)){revealSetting('obsOverlayPosition');throw new C.AppError('OBSコメントの表示位置を選択してください。');}
-    if (!['system','yugothic','meiryo','bizudp','noto','msgothic'].includes(s.obsOverlayFont)){revealSetting('obsOverlayFont');throw new C.AppError('OBSコメントのフォントを選択してください。');}
+    if (s.obsOverlayFont!=='system'&&!fontLibrary.includes(s.obsOverlayFont)){revealSetting('obsOverlayFont');throw new C.AppError('OBSコメントのフォントを選択してください。');}
     if (!['bouyomi','voicevox'].includes(s.output)){revealSetting('output');throw new C.AppError('読み上げ先を選択してください。');}
     s.selectedProfileIds=selectedProfileIds();
     if(!s.selectedProfileIds.length){revealSetting('participantSelection');throw new C.AppError('参加する友達を1人以上選択してください。');}
@@ -357,14 +420,9 @@
     return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
   function obsOverlayFontFamily(value){
-    return ({
-      system:'system-ui,-apple-system,"Segoe UI",sans-serif',
-      yugothic:'"Yu Gothic UI","Yu Gothic","Meiryo",sans-serif',
-      meiryo:'"Meiryo","Yu Gothic UI",sans-serif',
-      bizudp:'"BIZ UDPGothic","Yu Gothic UI","Meiryo",sans-serif',
-      noto:'"Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif',
-      msgothic:'"MS PGothic","Meiryo",sans-serif'
-    })[value]||'"Yu Gothic UI","Yu Gothic","Meiryo",sans-serif';
+    if(value==='system')return 'system-ui,-apple-system,"Segoe UI",sans-serif';
+    const name=normalizeFontName(value);
+    return name?`"${name}",system-ui,-apple-system,"Segoe UI",sans-serif`:'system-ui,-apple-system,"Segoe UI",sans-serif';
   }
   function obsBubbleDocument(profile,turn,s){
     const color=obsOverlayColor(profile),fontSize=s.obsOverlayFontSize,fontFamily=obsOverlayFontFamily(s.obsOverlayFont);
@@ -927,6 +985,13 @@ body{box-sizing:border-box;padding:18px 30px 42px;display:flex;align-items:${ver
   $('newContentName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addContent();}});
   $('contentManageList').addEventListener('click',e=>{const child=e.target.closest('[data-content-name]');if(child){deleteContent(child.dataset.contentName);return;}const main=e.target.closest('[data-content-main]');if(main)deleteContentMain(main.dataset.contentMain);});
   $('contentDialog').addEventListener('click',e=>{if(e.target===$('contentDialog'))closeContentDialog();});
+  $('manageFonts').addEventListener('click',openFontDialog);
+  $('closeFontDialog').addEventListener('click',closeFontDialog);
+  $('doneFontDialog').addEventListener('click',closeFontDialog);
+  $('addFont').addEventListener('click',addFont);
+  $('newFontName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addFont();}});
+  $('fontManageList').addEventListener('click',e=>{const button=e.target.closest('[data-font-name]');if(button)deleteFont(button.dataset.fontName);});
+  $('fontDialog').addEventListener('click',e=>{if(e.target===$('fontDialog'))closeFontDialog();});
   const helpDialog=$('helpDialog');
   const openHelpDialog=()=>{if(typeof helpDialog.showModal==='function')helpDialog.showModal();else helpDialog.setAttribute('open','');};
   const closeHelpDialog=()=>{if(typeof helpDialog.close==='function'&&helpDialog.open)helpDialog.close();else helpDialog.removeAttribute('open');};
@@ -1012,7 +1077,12 @@ body{box-sizing:border-box;padding:18px 30px 42px;display:flex;align-items:${ver
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
   contentLibrary=loadContentLibrary();renderContentOptions('');
-  let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};for(const id of savedIds){if(stored[id]===undefined)continue;if($(id).type==='checkbox')$(id).checked=stored[id]===true;else if(['string','number'].includes(typeof stored[id]))$(id).value=stored[id];}}catch{}
+  fontLibrary=loadFontLibrary();
+  let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};}catch{}
+  const migratedFont=legacyFontName(stored.obsOverlayFont);
+  if(migratedFont&&!fontLibrary.includes(migratedFont)){fontLibrary.push(migratedFont);fontLibrary=normalizeFontLibrary(fontLibrary);saveFontLibrary();stored.obsOverlayFont=migratedFont;}
+  for(const id of savedIds){if(stored[id]===undefined)continue;if($(id).type==='checkbox')$(id).checked=stored[id]===true;else if(['string','number'].includes(typeof stored[id])&&id!=='obsOverlayFont')$(id).value=stored[id];}
+  renderFontOptions(typeof stored.obsOverlayFont==='string'?stored.obsOverlayFont:'system');
   applyTheme($('theme').value);
   renderContentOptions(typeof stored.contentName==='string'?splitContentName(stored.contentName).raw:'');
   if(stored.analysisFrameCount===undefined)$('analysisFrameCount').value='2';

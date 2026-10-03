@@ -17,11 +17,11 @@ try{
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=4.27">
-<script src="core.js?v=4.27" defer></script><script src="vault.js?v=4.27" defer></script><script src="app.js?v=4.27" defer></script>
+<link rel="stylesheet" href="style.css?v=4.28">
+<script src="core.js?v=4.28" defer></script><script src="vault.js?v=4.28" defer></script><script src="app.js?v=4.28" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.png?v=4.27" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.27</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.png?v=4.28" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.28</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -114,12 +114,12 @@ try{
 <div id="obsOverlayFields" hidden>
 <div class="compact-setting-grid">
 <label class="compact-field"><span>表示位置</span><select id="obsOverlayPosition"><option value="top-left">左上</option><option value="top-center">上中央</option><option value="top-right">右上</option><option value="bottom-left" selected>左下</option><option value="bottom-center">下中央</option><option value="bottom-right">右下</option></select></label>
-<label class="compact-field"><span>フォント</span><select id="obsOverlayFont"><option value="yugothic" selected>游ゴシック UI</option><option value="meiryo">メイリオ</option><option value="bizudp">BIZ UDPゴシック</option><option value="noto">Noto Sans JP</option><option value="msgothic">MS Pゴシック</option><option value="system">システム標準</option></select></label>
+<div class="compact-field"><span>フォント</span><div class="font-picker-row"><select id="obsOverlayFont"><option value="system" selected>システム標準</option></select><button type="button" id="manageFonts" class="subtle">管理</button></div></div>
 <label class="compact-field"><span>文字サイズ</span><span class="value-unit"><input id="obsOverlayFontSize" type="number" min="20" max="72" value="40" required><span>px相当</span></span></label>
 <label class="compact-field"><span>発言後の表示</span><span class="value-unit"><input id="obsOverlayHold" type="number" min="0" max="30" value="3" required><span>秒</span></span></label>
 </div>
 <label class="check"><input id="obsOverlayShowName" type="checkbox" checked>友達の名前を表示</label>
-<p class="hint compact-hint">現在シーンに「みんコメ 吹き出し」という Browser Source を自動作成・追加します。吹き出し本体はテキスト量に合わせて縮み、長文だけ一定幅で折り返します。選んだフォントがOBS側PCにない場合は代替フォントを使います。</p>
+<p class="hint compact-hint">現在シーンに「みんコメ 吹き出し」という Browser Source を自動作成・追加します。吹き出し本体はテキスト量に合わせて縮みます。フォントは「管理」からOBS側PCに入っているフォント名を自分で登録できます。</p>
 <div class="setting-action"><button type="button" id="testObsOverlay">コメント表示テスト</button><span class="hint">Geminiは使いません</span></div>
 </div></section></div></details>
 <details class="card setting-section" id="settings-ai"><summary class="setting-summary"><span>Gemini</span><span id="summary-ai" class="setting-summary-value">APIキー未入力</span></summary><div class="setting-body">
@@ -156,7 +156,7 @@ try{
 <h3>VOICEVOX：Windows版では鳴るのにブラウザでは失敗する</h3><p>開発者ツールに origin 'null'、CORS、403 Forbidden が出る場合は、VOICEVOXを起動し、<a id="voicevoxSettingsLink" href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>を開きます（設定したVOICEVOX URLの設定画面）。CORS Policy Mode を localapps、Allow Origin に null を追加し、保存してVOICEVOXを再起動してください。ほかの許可設定は必要に応じて残します。その後、音声テストをやり直します。</p><p>null の許可は、このアプリ以外のローカルファイルや一部の隔離されたページにも適用されます。信頼できないHTMLを同時に開かず、使わなくなったら許可を外してください。CORSを all にしたり、ブラウザの保護を無効化したりする必要はありません。</p>
 <h3>読み上げ先に接続できない・音が出ない</h3><p>起動状態、URLとポート、ブラウザのローカルネットワーク許可、OSの音量を確認してください。VOICEVOX直接は操作しているブラウザで再生します。棒読みちゃんは設定のHTTP連携を有効にし、PC側の声・音量を確認します。声が異なる場合は「友達」タブのスタイルID・声IDを、速すぎる・遅すぎる場合はVOICEVOX話速を見直してください。</p>
 <h3>OBSにつながらない・映像が違う</h3><p>OBS → ツール → WebSocketサーバー設定で有効化。URL、パスワード、OBSに登録された映像ソース名を確認してください。配信全体ではなくゲームだけを取得するソースがおすすめです。</p>
-<h3>OBSにコメントを表示する</h3><p>「接続 → OBS・映像 → コメント表示」でONにすると、現在のOBSシーンに「みんコメ 吹き出し」という Browser Source を必要時に自動作成します。角丸・影・しっぽを付けた吹き出しは、短文ではテキスト量に合わせて小さくなり、長文では最大幅で折り返します。表示位置、フォント、文字サイズ、友達名の表示ON/OFF、発言後の表示時間を設定できます。選択したフォントがOBS側PCにない場合は代替フォントを使います。表示時間が終わるとシーンアイテム自体を非表示にするため、背景だけ残りません。シーンを切り替えた場合は、そのシーンにも同じソースを自動追加します。VOICEVOX直接は発話中から表示し、棒読みちゃんはPC側の実再生時刻を取得できないため、読み上げ要求を送信した時点の最新コメントを表示します。</p>
+<h3>OBSにコメントを表示する</h3><p>「接続 → OBS・映像 → コメント表示」でONにすると、現在のOBSシーンに「みんコメ 吹き出し」という Browser Source を必要時に自動作成します。角丸・影・しっぽを付けた吹き出しは、短文ではテキスト量に合わせて小さくなり、長文では最大幅で折り返します。表示位置、フォント、文字サイズ、友達名の表示ON/OFF、発言後の表示時間を設定できます。フォント一覧は管理画面で自由に追加・削除でき、初期状態はシステム標準だけです。登録名のフォントがOBS側PCにない場合は代替フォントを使います。表示時間が終わるとシーンアイテム自体を非表示にするため、背景だけ残りません。シーンを切り替えた場合は、そのシーンにも同じソースを自動追加します。VOICEVOX直接は発話中から表示し、棒読みちゃんはPC側の実再生時刻を取得できないため、読み上げ要求を送信した時点の最新コメントを表示します。</p>
 <h3>Geminiが遅い・503・429が出る</h3><p>503・通信エラーなどは5秒後に再開します。429は配信を止めず、30秒 → 60秒 → 120秒 → 300秒と間隔を広げ、その後は最大5分ごとに再試行します。Googleの構造化されたRetryInfoをRetry-Afterより優先し、サーバー指示が5分を超えていても自動再試行の間隔は最大5分です。元の待機指示は履歴に残します。正常応答が返れば429の連続回数をリセットします。待機中もOBS画像の取得は続き、再試行時点の最新映像で再開します。429には短時間の頻度制限だけでなく日次クォータ不足もあり、その場合は再試行してもリセットまで成功しません。Google側の上限を回避する機能ではありません。</p><p>401・403など認証や設定の問題は、同じ要求を繰り返さず修正待ちになります。設定を直し「設定を適用して再開」を押してください。いつでも「停止」で終了できます。接続・音声テストは単発の診断です。</p>
 <h3>画像取得・解析・読み上げのタイミング</h3><p>画像取得・Gemini解析・読み上げは独立して動きます。取得周期は「前回の取得完了から待つ」のではなく、前回の取得開始時刻を基準にします。たとえば1秒間隔・4枚なら、解析時点のおおむね直近3秒ぶんの流れを送ります。VOICEVOXで発言中でも画像履歴は更新され、API送信条件を満たせばGemini解析も1本だけ裏で進みます。未再生の解析結果は最新1件だけ保持し、より新しい結果が来れば差し替えます。VOICEVOXの現在の掛け合いが終わった時点で候補が鮮度内なら、発言間隔を再度待たず続けて再生します。画面変化が少ない状態が続いても、最初の低変化解析は通常実況のままです。低変化の解析が2回連続した時点から雑談モードになり、進行を急かさず、対象コンテンツ・直前の会話・画面の雰囲気から友達同士の自然な雑談を優先します。飲み物・食事・休憩・席を立つ等の生活ネタは、画面や会話にきっかけがない限り埋め草にしません。棒読みちゃんはPC側の実再生完了をブラウザから確認できないため、同じ精度で「話し終わり」へ同期はできません。実行中の秒表示は処理ステータスの経過時間ではなく「最終取得から何秒前か」を表示します。</p>
 <h3>鮮度切れ・発言が少ない</h3><p>古い映像への発言を防ぐため、現在画像の取得開始から鮮度上限を超えた応答・音声を破棄します。Gemini待ちが鮮度上限に達した時点で待機を即打ち切り、鮮度切れをカウントして、待機時間を挟まず取得済みの最新映像から再解析します。読み上げ用かなの句読点が表示文と一致しなくても、それだけではコメントを破棄しません。まず画像幅320pxや、鮮度上限を少し長くする設定を試せます。「よく話す設定」も利用できます。鮮度を確認するのは会話の最初の発言が始まるまでです。開始できた掛け合いは後半も最後まで再生します。停止ボタンや通信エラー・通常のタイムアウトでは途中でも中断します。</p>
@@ -180,5 +180,17 @@ try{
   </div>
   <div id="contentManageList" class="content-manage-list"></div>
   <div class="content-dialog-actions"><button type="button" id="doneContentDialog" class="primary">完了</button></div>
+</dialog>
+<dialog id="fontDialog" class="content-dialog" aria-labelledby="fontDialogTitle">
+  <div class="content-dialog-head">
+    <div><h2 id="fontDialogTitle">OBS吹き出しフォントを管理</h2><p>OBSを動かすPCにインストールされているフォントの名前を登録してください。</p></div>
+    <button type="button" id="closeFontDialog" class="content-dialog-close" aria-label="閉じる">×</button>
+  </div>
+  <div class="content-add-row">
+    <input id="newFontName" maxlength="100" placeholder="例：M PLUS Rounded 1c" aria-label="フォント名">
+    <button type="button" id="addFont" class="primary">＋ 追加</button>
+  </div>
+  <div id="fontManageList" class="content-manage-list"></div>
+  <div class="content-dialog-actions"><button type="button" id="doneFontDialog" class="primary">完了</button></div>
 </dialog>
 </body></html>
