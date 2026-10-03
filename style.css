@@ -395,3 +395,54 @@ footer{color:var(--footer)}
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 18%,transparent);
   color:var(--text)
 }
+
+
+/* v4.9 six distinct, high-contrast friend colors */
+:root,
+html[data-theme="midnight"],
+html[data-theme="graphite"],
+html[data-theme="aurora"],
+html[data-theme="crimson"],
+html[data-theme="forest"],
+html[data-theme="amber"]{
+  --friend-1:#56c7ff;
+  --friend-2:#ff79b0;
+  --friend-3:#8dde72;
+  --friend-4:#ffbd59;
+  --friend-5:#b69cff;
+  --friend-6:#ff796b;
+}
+html[data-theme="mist"],
+html[data-theme="lavender"],
+html[data-theme="rose"],
+html[data-theme="sage"],
+html[data-theme="daylight"],
+html[data-theme="sand"]{
+  --friend-1:#006d9f;
+  --friend-2:#b32668;
+  --friend-3:#287a32;
+  --friend-4:#a45b00;
+  --friend-5:#6941c6;
+  --friend-6:#b83a30;
+}
+#profiles .friend{
+  border-left:4px solid var(--friend-accent)!important;
+  padding-left:14px!important;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--friend-accent) 8%,transparent),transparent 38%)!important;
+}
+#profiles .friend:nth-child(1){--friend-accent:var(--friend-1)}
+#profiles .friend:nth-child(2){--friend-accent:var(--friend-2)}
+#profiles .friend:nth-child(3){--friend-accent:var(--friend-3)}
+#profiles .friend:nth-child(4){--friend-accent:var(--friend-4)}
+#profiles .friend:nth-child(5){--friend-accent:var(--friend-5)}
+#profiles .friend:nth-child(6){--friend-accent:var(--friend-6)}
+#profiles .friend h2{
+  color:var(--friend-accent);
+  text-shadow:0 0 14px color-mix(in srgb,var(--friend-accent) 18%,transparent)
+}
+#profiles .friend input:focus,
+#profiles .friend select:focus,
+#profiles .friend textarea:focus{
+  border-color:var(--friend-accent);
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--friend-accent) 18%,transparent)
+}

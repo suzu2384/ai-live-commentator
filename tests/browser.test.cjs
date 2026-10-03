@@ -103,6 +103,16 @@ const results=[];
   assert.equal(await p.locator('#theme').inputValue(),'midnight');assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'midnight');
   await x.close();
  });
+ await test('six friend cards keep unique visible colors across dark and light themes',async()=>{
+  const x=await setup();const p=x.page;await p.locator('#tab-friends').click();
+  for(const theme of ['midnight','crimson','forest','amber','daylight','rose','sage','sand']){
+    await p.locator('#theme').selectOption(theme);
+    const colors=await p.locator('#profiles .friend').evaluateAll(cards=>cards.map(card=>getComputedStyle(card).borderLeftColor));
+    assert.equal(colors.length,6);assert.equal(new Set(colors).size,6);
+    for(const color of colors)assert.notEqual(color,'rgba(0, 0, 0, 0)');
+  }
+  await x.close();
+ });
  await test('selected participant border and checkbox follow every theme accent',async()=>{
   const x=await setup();const p=x.page;
   for(const theme of ['midnight','graphite','aurora','crimson','forest','amber','mist','lavender','rose','sage','daylight','sand']){
