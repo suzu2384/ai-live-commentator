@@ -6,7 +6,7 @@
   const obsOverlaySourceName='みんコメ 吹き出し';
   const legacyObsOverlaySourceName='みんコメ コメント';
   const obsOverlayColors=['#2e7fa3','#a93b6b','#3f7f46','#b47420','#6549a7','#a8443b'];
-  const savedIds = ['theme','obsUrl','sourceName','obsOverlayEnabled','obsOverlayPosition','obsOverlayFontSize','obsOverlayHold','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
+  const savedIds = ['theme','obsUrl','sourceName','obsOverlayEnabled','obsOverlayPosition','obsOverlayFont','obsOverlayFontSize','obsOverlayShowName','obsOverlayHold','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
   const themes={
     midnight:{scheme:'dark',color:'#0d151c'},
     graphite:{scheme:'dark',color:'#17191c'},
@@ -232,6 +232,7 @@
     }
     if (![320,640,960].includes(s.imageWidth)){revealSetting('imageWidth');throw new C.AppError('画像サイズを選択してください。');}
     if (!['top-left','top-center','top-right','bottom-left','bottom-center','bottom-right'].includes(s.obsOverlayPosition)){revealSetting('obsOverlayPosition');throw new C.AppError('OBSコメントの表示位置を選択してください。');}
+    if (!['system','yugothic','meiryo','bizudp','noto','msgothic'].includes(s.obsOverlayFont)){revealSetting('obsOverlayFont');throw new C.AppError('OBSコメントのフォントを選択してください。');}
     if (!['bouyomi','voicevox'].includes(s.output)){revealSetting('output');throw new C.AppError('読み上げ先を選択してください。');}
     s.selectedProfileIds=selectedProfileIds();
     if(!s.selectedProfileIds.length){revealSetting('participantSelection');throw new C.AppError('参加する友達を1人以上選択してください。');}
@@ -355,24 +356,37 @@
   function escapeHtml(value){
     return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
+  function obsOverlayFontFamily(value){
+    return ({
+      system:'system-ui,-apple-system,"Segoe UI",sans-serif',
+      yugothic:'"Yu Gothic UI","Yu Gothic","Meiryo",sans-serif',
+      meiryo:'"Meiryo","Yu Gothic UI",sans-serif',
+      bizudp:'"BIZ UDPGothic","Yu Gothic UI","Meiryo",sans-serif',
+      noto:'"Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif',
+      msgothic:'"MS PGothic","Meiryo",sans-serif'
+    })[value]||'"Yu Gothic UI","Yu Gothic","Meiryo",sans-serif';
+  }
   function obsBubbleDocument(profile,turn,s){
-    const color=obsOverlayColor(profile),fontSize=s.obsOverlayFontSize;
+    const color=obsOverlayColor(profile),fontSize=s.obsOverlayFontSize,fontFamily=obsOverlayFontFamily(s.obsOverlayFont);
     const nameSize=Math.max(15,Math.round(fontSize*.48));
     const radius=Math.max(20,Math.round(fontSize*.72));
     const position=String(s.obsOverlayPosition||'bottom-left');
+    const horizontal=position.endsWith('right')?'flex-end':position.endsWith('center')?'center':'flex-start';
+    const vertical=position.startsWith('top')?'flex-start':'flex-end';
     const tailRight=position.endsWith('right'),tailCenter=position.endsWith('center');
     const tailPos=tailCenter?'left:50%;transform:translateX(-50%);':tailRight?'right:56px;':'left:56px;';
     const tailBorder=tailRight
       ? `border-width:28px 0 0 24px;border-color:${color}e8 transparent transparent transparent;`
       : `border-width:28px 24px 0 0;border-color:${color}e8 transparent transparent transparent;`;
+    const nameHtml=s.obsOverlayShowName?`<div class="name">${escapeHtml(profile.name)}</div>`:'';
     return `<!doctype html><html><head><meta charset="utf-8"><style>
-html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:"Yu Gothic UI","Meiryo",sans-serif}
-body{box-sizing:border-box;padding:18px 30px 42px;display:flex;align-items:center;justify-content:center}
-.bubble{position:relative;width:100%;box-sizing:border-box;padding:${Math.max(18,Math.round(fontSize*.5))}px ${Math.max(24,Math.round(fontSize*.72))}px;border-radius:${radius}px;background:${color}e8;border:2px solid rgba(255,255,255,.24);box-shadow:0 10px 28px rgba(0,0,0,.35);color:#fff}
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:${fontFamily}}
+body{box-sizing:border-box;padding:18px 30px 42px;display:flex;align-items:${vertical};justify-content:${horizontal}}
+.bubble{position:relative;display:inline-block;width:fit-content;max-width:calc(100% - 60px);min-width:0;box-sizing:border-box;padding:${Math.max(18,Math.round(fontSize*.5))}px ${Math.max(24,Math.round(fontSize*.72))}px;border-radius:${radius}px;background:${color}e8;border:2px solid rgba(255,255,255,.24);box-shadow:0 10px 28px rgba(0,0,0,.35);color:#fff}
 .bubble:after{content:"";position:absolute;bottom:-28px;${tailPos}width:0;height:0;border-style:solid;${tailBorder}filter:drop-shadow(0 6px 4px rgba(0,0,0,.22))}
-.name{font-size:${nameSize}px;font-weight:800;line-height:1.15;opacity:.85;margin-bottom:6px}
-.text{font-size:${fontSize}px;font-weight:700;line-height:1.32;letter-spacing:.015em;text-shadow:0 2px 3px rgba(0,0,0,.38);overflow-wrap:anywhere}
-</style></head><body><div class="bubble"><div class="name">${escapeHtml(profile.name)}</div><div class="text">${escapeHtml(turn.text)}</div></div></body></html>`;
+.name{font-size:${nameSize}px;font-weight:800;line-height:1.15;opacity:.85;margin-bottom:6px;white-space:nowrap}
+.text{font-size:${fontSize}px;font-weight:700;line-height:1.32;letter-spacing:.015em;text-shadow:0 2px 3px rgba(0,0,0,.38);overflow-wrap:anywhere;word-break:break-word}
+</style></head><body><div class="bubble">${nameHtml}<div class="text">${escapeHtml(turn.text)}</div></div></body></html>`;
   }
   function obsOverlayGeometry(position,baseWidth,baseHeight,boxWidth,boxHeight){
     const margin=Math.max(20,Math.round(Math.min(baseWidth,baseHeight)*0.035));
