@@ -10,11 +10,11 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=4.2">
-<script src="core.js?v=4.2" defer></script><script src="vault.js?v=4.2" defer></script><script src="app.js?v=4.2" defer></script>
+<link rel="stylesheet" href="style.css?v=4.3">
+<script src="core.js?v=4.3" defer></script><script src="vault.js?v=4.3" defer></script><script src="app.js?v=4.3" defer></script>
 </head>
 <body>
-<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v4.2</span></header>
+<header><div class="brand"><img class="brand-icon" src="assets/icon-192.png" alt=""><div class="brand-copy"><div class="brand-title"><h1>みんコメ</h1><span class="ai-bubble">AI</span></div><p>映像を見ながら、AIのみんながひとこと。</p></div></div><span class="badge">BROWSER · v4.3</span></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -24,79 +24,109 @@
 </div>
 <div class="settings-column">
 <nav class="tabs" role="tablist" aria-label="操作パネル">
-<button id="tab-settings" role="tab" aria-controls="panel-settings" aria-selected="true">設定</button>
+<button id="tab-live" role="tab" aria-controls="panel-live" aria-selected="true">実況</button>
 <button id="tab-friends" role="tab" aria-controls="panel-friends" aria-selected="false" tabindex="-1">友達</button>
+<button id="tab-connect" role="tab" aria-controls="panel-connect" aria-selected="false" tabindex="-1">接続</button>
 <button id="tab-history" role="tab" aria-controls="panel-history" aria-selected="false" tabindex="-1">履歴</button>
-<button id="tab-help" role="tab" aria-controls="panel-help" aria-selected="false" tabindex="-1">ヘルプ</button>
-</nav><div class="panel-scroll">
-<div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings">
+<button id="openHelp" type="button" class="help-tab-button" aria-label="ヘルプを開く" title="ヘルプ">？</button>
+</nav>
+<div class="panel-scroll">
 <form id="settings" autocomplete="off">
-<details class="card setting-section" id="settings-video"><summary class="setting-summary"><span><span class="step">01</span> 映像</span><span id="summary-video" class="setting-summary-value">PS Remote Play</span></summary><div class="setting-body">
-<label>接続先<input id="obsUrl" type="url" value="ws://127.0.0.1:4455" required></label>
-<div class="fields"><label>OBSパスワード<input id="obsPassword" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます"></label><label>映像ソース名<input id="sourceName" value="PS Remote Play" required maxlength="200"></label></div>
-<div class="setting-action"><button type="button" id="testObs">映像確認</button><span class="hint">OBSに登録したゲーム映像のソース名を指定します。</span></div></div></details>
-<details class="card setting-section" id="settings-ai"><summary class="setting-summary"><span><span class="step">02</span> AI</span><span id="summary-ai" class="setting-summary-value">APIキー未入力</span></summary><div class="setting-body">
-<div class="setting-meta"><span class="badge small">Gemini 3.1 Flash-Lite</span></div>
-<label>Gemini APIキー<input id="apiKey" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます" required></label>
-<label class="check"><input id="freeTier" type="checkbox">このキーのプロジェクトが Free Tier・課金未設定だと確認しました</label>
-<p class="hint compact-hint">画像・文章はGoogleへ送信されます。課金状態はこのアプリでは確認できません。</p>
-<div class="setting-action"><button type="button" id="testText">文章だけで接続テスト</button><span class="hint">API送信1回を使用</span></div></div></details>
-<details class="card setting-section" id="settings-voice"><summary class="setting-summary"><span><span class="step">03</span> 読み上げ</span><span id="summary-voice" class="setting-summary-value">棒読みちゃん</span></summary><div class="setting-body">
-<label>出力先<select id="output"><option value="bouyomi">棒読みちゃん（PC側で再生）</option><option value="voicevox">VOICEVOX直接（ブラウザで再生）</option></select></label>
-<div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><p class="hint compact-hint">HTTP連携を有効にしてください。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
-<div id="voicevoxFields" hidden><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label><p class="hint compact-hint">音声はこのブラウザで再生します。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
-<div class="setting-action"><button type="button" id="testVoice">音声テスト（友達1）</button><span class="hint">声・話速・性格は「友達」で設定</span></div></div></details>
-<details class="card setting-section" id="settings-frequency"><summary class="setting-summary"><span><span class="step">04</span> 話し方と頻度</span><span id="summary-frequency" class="setting-summary-value">よく話す / API 30秒 / 2枚</span></summary><div class="setting-body"><div class="setting-meta"><button type="button" id="preset" class="subtle">よく話す設定</button></div>
-<label>おしゃべり度<select id="talkativeness"><option value="0">控えめ — 出来事を中心に</option><option value="1">標準 — 移動中も時々</option><option value="2" selected>よく話す — 相づち・感想も</option></select></label>
-<label>キャラクター設定<textarea id="persona" rows="2" maxlength="1000">学生時代の友達が家に集まってゲームをしている雰囲気。気取らない感想と相づち、軽いツッコミ。煽りは弱め。</textarea></label>
-<div class="content-setting-row">
-<label class="content-select-label">対象コンテンツ<select id="contentName"><option value="">なし</option></select></label>
-<button type="button" id="manageContents">管理</button>
-</div>
+<div id="panel-live" role="tabpanel" aria-labelledby="tab-live">
+<section class="card live-section">
+<div class="card-head"><div><h2>今回の実況</h2><p id="summary-live" class="section-meta">対象なし / 1人 / よく話す</p></div></div>
+<div class="content-setting-row"><label class="content-select-label">対象コンテンツ<select id="contentName"><option value="">なし</option></select></label><button type="button" id="manageContents">管理</button></div>
 <p class="hint compact-hint">選択したコンテンツについて、Geminiの既知の知識を画面理解と自然な会話に利用します。</p>
-<div class="compact-setting-grid">
-<label class="compact-field"><span>会話履歴</span><span class="value-unit"><input id="conversationHistoryCount" type="number" min="0" max="20" value="6" required><span>発言</span></span></label>
-<label class="compact-field"><span>API最短間隔</span><span class="value-unit"><input id="apiInterval" type="number" min="30" max="600" value="30" required><span>秒</span></span></label>
-<label class="compact-field"><span>発言最短間隔</span><span class="value-unit"><input id="speechInterval" type="number" min="15" max="600" value="20" required><span>秒</span></span></label>
-<label class="compact-field"><span>変化が少ない時</span><span class="value-unit"><input id="quietInterval" type="number" min="30" max="600" value="60" required><span>秒</span></span></label>
-</div>
+<label>参加する友達の上限<select id="participantCount"><option value="1">1人</option><option value="2">2人</option><option value="3">3人</option><option value="4">4人</option><option value="5">5人</option><option value="6">6人</option></select></label>
+<div class="toggle-grid"><label class="check"><input id="greetStart" type="checkbox" checked>開始時に挨拶</label><label class="check"><input id="greetEnd" type="checkbox" checked>終了時に挨拶</label></div>
+</section>
+
+<section class="card live-section">
+<div class="card-head"><h2>会話</h2><button type="button" id="preset" class="subtle">よく話す設定</button></div>
+<label>おしゃべり度<select id="talkativeness"><option value="0">控えめ — 出来事を中心に</option><option value="1">標準 — 移動中も時々</option><option value="2" selected>よく話す — 相づち・感想も</option></select></label>
+<label>会話の雰囲気<textarea id="persona" rows="2" maxlength="1000">学生時代の友達が家に集まってゲームをしている雰囲気。気取らない感想と相づち、軽いツッコミ。煽りは弱め。</textarea></label>
+<div class="compact-setting-grid"><label class="compact-field"><span>会話履歴</span><span class="value-unit"><input id="conversationHistoryCount" type="number" min="0" max="20" value="6" required><span>発言</span></span></label><label class="compact-field"><span>発言最短間隔</span><span class="value-unit"><input id="speechInterval" type="number" min="15" max="600" value="20" required><span>秒</span></span></label></div>
 <p class="hint compact-hint">会話履歴は0で送信しません。増やすほど直近の掛け合いを参照しやすくなります。</p>
-<section class="inline-setting-group speaker-weight-settings"><h3>1回に話す人数の重み</h3><div class="speaker-weight-grid">
+</section>
+
+<section class="card live-section">
+<div class="card-head"><h2>掛け合い</h2></div>
+<p class="hint compact-hint">1回の解析で何人まで話すかを相対値で抽選します。参加人数を超える欄は無視します。</p>
+<div class="speaker-weight-grid">
 <label>1人<input id="speakerWeight1" type="number" min="0" max="999" value="45" required></label>
 <label>2人<input id="speakerWeight2" type="number" min="0" max="999" value="35" required></label>
 <label>3人<input id="speakerWeight3" type="number" min="0" max="999" value="15" required></label>
 <label>4人<input id="speakerWeight4" type="number" min="0" max="999" value="5" required></label>
 <label>5人<input id="speakerWeight5" type="number" min="0" max="999" value="0" required></label>
 <label>6人<input id="speakerWeight6" type="number" min="0" max="999" value="0" required></label>
-</div><p class="hint compact-hint">相対値で抽選します。0は選択なし。合計100にする必要はありません。</p></section>
-<div class="toggle-grid"><label class="check"><input id="greetStart" type="checkbox" checked>開始時に挨拶</label><label class="check"><input id="greetEnd" type="checkbox" checked>終了時に挨拶</label></div>
-<div class="compact-setting-grid single-row"><label class="compact-field"><span>コメントの鮮度上限</span><span class="value-unit"><input id="freshness" type="number" min="5" max="180" value="15" required><span>秒</span></span></label></div>
-<p class="hint compact-hint">上限を超えた古い応答は読み上げません。開始済みの掛け合いは最後まで再生します。</p>
+</div>
+<p class="hint compact-hint">0は選択なし。合計100にする必要はありません。</p>
+</section>
 
-<section class="inline-setting-group sub-settings"><h3>画像・通信の詳細設定</h3>
+<details class="advanced-settings" id="settings-advanced">
+<summary class="setting-summary"><span>詳細設定</span><span class="setting-summary-value">解析・画像・鮮度</span></summary>
+<div class="setting-body">
+<section class="inline-setting-group compact-detail-group"><h3>解析タイミング</h3>
+<div class="compact-setting-grid">
+<label class="compact-field"><span>API最短間隔</span><span class="value-unit"><input id="apiInterval" type="number" min="30" max="600" value="30" required><span>秒</span></span></label>
+<label class="compact-field"><span>変化が少ない時</span><span class="value-unit"><input id="quietInterval" type="number" min="30" max="600" value="60" required><span>秒</span></span></label>
+<label class="compact-field"><span>コメントの鮮度上限</span><span class="value-unit"><input id="freshness" type="number" min="5" max="180" value="15" required><span>秒</span></span></label>
+</div><p class="hint compact-hint">鮮度上限を超えた古い応答は読み上げません。開始済みの掛け合いは最後まで再生します。</p>
+</section>
+<section class="inline-setting-group compact-detail-group"><h3>映像解析</h3>
 <div class="compact-setting-grid">
 <label class="compact-field"><span>画像取得間隔</span><span class="value-unit"><input id="sampleInterval" type="number" min="1" max="60" value="8" required><span>秒</span></span></label>
 <label class="compact-field"><span>解析画像</span><select id="analysisFrameCount"><option value="2" selected>2枚</option><option value="3">3枚</option><option value="4">4枚</option><option value="5">5枚</option><option value="6">6枚</option></select></label>
 <label class="compact-field"><span>画像幅</span><select id="imageWidth"><option value="320">320px</option><option value="640" selected>640px</option><option value="960">960px</option></select></label>
-</div><p class="hint compact-hint">枚数・画像幅を増やすほど場面の流れを捉えやすくなりますが、送信量と応答時間も増える場合があります。</p></section>
-</div></details>
+</div><p class="hint compact-hint">枚数・画像幅を増やすほど場面の流れを捉えやすくなりますが、送信量と応答時間も増える場合があります。</p>
+</section>
+</div>
+</details>
+<div class="settings-footer"><button type="button" id="save">設定を保存</button><span id="saveState" class="hint">通常の設定保存にはキー類を含めません。</span></div>
+</div>
+
+<div id="panel-friends" role="tabpanel" aria-labelledby="tab-friends" hidden>
+<section class="card"><div class="card-head"><h2>友達の設定</h2></div><p class="hint">呼び名・性格・話し方・声を友達ごとに設定します。参加人数は「実況」タブで選びます。</p></section>
+<div id="profiles"></div>
+<p class="hint">変更は「設定を保存」または実況開始で保存されます。VOICEVOX話速は0.5〜2.0で、1.0が標準です。声のIDはお使いの読み上げソフトで確認してください。</p>
+</div>
+
+<div id="panel-connect" role="tabpanel" aria-labelledby="tab-connect" hidden>
+<section class="panel-intro"><h2>接続</h2><p class="hint">OBS・Gemini・読み上げ先など、一度決めたら頻繁には変えない接続情報をまとめています。</p></section>
+<details class="card setting-section" id="settings-video"><summary class="setting-summary"><span>OBS・映像</span><span id="summary-video" class="setting-summary-value">PS Remote Play</span></summary><div class="setting-body">
+<label>接続先<input id="obsUrl" type="url" value="ws://127.0.0.1:4455" required></label>
+<div class="fields"><label>OBSパスワード<input id="obsPassword" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます"></label><label>映像ソース名<input id="sourceName" value="PS Remote Play" required maxlength="200"></label></div>
+<div class="setting-action"><button type="button" id="testObs">映像確認</button><span class="hint">OBSに登録したゲーム映像のソース名を指定します。</span></div></div></details>
+<details class="card setting-section" id="settings-ai"><summary class="setting-summary"><span>Gemini</span><span id="summary-ai" class="setting-summary-value">APIキー未入力</span></summary><div class="setting-body">
+<div class="setting-meta"><span class="badge small">Gemini 3.1 Flash-Lite</span></div>
+<label>Gemini APIキー<input id="apiKey" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます" required></label>
+<label class="check"><input id="freeTier" type="checkbox">このキーのプロジェクトが Free Tier・課金未設定だと確認しました</label>
+<p class="hint compact-hint">画像・文章はGoogleへ送信されます。課金状態はこのアプリでは確認できません。</p>
+<div class="setting-action"><button type="button" id="testText">文章だけで接続テスト</button><span class="hint">API送信1回を使用</span></div></div></details>
+<details class="card setting-section" id="settings-voice"><summary class="setting-summary"><span>読み上げ</span><span id="summary-voice" class="setting-summary-value">棒読みちゃん</span></summary><div class="setting-body">
+<label>出力先<select id="output"><option value="bouyomi">棒読みちゃん（PC側で再生）</option><option value="voicevox">VOICEVOX直接（ブラウザで再生）</option></select></label>
+<div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><p class="hint compact-hint">HTTP連携を有効にしてください。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
+<div id="voicevoxFields" hidden><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label><p class="hint compact-hint">音声はこのブラウザで再生します。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
+<div class="setting-action"><button type="button" id="testVoice">音声テスト（友達1）</button><span class="hint">声・話速・性格は「友達」で設定</span></div></div></details>
 <details class="card setting-section" id="settings-vault" open><summary class="setting-summary"><span>キー・パスワードの暗号化保存</span><span id="summary-vault" class="setting-summary-value">保存なし</span></summary><div class="setting-body">
 <p class="hint compact-hint">APIキーとOBSパスワードだけを端末内に暗号化保存します。合言葉は保存しません。</p>
 <label>合言葉（保存時は12文字以上）<input id="vaultPass" type="password" autocomplete="off" maxlength="200"></label>
 <label>合言葉の確認（保存時のみ）<input id="vaultConfirm" type="password" autocomplete="off" maxlength="200"></label>
 <div class="actions wrap"><button type="button" id="vaultSave">暗号化して保存</button><button type="button" id="vaultUnlock">解除</button><button type="button" id="vaultLock">ロック</button><button type="button" id="vaultDelete">保存を削除</button></div>
 <p id="vaultState" class="hint" role="status">保存状態を確認中</p></div></details>
-<div class="settings-footer"><button type="button" id="save">設定を保存</button><span id="saveState" class="hint">通常の設定保存にはキー類を含めません。</span></div>
-</form></div>
-<div id="panel-friends" role="tabpanel" aria-labelledby="tab-friends" hidden>
-<section class="card"><div class="card-head"><h2>一緒に見る友達</h2></div>
-<label>参加人数の上限<select id="participantCount" form="settings"><option value="1">1人</option><option value="2">2人</option><option value="3">3人</option><option value="4">4人</option><option value="5">5人</option><option value="6">6人</option></select></label>
-<p class="hint">毎回1人〜設定人数から必要な人だけ話します。全員が順番に話す必要はありません。状況によっては無言になります。1回の解析で最大6発言です。</p></section>
-<div id="profiles"></div><p class="hint">変更は「設定」タブの保存、または実況開始で保存されます。VOICEVOX話速は0.5〜2.0で、1.0が標準です。声のIDはお使いの読み上げソフトで確認してください。</p>
 </div>
-<div id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden><section class="card"><div class="card-head"><h2>実行履歴</h2><button id="clearLog" class="subtle">クリア</button></div><ol id="log" aria-label="実行履歴"></ol></section>
+</form>
+
+<div id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden>
+<section class="card"><div class="card-head"><h2>実行履歴</h2><button id="clearLog" type="button" class="subtle">クリア</button></div><ol id="log" aria-label="実行履歴"></ol></section>
 </div>
-<div id="panel-help" role="tabpanel" aria-labelledby="tab-help" hidden><section class="card help"><div class="card-head"><h2>準備とトラブルシューティング</h2></div>
+</div>
+</div>
+</div>
+<footer>ローカルで操作 · 画像解析はGemini API · 秘密情報は任意で端末内に暗号化保存</footer>
+</main><dialog id="helpDialog" class="content-dialog help-dialog" aria-labelledby="helpDialogTitle">
+<div class="content-dialog-head"><div><h2 id="helpDialogTitle">ヘルプ</h2><p>準備・接続・トラブルシューティング</p></div><button type="button" id="closeHelpDialog" class="content-dialog-close" aria-label="閉じる">×</button></div>
+<div class="help-dialog-body"><section class="help"><div class="card-head"><h2>準備とトラブルシューティング</h2></div>
 <h3>はじめに</h3><p>フォルダ内の index.html を、操作するPCのChrome・Edgeで開きます。専用サーバーは不要です。「映像確認」「音声テスト」を試し、Geminiのキーを設定して開始してください。</p>
 <h3>VOICEVOX：Windows版では鳴るのにブラウザでは失敗する</h3><p>開発者ツールに origin 'null'、CORS、403 Forbidden が出る場合は、VOICEVOXを起動し、<a id="voicevoxSettingsLink" href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>を開きます（設定したVOICEVOX URLの設定画面）。CORS Policy Mode を localapps、Allow Origin に null を追加し、保存してVOICEVOXを再起動してください。ほかの許可設定は必要に応じて残します。その後、音声テストをやり直します。</p><p>null の許可は、このアプリ以外のローカルファイルや一部の隔離されたページにも適用されます。信頼できないHTMLを同時に開かず、使わなくなったら許可を外してください。CORSを all にしたり、ブラウザの保護を無効化したりする必要はありません。</p>
 <h3>読み上げ先に接続できない・音が出ない</h3><p>起動状態、URLとポート、ブラウザのローカルネットワーク許可、OSの音量を確認してください。VOICEVOX直接は操作しているブラウザで再生します。棒読みちゃんは設定のHTTP連携を有効にし、PC側の声・音量を確認します。声が異なる場合は「友達」タブのスタイルID・声IDを、速すぎる・遅すぎる場合はVOICEVOX話速を見直してください。</p>
@@ -111,9 +141,9 @@
 <h3>同じLAN内の別PCへ接続する</h3><p>接続先PCのIPv4を指定します（例: OBSは ws://192.168.1.10:4455、VOICEVOXは http://192.168.1.10:50021、棒読みちゃんは http://192.168.1.10:50080）。許可範囲は10.x.x.x、172.16.x.x〜172.31.x.x、192.168.x.xです。PC名ではなくIPアドレスを使ってください。</p><p>接続先PCで各ソフトをLANから接続できる待受状態にし、Windowsファイアウォールのプライベートネットワークで必要なTCPポートをローカルサブネットから許可します。ルーターのポート開放は不要です。OBSは認証を有効にし、ゲストWi-Fiなど端末間通信が禁止されていないかも確認してください。</p><p>VOICEVOXのエンジンが127.0.0.1だけで待ち受けている場合は、LANのIPで待ち受ける起動設定が別途必要です。エンジンの --host にPCのLAN IPを指定する方法があります。CORS許可も引き続き必要です。棒読みちゃんもHTTP連携がLANから接続を受け付ける構成か確認してください。</p><p>VOICEVOX直接は接続先PCで音声を合成し、操作中の端末で再生します。接続先PCから音を出したい場合は棒読みちゃんを使います。HTTPSで公開したページからの ws/http 接続はブラウザに拒否される場合があります。ローカルHTMLでの利用を基本とし、ブラウザの保護を無効化しないでください。</p>
 <h3>スマホ・外出先・長時間の利用</h3><p>画面はスマホ幅にも対応し、同じLAN内のPCへも接続できます。接続にはブラウザの制限と接続先ソフトの設定が影響します。外出先からのインターネット経由の接続には対応していません。タブを閉じると終了し、非表示・スリープ・画面ロックで監視や音声が中断することがあります。無人での常時稼働は保証できません。</p>
 </section></div>
-</div></div></div>
-<footer>ローカルで操作 · 画像解析はGemini API · 秘密情報は任意で端末内に暗号化保存</footer>
-</main><dialog id="contentDialog" class="content-dialog" aria-labelledby="contentDialogTitle">
+<div class="content-dialog-actions"><button type="button" id="doneHelpDialog" class="primary">閉じる</button></div>
+</dialog>
+<dialog id="contentDialog" class="content-dialog" aria-labelledby="contentDialogTitle">
   <div class="content-dialog-head">
     <div><h2 id="contentDialogTitle">対象コンテンツを管理</h2><p>「メイン項目：サブ項目」で階層化できます。メイン項目も選択できます。</p></div>
     <button type="button" id="closeContentDialog" class="content-dialog-close" aria-label="閉じる">×</button>

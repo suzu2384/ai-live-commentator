@@ -23,15 +23,18 @@
     $('start').disabled = value; $('stop').disabled = !value; $('finish').disabled = !streaming;
   }
   function revealSetting(id){
-    let section=$(id)?.closest('details');
+    const el=$(id),panel=el?.closest('[role=tabpanel]');
+    if(panel?.id?.startsWith('panel-'))selectTab(panel.id.slice(6));
+    let section=el?.closest('details');
     while(section){section.open=true;section=section.parentElement?.closest('details');}
   }
   function updateSettingSummaries(){
     const talk=['控えめ','標準','よく話す'][Number($('talkativeness').value)]||'話し方';
+    const content=$('contentName').selectedOptions?.[0]?.textContent?.trim()||'対象なし';
+    $('summary-live').textContent=`${content||'対象なし'} / ${$('participantCount').value||'1'}人 / ${talk}`;
     $('summary-video').textContent=$('sourceName').value.trim()||'映像ソース未入力';
     $('summary-ai').textContent=$('apiKey').value?($('freeTier').checked?'APIキー入力済み / Free確認済み':'APIキー入力済み'):'APIキー未入力';
     $('summary-voice').textContent=$('output').value==='voicevox'?'VOICEVOX':'棒読みちゃん';
-    $('summary-frequency').textContent=`${talk} / 履歴 ${$('conversationHistoryCount').value||'0'}発言 / API ${$('apiInterval').value||'—'}秒 / ${$('analysisFrameCount').value||'—'}枚・${$('sampleInterval').value||'—'}秒取得`;
     try{$('summary-vault').textContent=localStorage.getItem('ai-live-commentator-vault-v1')?'保存あり':'保存なし';}
     catch{$('summary-vault').textContent='保存状態不明';}
   }
@@ -636,6 +639,13 @@
   $('newContentName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addContent();}});
   $('contentManageList').addEventListener('click',e=>{const child=e.target.closest('[data-content-name]');if(child){deleteContent(child.dataset.contentName);return;}const main=e.target.closest('[data-content-main]');if(main)deleteContentMain(main.dataset.contentMain);});
   $('contentDialog').addEventListener('click',e=>{if(e.target===$('contentDialog'))closeContentDialog();});
+  const helpDialog=$('helpDialog');
+  const openHelpDialog=()=>{if(typeof helpDialog.showModal==='function')helpDialog.showModal();else helpDialog.setAttribute('open','');};
+  const closeHelpDialog=()=>{if(typeof helpDialog.close==='function'&&helpDialog.open)helpDialog.close();else helpDialog.removeAttribute('open');};
+  $('openHelp').addEventListener('click',openHelpDialog);
+  $('closeHelpDialog').addEventListener('click',closeHelpDialog);
+  $('doneHelpDialog').addEventListener('click',closeHelpDialog);
+  helpDialog.addEventListener('click',e=>{if(e.target===helpDialog)closeHelpDialog();});
   $('apiKey').addEventListener('input',()=>{$('freeTier').checked=false;});$('settings').addEventListener('submit',e=>e.preventDefault());
   setInterval(()=>{
     if(!busy){$('elapsed').textContent='';return;}

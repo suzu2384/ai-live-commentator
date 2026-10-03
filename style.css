@@ -164,3 +164,32 @@ button:focus-visible,summary:focus-visible{outline-color:var(--accent)}
 @media(max-width:520px){
   .content-sub-row{padding-left:12px}
 }
+
+
+/* v4.3 information architecture */
+.tabs .help-tab-button{flex:0 0 42px;width:42px;padding:8px 0;font-size:18px;color:var(--muted);border-left:1px solid var(--line)}
+.tabs .help-tab-button:hover{color:var(--text);background:#1d292d}
+.panel-scroll>form{margin:0}
+.panel-intro{margin:0 0 14px;padding:0 0 10px;border-bottom:1px solid var(--line)}
+.panel-intro h2{margin:0 0 4px;font-size:15px}
+.section-meta{margin:3px 0 0;color:var(--muted);font-size:11px}
+.live-section>.card-head{align-items:flex-start}
+.live-section>.card-head h2{margin:0}
+#panel-live>.live-section:last-of-type{margin-bottom:10px}
+.advanced-settings{margin:0 0 14px!important;padding:0!important;border:1px solid var(--line)!important;border-radius:10px;background:#151d21;overflow:hidden}
+.advanced-settings[open]>.setting-summary{background:#1d292d}
+.advanced-settings[open]>.setting-summary::after{transform:rotate(180deg)}
+.compact-detail-group:first-child{margin-top:0;padding-top:0;border-top:0}
+.help-dialog{width:min(760px,calc(100vw - 28px))}
+.help-dialog[open]{display:flex;flex-direction:column}
+.help-dialog-body{padding:0 18px 10px;overflow:auto;min-height:0}
+.help-dialog .help{margin-top:0;font-size:13px}
+.help-dialog .help h2{display:none}
+.help-dialog .help h3:first-of-type{margin-top:16px}
+@media(max-width:520px){
+  .tabs{gap:2px}
+  .tabs button{padding-left:6px;padding-right:6px}
+  .tabs .help-tab-button{flex-basis:38px;width:38px}
+  .help-dialog{width:calc(100vw - 20px);max-height:calc(100dvh - 20px)}
+  .help-dialog-body{padding-left:14px;padding-right:14px}
+}
