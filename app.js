@@ -525,7 +525,10 @@
          !C.shouldAnalyze(elapsed,motionValue,s.apiInterval,s.quietInterval)) {
         await C.sleep(100,signal);continue;
       }
-      const quietMode=state.lastAnalysis!==-Infinity&&motionValue<.07&&elapsed>=Math.max(s.apiInterval,s.quietInterval);
+      const lowMotionDue=state.lastAnalysis!==-Infinity&&motionValue<.07&&elapsed>=Math.max(s.apiInterval,s.quietInterval);
+      if(motionValue>=.07)state.quietSceneStreak=0;
+      else if(lowMotionDue)state.quietSceneStreak=(state.quietSceneStreak||0)+1;
+      const quietMode=lowMotionDue&&state.quietSceneStreak>=2;
       state.lastAnalysis=performance.now();state.lastAnalyzedFrameAt=current.capturedAt;state.analysisInFlight=true;
       const speechEpochAtStart=state.speechEpoch,startedDuringSpeech=state.speaking;
       try {
@@ -711,7 +714,7 @@
   $('start').addEventListener('click',()=>operation(async signal=>{
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();$('latency').textContent='—';
-    const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,speechEpoch:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],rateLimitStreak:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
+    const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,speechEpoch:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],rateLimitStreak:0,quietSceneStreak:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
     streaming=true;$('finish').disabled=true;
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
