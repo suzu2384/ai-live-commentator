@@ -343,6 +343,12 @@
     return true;
   }
   function spokenText(turn){const value=typeof turn?.speechText==='string'&&turn.speechText.trim()?turn.speechText:turn?.text;return C.plainSpeech(String(value??''));}
+  function showLatestComment(profile,turn){
+    $('lastComment').textContent=profile.name+'：'+turn.text;
+    const speech=typeof turn?.speechText==='string'&&turn.speechText.trim()?turn.speechText:turn?.text;
+    $('lastSpeechText').textContent='読み上げ：'+String(speech??'');
+    $('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
+  }
   function greetingPayload(kind,s,history,turnCount){
     turnCount=Math.max(1,Math.min(s.profiles.length,Number(turnCount)||1));
     const ending=kind==='end';
@@ -358,7 +364,7 @@
   async function playGreetingTurns(turns,s,signal,label){
     const items=turns.map(turn=>({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)})).filter(x=>x.profile);
     const delivered=({turn,profile})=>{
-      $('lastComment').textContent=`${profile.name}：${turn.text}`;$('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
+      showLatestComment(profile,turn);
       $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
       log(`${label}・${profile.name}: ${turn.text}`,'spoken');
     };
@@ -552,7 +558,7 @@
     const delivered=(turn,profile)=>{
       conversationStarted=true;state.lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>20)spoken.shift();
       speakerHistory.push(turn.speakerId);if(speakerHistory.length>20)speakerHistory.shift();
-      $('lastComment').textContent=`${profile.name}：${turn.text}`;$('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
+      showLatestComment(profile,turn);
       $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
       log(`${profile.name}: ${turn.text}`,'spoken');
     };

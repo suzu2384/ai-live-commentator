@@ -446,3 +446,13 @@ html[data-theme="sand"]{
   border-color:var(--friend-accent);
   box-shadow:0 0 0 2px color-mix(in srgb,var(--friend-accent) 18%,transparent)
 }
+
+
+/* v4.12 show the actual speechText below the latest displayed comment */
+.speech-text{
+  margin:-10px 0 8px;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.55;
+  overflow-wrap:anywhere;
+}

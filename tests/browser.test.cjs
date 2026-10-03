@@ -236,14 +236,21 @@ const results=[];
  await test('speechText drives Bouyomi while the displayed comment keeps text',async()=>{
   const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがは変わらないね'}]})}]}}]};
   const x=await setup({answer:reading});await start(x);await idle(x.page);
-  assert.deepEqual(x.events.talks,['このさがは変わらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));
+  assert.deepEqual(x.events.talks,['このさがは変わらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));assert.equal(await x.page.locator('#lastSpeechText').textContent(),'読み上げ：このさがは変わらないね');
   await stop(x.page);await x.close();
  });
  await test('speechText drives VOICEVOX while the displayed comment keeps text',async()=>{
   const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがは変わらないね'}]})}]}}]};
   const x=await setup({answer:reading});await setOutput(x.page,'voicevox');await start(x);await idle(x.page);
-  assert.deepEqual(x.events.voiceTexts,['このさがは変わらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));
+  assert.deepEqual(x.events.voiceTexts,['このさがは変わらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));assert.equal(await x.page.locator('#lastSpeechText').textContent(),'読み上げ：このさがは変わらないね');
   await stop(x.page);await x.close();
+ });
+ await test('greeting updates the displayed speechText too',async()=>{
+  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日は見ていこう',speechText:'今日は見ていこう'}]})}]}}]};
+  const x=await setup({answer:intro,before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
+  await p.locator('#start').click();await idle(p);
+  assert.equal(await p.locator('#lastSpeechText').textContent(),'読み上げ：今日は見ていこう');
+  await stop(p);await x.close();
  });
  await test('greeting prompt keeps Japanese particles unchanged in speechText guidance',async()=>{
   const x=await setup({before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
