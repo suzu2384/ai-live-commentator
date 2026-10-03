@@ -98,6 +98,9 @@ test('stale comments are rejected at the boundary even if model says speak',()=>
 test('freshness deadline aborts outstanding network work',async()=>{
   let aborted=false;await assert.rejects(C.deadline(token=>new Promise((_,reject)=>token.addEventListener('abort',()=>{aborted=true;reject(C.abortError());})),10,undefined,'stale','STALE'),e=>e.code==='STALE');assert.equal(aborted,true);
 });
+test('deadline settles even when inner work ignores abort',async()=>{
+  await assert.rejects(C.deadline(()=>new Promise(()=>{}),10,undefined,'stale','STALE'),e=>e.code==='STALE');
+});
 test('user stop stays cancellation, including during recovery sleep',async()=>{
   const ac=new AbortController();const p=C.deadline(token=>C.sleep(10000,token),10000,ac.signal,'timeout');ac.abort();await assert.rejects(p,{name:'AbortError'});
   const ac2=new AbortController();const waiting=C.sleep(30000,ac2.signal);ac2.abort();await assert.rejects(waiting,{name:'AbortError'});
@@ -105,7 +108,7 @@ test('user stop stays cancellation, including during recovery sleep',async()=>{
 test('fixed short cooldown never grows; server retry hints override it',()=>{
   for(let i=0;i<100;i++)assert.equal(C.recoveryDelay({code:'503'}),5000);
   assert.equal(C.recoveryDelay({code:'NETWORK'}),5000);
-  assert.equal(C.recoveryDelay({code:'STALE'}),5000);
+  assert.equal(C.recoveryDelay({code:'STALE'}),0);
   assert.equal(C.recoveryDelay({code:'429'}),30000);
   assert.equal(C.recoveryDelay({code:'503',retryAfter:120000}),120000);
   assert.equal(C.recoveryDelay({code:'429',retryAfter:3600000}),3600000);

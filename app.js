@@ -356,10 +356,10 @@
     const task=ending
       ? '実況を通常終了する直前の締めの挨拶を作る。今回見えていた状況に軽く触れてもよいが、確認できない成果・勝敗・進捗は断定しない。「また見よう」「おつかれ」など自然に締める。'
       : '実況開始直後の短い挨拶を作る。まだゲーム内容を見ていないので、ゲーム名・状況・成果を推測せず、「始まったね」「今日も見ていこう」程度の自然な開始挨拶にする。';
-    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n直近の状況: ${context}\n${task}\n今回の発言人数は${turnCount}人。speak=trueの場合は異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。話す必要がない場合だけspeak=false、turns=[]にする。各5〜25文字程度の自然な口語。架空の思い出は作らない。`}];
+    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n直近の状況: ${context}\n${task}\nこの挨拶は必ず発言する。speakは必ずtrueにする。今回の発言人数は${turnCount}人で、異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。各5〜25文字程度の自然な口語。架空の思い出は作らない。`}];
     return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。指定された開始または終了の挨拶だけを短く返す。各turnのtextは表示用の自然な日本語、speechTextは同じ内容を実際に声に出すとおりの読みだけで書く。speechTextはtext全文を読み仮名へ変換し、内容・意味・口調・言葉は変えない。漢字・英字・数字は一切含めず、ひらがな・カタカナ・長音・空白・句読点だけを使う。表記上の綴りではなく実際の発音を書く。方言や崩した言い方も実際の読みへ直す。textにある「、」「。」「！」「？」「!」「?」は削除・変更せず、同じ順序でspeechTextにも必ず残す。自然な間のために必要ならspeechText側へ「、」だけ追加してよい。たとえばtextが「早よ行こうや、間に合わへんで！」ならspeechTextは「はよいこうや、まにあわへんで！」とする。英字や数字を含む語も実際の読みをかなで書く。'}]},
       contents:[{role:'user',parts}],generationConfig:{candidateCount:1,maxOutputTokens:512,thinkingConfig:{thinkingLevel:'MINIMAL',includeThoughts:false},responseMimeType:'application/json',
-        responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',maxItems:turnCount,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'},speechText:{type:'STRING'}},required:['speakerId','text','speechText']}}},required:['speak','summary','turns']}}};
+        responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:turnCount,maxItems:turnCount,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'},speechText:{type:'STRING'}},required:['speakerId','text','speechText']}}},required:['speak','summary','turns']}}};
   }
   async function playGreetingTurns(turns,s,signal,label){
     const items=turns.map(turn=>({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)})).filter(x=>x.profile);
@@ -386,16 +386,30 @@
         if(prefetch){const prepared=await prefetch;unlink?.();if(prepared.error)throw prepared.error;audio=prepared.value;}
       }
     }else{
-      for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);if(!await speak(spokenText(item.turn),{...s,...item.profile},null,signal,i>0))break;delivered(item);}
+      for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);if(!await speak(spokenText(item.turn),{...s,...item.profile},null,signal,true))throw new C.AppError(`${label}を読み上げ先へ送信できませんでした。`,'VOICE');delivered(item);}
     }
   }
   async function greeting(kind,runtime,signal,{tolerateFailure=false}={}){
     const s=runtime.s,key=runtime.key,label=kind==='end'?'終了の挨拶':'開始の挨拶';
     try{
       const turnCount=C.pickWeightedSpeakerCount(s.speakerCountWeights,s.profiles.length);
-      reserve(s);setStatus(`${label}を生成中`);log(`Geminiへ${label}を依頼（${stats.used}回・今回の発言人数${turnCount}人）。`);
-      const body=await C.deadline(token=>C.gemini(key,greetingPayload(kind,s,runtime.history,turnCount),token),60000,signal,`${label}の生成がタイムアウトしました。`);
-      const result=C.parseAnalysis(body,s.profiles,turnCount);
+      let result=null;
+      for(let attempt=1;attempt<=2;attempt++){
+        try{
+          reserve(s);setStatus(`${label}を生成中`);log(`Geminiへ${label}を依頼（${stats.used}回・今回の発言人数${turnCount}人${attempt>1?'・再生成':''}）。`);
+          const body=await C.deadline(token=>C.gemini(key,greetingPayload(kind,s,runtime.history,turnCount),token),60000,signal,`${label}の生成がタイムアウトしました。`);
+          result=C.parseAnalysis(body,s.profiles,turnCount);
+          if(!result.speak||result.turns.length!==turnCount)throw new C.AppError(`${label}が無言または指定人数と一致しません。`,'RESPONSE');
+          break;
+        }catch(e){
+          C.check(signal);
+          if(attempt===1&&e instanceof C.AppError&&e.code==='RESPONSE'){
+            log(`${label}の応答が条件を満たさなかったため、1回だけ再生成します。`,'warn');
+            continue;
+          }
+          throw e;
+        }
+      }
       await playGreetingTurns(result.turns,s,signal,label);
     }catch(e){
       C.check(signal);
@@ -514,13 +528,17 @@
         if(!(e instanceof C.AppError)||C.needsSettings(e))throw e;
         if(e.code==='STALE'){
           stats.stale++;updateStats();log(e.message,'warn');$('latency').textContent='鮮度切れ';
-        } else log(e.message,'warn');
-        const delay=C.recoveryDelay(e);
-        log(`${Math.ceil(delay/1000)}秒待機し、その間も映像取得と読み上げを継続して最新映像で再開します。停止ボタンで終了できます。`,'warn');
-        await C.sleep(delay,signal);state.lastAnalysis=-Infinity;
+          state.lastAnalysis=-Infinity;
+          setStatus('鮮度切れ・最新映像で再解析中');
+        } else {
+          log(e.message,'warn');
+          const delay=C.recoveryDelay(e);
+          log(`${Math.ceil(delay/1000)}秒待機し、その間も映像取得と読み上げを継続して最新映像で再開します。停止ボタンで終了できます。`,'warn');
+          await C.sleep(delay,signal);state.lastAnalysis=-Infinity;
+        }
       } finally {
         state.analysisInFlight=false;
-        if(!state.speaking)setStatus(state.pending?'次の発言候補を待機中':'映像監視中');
+        if(!state.speaking&&!$('status').textContent.startsWith('鮮度切れ・'))setStatus(state.pending?'次の発言候補を待機中':'映像監視中');
       }
     }
   }
@@ -645,6 +663,8 @@
         } else log(e instanceof C.AppError?e.message:'処理に失敗しました。設定と接続を確認してください。','warn');
         if(!(e instanceof C.AppError)||C.needsSettings(e)){
           obs?.close();obs=null;({s,key}=await waitForSettings(signal));runtime.s=s;runtime.key=key;
+        }else if(e.code==='STALE'){
+          setStatus('鮮度切れ・最新映像で再解析中');
         }else{
           obs?.close();obs=null;
           const delay=C.recoveryDelay(e);

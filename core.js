@@ -17,13 +17,27 @@
   async function deadline(fn, ms, signal, message, code = 'TIMEOUT') {
     check(signal);
     if (ms <= 0) throw new AppError(message, code);
-    const controller = new AbortController(); let timedOut = false;
-    const cancel = () => controller.abort();
-    signal?.addEventListener('abort', cancel, { once: true });
-    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, ms);
-    try { const value = await fn(controller.signal); check(signal); if (timedOut) throw new AppError(message, code); return value; }
-    catch (e) { check(signal); if (timedOut) throw new AppError(message, code); throw e; }
-    finally { clearTimeout(timer); signal?.removeEventListener('abort', cancel); }
+    const controller = new AbortController();
+    let timer=null,parentAbort=null;
+    const task=Promise.resolve().then(()=>fn(controller.signal));
+    const timeout=new Promise((_,reject)=>{
+      timer=setTimeout(()=>{
+        reject(new AppError(message,code));
+        controller.abort();
+      },ms);
+    });
+    const cancelled=signal?new Promise((_,reject)=>{
+      parentAbort=()=>{
+        reject(abortError());
+        controller.abort();
+      };
+      signal.addEventListener('abort',parentAbort,{once:true});
+    }):new Promise(()=>{});
+    try { return await Promise.race([task,timeout,cancelled]); }
+    finally {
+      clearTimeout(timer);
+      if(parentAbort)signal.removeEventListener('abort',parentAbort);
+    }
   }
   function normalizeKey(value) {
     const key = String(value ?? '').replace(/^[\s\u200B\uFEFF\u2060]+|[\s\u200B\uFEFF\u2060]+$/g, '');
@@ -165,6 +179,8 @@
     return '';
   }
   function recoveryDelay(error) {
+    // Stale analysis should immediately restart from the newest frame.
+    if(error.code==='STALE')return 0;
     // Fixed cooldown; repeated failures never extend it. Server retry hints take priority.
     return Math.max(error.code === '429' ? 30000 : 5000,
       Number.isFinite(error.retryAfter) ? error.retryAfter : 0);

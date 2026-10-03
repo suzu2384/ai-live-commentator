@@ -273,6 +273,23 @@ const results=[];
   assert.ok(x.events.promptTexts[0].includes('漢字・英字・数字は一切含めず'));
   assert.ok(x.events.promptTexts[0].includes('同じ順序でspeechTextにも必ず残す'));
   assert.ok(x.events.promptTexts[0].includes('「早よ行こうや、間に合わへんで！」ならspeechTextは「はよいこうや、まにあわへんで！」'));
+  assert.ok(x.events.promptTexts[0].includes('speakは必ずtrue'));
+  await stop(p);await x.close();
+ });
+ await test('start greeting retries once instead of silently accepting speak false',async()=>{
+  const silent={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'開始',turns:[]})}]}}]};
+  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日も見ていこう',speechText:'きょうもみていこう'}]})}]}}]};
+  const x=await setup({answers:[silent,intro],before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
+  await p.locator('#start').click();await idle(p);
+  assert.equal(x.events.api,2);assert.deepEqual(x.events.talks,['きょうもみていこう']);
+  assert.ok((await p.locator('#log').innerText()).includes('1回だけ再生成'));
+  await stop(p);await x.close();
+ });
+ await test('start greeting is queued even when Bouyomi already has pending audio',async()=>{
+  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日も見ていこう',speechText:'きょうもみていこう'}]})}]}}]};
+  const x=await setup({answer:intro,busy:true,before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
+  await p.locator('#start').click();await idle(p);
+  assert.deepEqual(x.events.talks,['きょうもみていこう']);
   await stop(p);await x.close();
  });
  await test('start greeting uses the configured speaker-count weight',async()=>{
@@ -344,7 +361,7 @@ const results=[];
   for(let i=0;i<21;i++){await x.page.clock.fastForward(61000);await idle(x.page);}
   assert.ok(x.events.api>20);assert.equal(await x.page.locator('#stop').isEnabled(),true);await stop(x.page);await x.close();
  });
- await test('freshness timeout aborts analysis and never sends old speech',async()=>{const x=await setup({hold:true});await start(x);await x.page.waitForFunction(()=>document.getElementById('status').textContent==='Geminiの応答待ち');await x.page.clock.fastForward(16000);await recovery(x.page);await stop(x.page);assert.equal(x.events.talks.length,0);assert.equal(await x.page.locator('#staleCount').innerText(),'1');await x.held()?.fulfill({contentType:'application/json',body:JSON.stringify(answer)}).catch(()=>{});assert.equal(x.events.api,1);await x.close();});
+ await test('freshness timeout increments stale immediately and retries from newest frames without cooldown',async()=>{const x=await setup({hold:true});await start(x);await x.page.waitForFunction(()=>document.getElementById('status').textContent==='Geminiの応答待ち');await x.page.clock.fastForward(16000);await x.page.waitForFunction(()=>Number(document.getElementById('staleCount').textContent)>=1);assert.equal(x.events.talks.length,0);assert.ok(x.events.api>=1);assert.ok(!(await x.page.locator('#log').innerText()).includes('0秒待機し'));await stop(x.page);await x.held()?.fulfill({contentType:'application/json',body:JSON.stringify(answer)}).catch(()=>{});await x.close();});
  await test('freshness includes VOICEVOX synthesis; late audio is not played',async()=>{
   const x=await setup({holdSynth:true});const p=x.page;await setOutput(p,'voicevox');await start(x);
   await p.waitForFunction(()=>document.getElementById('status').textContent.includes('音声生成'));
