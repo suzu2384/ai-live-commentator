@@ -7,7 +7,7 @@
   const obsOverlaySourceName='みんコメ 吹き出し';
   const legacyObsOverlaySourceName='みんコメ コメント';
   const obsOverlayColors=['#2e7fa3','#a93b6b','#3f7f46','#b47420','#6549a7','#a8443b'];
-  const savedIds = ['theme','obsUrl','sourceName','obsOverlayEnabled','obsOverlayPosition','obsOverlayFont','obsOverlayFontSize','obsOverlayShowName','obsOverlayHold','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
+  const savedIds = ['theme','obsUrl','sourceName','obsOverlayEnabled','obsOverlayPosition','obsOverlayFont','obsOverlayFontSize','obsOverlayShowName','obsOverlayBold','obsOverlayHold','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
   const themes={
     midnight:{scheme:'dark',color:'#0d151c'},
     graphite:{scheme:'dark',color:'#17191c'},
@@ -416,6 +416,12 @@
     const index=Math.max(0,Math.min(5,(Number(String(profile?.id||'').replace(/^p/,''))||1)-1));
     return obsOverlayColors[index];
   }
+  function darkenHex(hex,factor=.48){
+    const n=parseInt(String(hex).replace('#',''),16);
+    if(!Number.isFinite(n))return '#20242a';
+    const c=shift=>Math.max(0,Math.min(255,Math.round(((n>>shift)&255)*factor)));
+    return '#'+[c(16),c(8),c(0)].map(v=>v.toString(16).padStart(2,'0')).join('');
+  }
   function escapeHtml(value){
     return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
@@ -425,22 +431,27 @@
     return name?`"${name}",system-ui,-apple-system,"Segoe UI",sans-serif`:'system-ui,-apple-system,"Segoe UI",sans-serif';
   }
   function obsBubbleDocument(profile,turn,s){
-    const color=obsOverlayColor(profile),fontSize=s.obsOverlayFontSize,fontFamily=obsOverlayFontFamily(s.obsOverlayFont);
+    const color=obsOverlayColor(profile),edgeColor=darkenHex(color),fontSize=s.obsOverlayFontSize,fontFamily=obsOverlayFontFamily(s.obsOverlayFont);
+    const fontWeight=s.obsOverlayBold?700:400;
+    const stroke=Math.max(1,Math.min(3,Math.round(fontSize*.045)));
     const nameSize=Math.max(15,Math.round(fontSize*.48));
     const radius=Math.max(20,Math.round(fontSize*.72));
     const position=String(s.obsOverlayPosition||'bottom-left');
     const horizontal=position.endsWith('right')?'flex-end':position.endsWith('center')?'center':'flex-start';
     const vertical=position.startsWith('top')?'flex-start':'flex-end';
     const tailRight=position.endsWith('right'),tailCenter=position.endsWith('center');
-    const tailPos=tailCenter?'left:50%;transform:translateX(-50%) rotate(45deg);':tailRight?'right:58px;transform:rotate(45deg);':'left:58px;transform:rotate(45deg);';
+    const outerPos=tailCenter?'left:50%;transform:translateX(-50%);':tailRight?'right:52px;':'left:52px;';
+    const innerPos=tailCenter?'left:50%;transform:translateX(-50%);':tailRight?'right:55px;':'left:55px;';
     const nameHtml=s.obsOverlayShowName?`<div class="name">${escapeHtml(profile.name)}</div>`:'';
     return `<!doctype html><html><head><meta charset="utf-8"><style>
 html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;font-family:${fontFamily}}
-body{box-sizing:border-box;padding:28px 30px 48px;display:flex;align-items:${vertical};justify-content:${horizontal}}
-.bubble{position:relative;display:inline-block;width:fit-content;max-width:calc(100% - 60px);min-width:0;box-sizing:border-box;padding:${Math.max(18,Math.round(fontSize*.5))}px ${Math.max(24,Math.round(fontSize*.72))}px;border-radius:${radius}px;background:${color}e8;border:2px solid rgba(255,255,255,.34);box-shadow:0 10px 28px rgba(0,0,0,.35);color:#fff}
-.bubble:after{content:"";position:absolute;bottom:-15px;${tailPos}width:26px;height:26px;background:${color};border-right:2px solid rgba(255,255,255,.34);border-bottom:2px solid rgba(255,255,255,.34);box-shadow:5px 5px 7px rgba(0,0,0,.16)}
-.name{font-size:${nameSize}px;font-weight:800;line-height:1.15;opacity:.85;margin-bottom:6px;white-space:nowrap}
-.text{font-size:${fontSize}px;font-weight:700;line-height:1.28;letter-spacing:.01em;text-shadow:0 2px 3px rgba(0,0,0,.38);overflow-wrap:anywhere;word-break:break-word}
+body{box-sizing:border-box;padding:24px 8px 48px;display:flex;align-items:${vertical};justify-content:${horizontal}}
+.bubble{position:relative;display:inline-block;width:fit-content;max-width:100%;min-width:0;box-sizing:border-box;padding:${Math.max(18,Math.round(fontSize*.5))}px ${Math.max(24,Math.round(fontSize*.72))}px;border-radius:${radius}px;background:${color}e8;border:2px solid rgba(255,255,255,.34);box-shadow:0 10px 28px rgba(0,0,0,.35);color:#fff}
+.bubble:before{content:"";position:absolute;bottom:-31px;${outerPos}width:42px;height:31px;background:rgba(255,255,255,.34);clip-path:polygon(0 0,100% 0,50% 100%)}
+.bubble:after{content:"";position:absolute;bottom:-26px;${innerPos}width:36px;height:27px;background:${color};clip-path:polygon(0 0,100% 0,50% 100%)}
+.name,.text{font-weight:${fontWeight};-webkit-text-stroke:${stroke}px ${edgeColor};paint-order:stroke fill;text-shadow:0 2px 3px ${edgeColor}aa}
+.name{font-size:${nameSize}px;line-height:1.15;opacity:.92;margin-bottom:6px;white-space:nowrap}
+.text{font-size:${fontSize}px;line-height:1.28;letter-spacing:.01em;overflow-wrap:anywhere;word-break:break-word}
 </style></head><body><div class="bubble">${nameHtml}<div class="text">${escapeHtml(turn.text)}</div></div></body></html>`;
   }
   function obsOverlayGeometry(position,baseWidth,baseHeight,boxWidth,boxHeight){
@@ -504,10 +515,16 @@ body{box-sizing:border-box;padding:28px 30px 48px;display:flex;align-items:${ver
     if(!browserKind)throw new C.AppError('OBSで Browser Source を利用できません。OBSのBrowser Source機能を確認してください。','OBS_OVERLAY');
     const baseWidth=Number(video.baseWidth)||1920,baseHeight=Number(video.baseHeight)||1080;
     const charCount=Math.max(1,Array.from(String(turn.text||'')).length);
-    const horizontalPad=Math.max(24,Math.round(s.obsOverlayFontSize*.72))*2+60;
-    const targetTwoLineWidth=Math.ceil(charCount/2)*s.obsOverlayFontSize*1.05+horizontalPad;
-    const boxWidth=Math.round(Math.max(460,Math.min(baseWidth-80,targetTwoLineWidth)));
-    const boxHeight=Math.round(Math.max(360,Math.min(baseHeight-40,s.obsOverlayFontSize*7.2)));
+    const nameCount=s.obsOverlayShowName?Array.from(String(profile.name||'')).length:0;
+    const glyphWidth=s.obsOverlayFontSize*1.08;
+    const desiredCharsPerLine=charCount<=18?charCount:Math.ceil(charCount/2);
+    const textWidth=desiredCharsPerLine*glyphWidth;
+    const nameWidth=nameCount*Math.max(15,Math.round(s.obsOverlayFontSize*.48))*1.06;
+    const bubblePad=Math.max(24,Math.round(s.obsOverlayFontSize*.72))*2;
+    const outerPad=16;
+    const targetWidth=Math.max(textWidth,nameWidth)+bubblePad+outerPad;
+    const boxWidth=Math.round(Math.max(320,Math.min(baseWidth-24,targetWidth)));
+    const boxHeight=Math.round(Math.max(320,Math.min(baseHeight-24,s.obsOverlayFontSize*6.6)));
     const html=obsBubbleDocument(profile,turn,s);
     const inputSettings={
       is_local_file:false,url:'data:text/html;charset=utf-8,'+encodeURIComponent(html),
@@ -942,6 +959,7 @@ body{box-sizing:border-box;padding:28px 30px 48px;display:flex;align-items:${ver
     streaming=true;$('finish').disabled=true;
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
+    if(s.greetStart&&s.obsOverlayEnabled&&!obs?.ready)await connectObs(s,signal);
     if(s.greetStart)await greeting('start',runtime,signal,{tolerateFailure:true});
     const runController=new AbortController();let finishing=false;
     const stopRun=()=>runController.abort();signal.addEventListener('abort',stopRun,{once:true});
@@ -950,8 +968,11 @@ body{box-sizing:border-box;padding:28px 30px 48px;display:flex;align-items:${ver
     catch(e){if(!(finishing&&e.name==='AbortError'))throw e;}
     finally{signal.removeEventListener('abort',stopRun);}
     if(!finishing)return;
-    C.check(signal);obs?.close();obs=null;lastCaptureAt=null;
+    C.check(signal);lastCaptureAt=null;
     runtime.s=runtime.s||s;runtime.key=runtime.key||key;lastSettings=runtime.s;
+    if(runtime.s.greetEnd&&runtime.s.obsOverlayEnabled&&!obs?.ready){
+      try{await connectObs(runtime.s,signal);}catch(e){log('終了挨拶のOBS吹き出し接続を省略: '+(e instanceof C.AppError?e.message:'OBSへ再接続できませんでした。'),'warn');}
+    }
     if(runtime.s.greetEnd)await greeting('end',runtime,signal,{tolerateFailure:true});
     log('実況を通常終了しました。');
   }));
