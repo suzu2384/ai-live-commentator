@@ -43,7 +43,9 @@ test('analysis payload enforces sampled turn limit and carries recent speakers',
   assert.ok(payload.contents[0].parts.at(-1).text.includes('友達1: ほんまやな\n友達2: 次も見てみよか'));
   assert.ok(payload.systemInstruction.parts[0].text.includes('相づちだけの返答が何度も続く会話パターンを避ける'));
   assert.ok(payload.systemInstruction.parts[0].text.includes('相づち自体は禁止せず'));
-  assert.ok(payload.systemInstruction.parts[0].text.includes('「性」が文脈上「さが」なら「さが」'));
+  assert.ok(payload.systemInstruction.parts[0].text.includes('助詞の「は」「へ」「を」は表記を変更せず、そのまま残す'));
+  assert.ok(payload.systemInstruction.parts[0].text.includes('「性」が文脈上「さが」なら単語だけ「さが」'));
+  assert.ok(!payload.systemInstruction.parts[0].text.includes('助詞の「は」は「わ」'));
   const tooMany={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p2',text:'二つ目だよ'},{speakerId:'p1',text:'三つ目だよ'}]};
   assert.throws(()=>C.parseAnalysis(wrap(tooMany),profiles,2));
 });

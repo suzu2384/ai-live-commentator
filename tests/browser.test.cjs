@@ -233,16 +233,23 @@ const results=[];
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
  await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await setOutput(x.page,'voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
  await test('speechText drives Bouyomi while the displayed comment keeps text',async()=>{
-  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがわかわらないね'}]})}]}}]};
+  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがは変わらないね'}]})}]}}]};
   const x=await setup({answer:reading});await start(x);await idle(x.page);
-  assert.deepEqual(x.events.talks,['このさがわかわらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));
+  assert.deepEqual(x.events.talks,['このさがは変わらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));
   await stop(x.page);await x.close();
  });
  await test('speechText drives VOICEVOX while the displayed comment keeps text',async()=>{
-  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがわかわらないね'}]})}]}}]};
+  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがは変わらないね'}]})}]}}]};
   const x=await setup({answer:reading});await setOutput(x.page,'voicevox');await start(x);await idle(x.page);
-  assert.deepEqual(x.events.voiceTexts,['このさがわかわらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));
+  assert.deepEqual(x.events.voiceTexts,['このさがは変わらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));
   await stop(x.page);await x.close();
+ });
+ await test('greeting prompt keeps Japanese particles unchanged in speechText guidance',async()=>{
+  const x=await setup({before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
+  await p.locator('#start').click();await idle(p);
+  assert.ok(x.events.promptTexts[0].includes('助詞の「は」「へ」「を」は表記を変更しない'));
+  assert.ok(!x.events.promptTexts[0].includes('助詞の「は」は「わ」'));
+  await stop(p);await x.close();
  });
  await test('start greeting uses the configured speaker-count weight',async()=>{
   const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'じゃあ今日も見ていこう'}]})}]}}]};
