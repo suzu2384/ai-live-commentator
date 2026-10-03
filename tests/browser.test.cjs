@@ -51,11 +51,14 @@ const results=[];
   });
   await page.goto(entry);
   await page.locator('details.setting-section').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+  await page.locator('#settings-advanced').evaluate(d=>d.open=true);
   await page.locator('#greetStart').uncheck();await page.locator('#greetEnd').uncheck();
   jpeg=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=640;c.height=360;const x=c.getContext('2d');x.fillStyle='#345a4b';x.fillRect(0,0,640,360);return c.toDataURL('image/jpeg');});
-  await page.locator('#apiKey').fill('fake.test-key');await page.locator('#obsPassword').fill('obs-secret');await page.locator('#freeTier').check();
   await page.locator('#sampleInterval').fill('4');
+  await page.locator('#tab-connect').click();
+  await page.locator('#apiKey').fill('fake.test-key');await page.locator('#obsPassword').fill('obs-secret');await page.locator('#freeTier').check();
   if(config.host){await page.locator('#output').selectOption('voicevox');await page.locator('#voicevoxUrl').fill(`http://${host}:50021`);await page.locator('#output').selectOption('bouyomi');for(const [id,port,proto] of [['obsUrl',4455,'ws'],['bouyomiUrl',50080,'http']])await page.locator('#'+id).fill(`${proto}://${host}:${port}`);}
+  await page.locator('#tab-live').click();
   if(config.before)await config.before(page);
   return {page,ctx,events,errors,held:()=>held,close:async()=>{assert.deepEqual(errors,[]);assert.deepEqual(events.unexpected,[]);await ctx.close();}};
  }
@@ -66,16 +69,51 @@ const results=[];
  async function recovery(p){await p.waitForFunction(()=>document.getElementById('status').textContent.includes('自動再開まで'));}
  async function next(x,ms){await x.page.clock.fastForward(ms);await idle(x.page);await x.page.clock.fastForward(4100);}
  async function stopped(p){await p.waitForFunction(()=>!document.getElementById('start').disabled);}
+ async function openConnect(p){await p.locator('#tab-connect').click();await p.locator('details.setting-section').evaluateAll(ds=>ds.forEach(d=>d.open=true));}
+ async function setOutput(p,value){await openConnect(p);await p.locator('#output').selectOption(value);}
  async function test(name,fn){await fn();results.push(name);console.log('PASS:',name);}
  await test('file startup, responsive layout, settings persistence excludes credentials',async()=>{
   const x=await setup();const p=x.page;await p.locator('#conversationHistoryCount').fill('4');await p.locator('#save').click();const data=await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1'));
   assert.ok(!data.includes('fake.test-key')&&!data.includes('obs-secret')&&!data.includes('freeTier'));
-  await p.reload();assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#freeTier').isChecked(),false);assert.equal(await p.locator('#sampleInterval').getAttribute('min'),'1');assert.equal(await p.locator('#conversationHistoryCount').inputValue(),'4');assert.equal(await p.locator('#conversationHistoryCount').getAttribute('max'),'20');
+  await p.reload();await openConnect(p);assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#freeTier').isChecked(),false);assert.equal(await p.locator('#sampleInterval').getAttribute('min'),'1');assert.equal(await p.locator('#conversationHistoryCount').inputValue(),'4');assert.equal(await p.locator('#conversationHistoryCount').getAttribute('max'),'20');
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   assert.equal(await p.evaluate(()=>document.documentElement.scrollHeight>innerHeight),false);
   await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/desktop.png'),fullPage:true});
   await p.setViewportSize({width:390,height:844});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/mobile.png'),fullPage:true});await x.close();
+ });
+ await test('tabs group live, friends, connection and history without changing setting ids',async()=>{
+  const x=await setup();const p=x.page;
+  assert.deepEqual(await p.locator('[role=tab]').allTextContents(),['実況','友達','接続','履歴']);
+  assert.equal(await p.locator('#contentName').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-live');
+  assert.equal(await p.locator('#participantCount').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-live');
+  assert.equal(await p.locator('#apiInterval').evaluate(el=>el.closest('details').id),'settings-advanced');
+  assert.equal(await p.locator('#obsUrl').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-connect');
+  assert.equal(await p.locator('#apiKey').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-connect');
+  assert.equal(await p.locator('#output').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-connect');
+  await p.locator('#tab-friends').click();assert.equal(await p.locator('#p1-name').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-friends');
+  await p.locator('#openHelp').click();assert.equal(await p.locator('#helpDialog').getAttribute('open'),'');await p.locator('#doneHelpDialog').click();
+  await x.close();
+ });
+ await test('saved v4 settings survive the tab reorganization',async()=>{
+  const x=await setup();const p=x.page;
+  await p.evaluate(()=>{
+    localStorage.setItem('ai-live-commentator-content-library-v1',JSON.stringify(['ゲーム','ゲーム：The Division 2']));
+    localStorage.setItem('ai-live-commentator-browser-v1',JSON.stringify({
+      obsUrl:'ws://127.0.0.1:4455',sourceName:'Saved source',output:'voicevox',bouyomiUrl:'http://127.0.0.1:50080',voicevoxUrl:'http://127.0.0.1:50021',
+      talkativeness:1,persona:'保存済みの会話の雰囲気',conversationHistoryCount:9,apiInterval:45,speechInterval:33,quietInterval:75,freshness:22,
+      sampleInterval:3,imageWidth:320,analysisFrameCount:4,speakerWeight1:10,speakerWeight2:20,speakerWeight3:30,speakerWeight4:0,speakerWeight5:0,speakerWeight6:0,
+      greetStart:false,greetEnd:true,contentName:'ゲーム：The Division 2',participantCount:3,
+      profiles:[{id:'p1',name:'保存友達1',personality:'明るい',speaker:8,speedScale:1.2,bouyomiVoice:12},{id:'p2',name:'保存友達2',personality:'冷静',speaker:3,speedScale:.9,bouyomiVoice:4},{id:'p3',name:'保存友達3',personality:'好奇心旺盛',speaker:2,speedScale:1.1,bouyomiVoice:5}]
+    }));
+  });
+  await p.reload();
+  assert.equal(await p.locator('#contentName').inputValue(),'ゲーム：The Division 2');assert.equal(await p.locator('#participantCount').inputValue(),'3');
+  assert.equal(await p.locator('#persona').inputValue(),'保存済みの会話の雰囲気');assert.equal(await p.locator('#conversationHistoryCount').inputValue(),'9');
+  assert.equal(await p.locator('#apiInterval').inputValue(),'45');assert.equal(await p.locator('#sampleInterval').inputValue(),'3');assert.equal(await p.locator('#analysisFrameCount').inputValue(),'4');
+  assert.equal(await p.locator('#sourceName').inputValue(),'Saved source');assert.equal(await p.locator('#output').inputValue(),'voicevox');
+  await p.locator('#tab-friends').click();assert.equal(await p.locator('#p1-name').inputValue(),'保存友達1');assert.equal(await p.locator('#p2-name').inputValue(),'保存友達2');assert.equal(await p.locator('#p3-name').inputValue(),'保存友達3');
+  await x.close();
  });
  await test('target content supports selectable main and indented sub items',async()=>{
   const x=await setup();const p=x.page;
@@ -116,7 +154,7 @@ const results=[];
  });
  await test('only top-level setting sections collapse and startup opens vault only',async()=>{
   const x=await setup();const p=x.page;
-  await p.locator('#output').selectOption('voicevox');await p.locator('#analysisFrameCount').selectOption('4');await p.locator('#sampleInterval').fill('1');
+  await setOutput(p,'voicevox');await p.locator('#analysisFrameCount').selectOption('4');await p.locator('#sampleInterval').fill('1');
   assert.equal(await p.locator('#summary-voice').textContent(),'VOICEVOX');assert.ok((await p.locator('#summary-frequency').textContent()).includes('4枚・1秒取得'));
   assert.equal(await p.locator('#settings-frequency details').count(),0);
   await p.reload();
@@ -136,9 +174,9 @@ const results=[];
   assert.equal(new Set(mobile).size,1);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await x.close();
  });
- await test('OBS authentication and preview send no Gemini request',async()=>{const x=await setup();await x.page.locator('#testObs').click();await stopped(x.page);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);await x.close();});
- await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
- await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await x.page.locator('#output').selectOption('voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
+ await test('OBS authentication and preview send no Gemini request',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#testObs').click();await stopped(x.page);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);await x.close();});
+ await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
+ await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await setOutput(x.page,'voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
  await test('speechText drives Bouyomi while the displayed comment keeps text',async()=>{
   const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがわかわらないね'}]})}]}}]};
   const x=await setup({answer:reading});await start(x);await idle(x.page);
@@ -147,7 +185,7 @@ const results=[];
  });
  await test('speechText drives VOICEVOX while the displayed comment keeps text',async()=>{
   const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み分け',turns:[{speakerId:'p1',text:'この性は変わらないね',speechText:'このさがわかわらないね'}]})}]}}]};
-  const x=await setup({answer:reading});await x.page.locator('#output').selectOption('voicevox');await start(x);await idle(x.page);
+  const x=await setup({answer:reading});await setOutput(x.page,'voicevox');await start(x);await idle(x.page);
   assert.deepEqual(x.events.voiceTexts,['このさがわかわらないね']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね'));
   await stop(x.page);await x.close();
  });
@@ -214,7 +252,7 @@ const results=[];
  });
  await test('freshness timeout aborts analysis and never sends old speech',async()=>{const x=await setup({hold:true});await start(x);await x.page.waitForFunction(()=>document.getElementById('status').textContent==='Geminiの応答待ち');await x.page.clock.fastForward(16000);await recovery(x.page);await stop(x.page);assert.equal(x.events.talks.length,0);assert.equal(await x.page.locator('#staleCount').innerText(),'1');await x.held()?.fulfill({contentType:'application/json',body:JSON.stringify(answer)}).catch(()=>{});assert.equal(x.events.api,1);await x.close();});
  await test('freshness includes VOICEVOX synthesis; late audio is not played',async()=>{
-  const x=await setup({holdSynth:true});const p=x.page;await p.locator('#output').selectOption('voicevox');await start(x);
+  const x=await setup({holdSynth:true});const p=x.page;await setOutput(p,'voicevox');await start(x);
   await p.waitForFunction(()=>document.getElementById('status').textContent.includes('音声生成'));
   while(!x.events.synths)await new Promise(r=>setTimeout(r,10));const imagesBefore=x.events.images;
   await p.clock.fastForward(16000);await recovery(p);assert.ok(x.events.images>=imagesBefore+3);await stop(p);assert.equal(await p.locator('#staleCount').innerText(),'1');assert.ok(!(await p.locator('#log').innerText()).includes('AI: 景色'));
@@ -243,7 +281,7 @@ const results=[];
   const first={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進む',turns:[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'この道きれいだね'}]})}]}}]};
   const next={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'さらに進む',turns:[{speakerId:'p1',text:'まだ先がありそうだね'}]})}]}}]};
   const x=await setup({answers:[first,next],holdSynthAt:2});const p=x.page;
-  await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');
+  await setOutput(p,'voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');
   await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');
   await p.locator('#apiInterval').fill('30');await p.locator('#quietInterval').fill('30');await p.locator('#speechInterval').fill('600');await p.locator('#freshness').fill('180');
   await start(x);
@@ -259,14 +297,14 @@ const results=[];
  await test('VOICEVOX prefetches the next turn while the current turn is still playing',async()=>{
   const multi={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'この道きれいだね'}]})}]}}]};
   const x=await setup({answer:multi,holdSynthAt:2,waveSamples:48000});const p=x.page;
-  await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');await start(x);
+  await setOutput(p,'voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');await start(x);
   for(let i=0;i<200&&!x.held();i++)await new Promise(r=>setTimeout(r,10));assert.ok(x.held());
   assert.ok(!(await p.locator('#lastComment').textContent()).includes('友達1：'));assert.equal(x.events.synths,2);
   await stop(p);await x.held()?.abort().catch(()=>{});await x.close();
  });
  await test('two speakers use one generation and distinct VOICEVOX voices in order',async()=>{
   const multi={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道',turns:[{speakerId:'p2',text:'この道きれいだね'},{speakerId:'p1',text:'寄り道したくなるね'}]})}]}}]};
-  const x=await setup({answer:multi});const p=x.page;await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');
+  const x=await setup({answer:multi});const p=x.page;await setOutput(p,'voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('2');await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('100');
   await start(x);await idle(p);assert.equal(x.events.api,1);assert.deepEqual(x.events.voices,['2','3']);assert.ok((await p.locator('#lastComment').textContent()).includes('友達1'));
   await stop(p);await x.close();
  });
@@ -274,7 +312,7 @@ const results=[];
   const turns=[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'こっちも見てみようよ'},{speakerId:'p3',text:'ちょっと寄り道しよう'}];
   const reply={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進む',turns})}]}}]};
   const x=await setup({answer:reply,holdSynthAt:2});const p=x.page;
-  await p.locator('#output').selectOption('voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('3');await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('0');await p.locator('#speakerWeight3').fill('100');await start(x);
+  await setOutput(p,'voicevox');await p.locator('#tab-friends').click();await p.locator('#participantCount').selectOption('3');await p.locator('#speakerWeight1').fill('0');await p.locator('#speakerWeight2').fill('0');await p.locator('#speakerWeight3').fill('100');await start(x);
   await p.waitForFunction(()=>document.getElementById('lastComment').textContent.includes('友達1：'));
   for(let i=0;i<200&&!x.held();i++)await new Promise(r=>setTimeout(r,10));assert.ok(x.held());
   await p.clock.fastForward(16000);assert.equal(await p.locator('#staleCount').textContent(),'0');
@@ -283,7 +321,7 @@ const results=[];
   assert.equal(x.events.api,1);await x.close();
  });
  await test('encrypted credentials survive reload, require passphrase, and lock clears fields',async()=>{
-  const x=await setup();const p=x.page;await p.locator('#vaultPass').fill('a sufficiently long phrase');await p.locator('#vaultConfirm').fill('a sufficiently long phrase');await p.locator('#vaultSave').click();
+  const x=await setup();const p=x.page;await openConnect(p);await p.locator('#vaultPass').fill('a sufficiently long phrase');await p.locator('#vaultConfirm').fill('a sufficiently long phrase');await p.locator('#vaultSave').click();
   await p.waitForFunction(()=>document.getElementById('vaultState').textContent.includes('暗号化して保存しました'));
   const raw=await p.evaluate(()=>JSON.stringify(localStorage));assert.ok(!raw.includes('fake.test-key')&&!raw.includes('obs-secret')&&!raw.includes('sufficiently'));
   await p.reload();assert.equal(await p.locator('#apiKey').inputValue(),'');
@@ -297,17 +335,18 @@ const results=[];
   const x=await setup();const p=x.page;
   await p.evaluate(()=>localStorage.setItem('ai-live-commentator-browser-v1',JSON.stringify({speaker:8,bouyomiVoice:12,maxRequests:1,resume503:false,sourceName:'Old source'})));
   await p.reload();assert.equal(await p.locator('#analysisFrameCount').inputValue(),'2');await p.locator('#tab-friends').click();assert.equal(await p.locator('#participantCount').inputValue(),'1');assert.equal(await p.locator('#p1-speaker').inputValue(),'8');assert.equal(await p.locator('#p1-speedScale').inputValue(),'1');assert.equal(await p.locator('#p1-bouyomiVoice').inputValue(),'12');
-  await p.locator('#tab-friends').press('ArrowRight');assert.equal(await p.locator('#tab-history').getAttribute('aria-selected'),'true');
-  await p.setViewportSize({width:390,height:844});await p.locator('#tab-help').click();await p.evaluate(()=>scrollTo(0,document.body.scrollHeight));
+  await p.locator('#tab-friends').press('ArrowRight');assert.equal(await p.locator('#tab-connect').getAttribute('aria-selected'),'true');
+  await p.locator('#tab-connect').press('ArrowRight');assert.equal(await p.locator('#tab-history').getAttribute('aria-selected'),'true');
+  await p.setViewportSize({width:390,height:844});await p.locator('#openHelp').click();assert.equal(await p.locator('#helpDialog').getAttribute('open'),'');await p.locator('#doneHelpDialog').click();await p.evaluate(()=>scrollTo(0,document.body.scrollHeight));
   const bounds=await p.locator('#start').boundingBox();assert.ok(bounds.y>=0&&bounds.y+bounds.height<=844);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await p.setViewportSize({width:1280,height:600});await p.evaluate(()=>scrollTo(0,0));assert.equal(await p.evaluate(()=>document.documentElement.scrollHeight>innerHeight),false);
   await x.close();
  });
  await test('LAN IP works for authenticated OBS, Bouyomi and VOICEVOX',async()=>{
-  const x=await setup({host:'192.168.1.10'});const p=x.page;assert.equal(await p.locator('#voicevoxSettingsLink').getAttribute('href'),'http://192.168.1.10:50021/setting');
+  const x=await setup({host:'192.168.1.10'});const p=x.page;await openConnect(p);assert.equal(await p.locator('#voicevoxSettingsLink').getAttribute('href'),'http://192.168.1.10:50021/setting');
   await p.locator('#testObs').click();await stopped(p);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);
   await p.locator('#testVoice').click();await stopped(p);assert.equal(x.events.talks.length,1);
-  await p.locator('#output').selectOption('voicevox');await p.locator('#testVoice').click();await stopped(p);assert.equal(x.events.synths,1);assert.equal(x.events.api,0);
+  await setOutput(p,'voicevox');await p.locator('#testVoice').click();await stopped(p);assert.equal(x.events.synths,1);assert.equal(x.events.api,0);
   await x.close();
  });
  console.log(`${results.length} browser scenarios passed. No live Gemini/OBS/voice services used.`);await browser.close();
