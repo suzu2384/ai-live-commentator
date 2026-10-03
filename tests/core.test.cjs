@@ -21,23 +21,23 @@ test('fixed endpoint, ordered JPEG parts and opaque key in header only',async()=
     assert.equal(p.generationConfig.thinkingConfig.thinkingLevel,'MINIMAL');return {ok:true,json:async()=>wrap(analysis)};
   });assert.equal(calls,1);
 });
-test('weighted speaker limit uses relative weights and participant cap',()=>{
+test('weighted speaker count uses relative weights and participant cap',()=>{
   const weights=[45,35,15,5,0,0];
-  assert.equal(C.pickWeightedSpeakerLimit(weights,6,()=>0),1);
-  assert.equal(C.pickWeightedSpeakerLimit(weights,6,()=>0.45),2);
-  assert.equal(C.pickWeightedSpeakerLimit(weights,6,()=>0.80),3);
-  assert.equal(C.pickWeightedSpeakerLimit(weights,6,()=>0.95),4);
-  assert.equal(C.pickWeightedSpeakerLimit([0,100,0,0,0,0],3,()=>0.7),2);
-  assert.throws(()=>C.pickWeightedSpeakerLimit([0,0,100,0,0,0],2,()=>0));
+  assert.equal(C.pickWeightedSpeakerCount(weights,6,()=>0),1);
+  assert.equal(C.pickWeightedSpeakerCount(weights,6,()=>0.45),2);
+  assert.equal(C.pickWeightedSpeakerCount(weights,6,()=>0.80),3);
+  assert.equal(C.pickWeightedSpeakerCount(weights,6,()=>0.95),4);
+  assert.equal(C.pickWeightedSpeakerCount([0,100,0,0,0,0],3,()=>0.7),2);
+  assert.throws(()=>C.pickWeightedSpeakerCount([0,0,100,0,0,0],2,()=>0));
 });
-test('analysis payload enforces sampled turn limit and carries recent speakers',()=>{
+test('analysis payload requires the sampled speaker count and carries recent speakers',()=>{
   const frames=[{data:'data:image/jpeg;base64,AQ=='},{data:'data:image/jpeg;base64,Ag=='}];
-  const s={persona:'相方',talkativeness:2,profiles,turnLimit:2,recentSpeakerIds:['p1','p2','p1']};
+  const s={persona:'相方',talkativeness:2,profiles,turnCount:2,recentSpeakerIds:['p1','p2','p1']};
   const payload=C.makePayload(frames,s,[],['友達1: ほんまやな','友達2: 次も見てみよか']);
   assert.equal(payload.generationConfig.responseSchema.properties.turns.maxItems,2);
   const turnSchema=payload.generationConfig.responseSchema.properties.turns.items;
   assert.deepEqual(turnSchema.required,['speakerId','text','speechText']);assert.equal(turnSchema.properties.speechText.type,'STRING');
-  assert.ok(payload.contents[0].parts.at(-1).text.includes('今回の発言人数上限: 2人'));
+  assert.ok(payload.contents[0].parts.at(-1).text.includes('今回の発言人数: 2人'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('p1 → p2 → p1'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('直近の会話履歴（古い順、発言者名つき）'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('友達1: ほんまやな\n友達2: 次も見てみよか'));
@@ -46,8 +46,11 @@ test('analysis payload enforces sampled turn limit and carries recent speakers',
   assert.ok(payload.systemInstruction.parts[0].text.includes('助詞の「は」「へ」「を」は表記を変更せず、そのまま残す'));
   assert.ok(payload.systemInstruction.parts[0].text.includes('「性」が文脈上「さが」なら単語だけ「さが」'));
   assert.ok(!payload.systemInstruction.parts[0].text.includes('助詞の「は」は「わ」'));
-  const tooMany={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p2',text:'二つ目だよ'},{speakerId:'p1',text:'三つ目だよ'}]};
-  assert.throws(()=>C.parseAnalysis(wrap(tooMany),profiles,2));
+  const exactTwo={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p2',text:'二つ目だよ'}]};
+  assert.equal(C.parseAnalysis(wrap(exactTwo),profiles,2).turns.length,2);
+  assert.throws(()=>C.parseAnalysis(wrap(analysis),profiles,2));
+  const duplicate={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ'},{speakerId:'p1',text:'二つ目だよ'}]};
+  assert.throws(()=>C.parseAnalysis(wrap(duplicate),profiles,2));
 });
 test('target content guidance is sent only when a content is selected',()=>{
   const frames=[{data:'data:image/jpeg;base64,AQ=='},{data:'data:image/jpeg;base64,Ag=='}];

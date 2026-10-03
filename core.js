@@ -55,9 +55,9 @@
     '直近の会話履歴がある場合、同意や相づちだけの返答が何度も続く会話パターンを避ける。ただし相づち自体は禁止せず、自然なら使ってよい。直前の発言へ毎回反応する必要はなく、自分から画面への感想・観察・疑問・軽い反論や別視点も混ぜる。各参加者の方言や話し方の設定を優先する。' +
     '発言は日本語5〜35文字程度の口語。各turnのtextは表示・会話履歴用の自然な表記、speechTextは同じ内容の読み上げ専用表記にする。speechTextは原則としてtextと同じ表記を使い、意味・口調・言葉を変えない。固有名詞・多義語・特殊な読みなど、読み上げで誤読しそうな単語だけを必要に応じてひらがな・カタカナへ直す。助詞の「は」「へ」「を」は表記を変更せず、そのまま残す。「性」が文脈上「さが」なら単語だけ「さが」、「せい」なら「せい」とする。読みが明確な箇所まで無理に全文をかな書きにする必要はない。コマンド・タグ・URL・ファイルパスは含めない。' +
     '学生時代の友達が家に集まってゲームを見ている雰囲気。短い感想、相づち、軽いツッコミを自然に交わす。架空の思い出は作らない。' +
-    '設定人数は上限。毎回全員を話させず、1人の一言だけでもよい。順番は固定しない。各発言は短く。' +
+    '今回指定された発言人数は、speak=trueなら必ずその人数ちょうどにする。各turnは別の参加者にし、同じspeakerIdを1回の応答内で重複させない。話す必要がない場合だけspeak=false、turns=[]にする。順番は固定しない。各発言は短く。' +
     'summaryには観察できた状況を1文で記す。turnsは発言順のspeakerId、text、speechText。無言ならspeak=falseでturns=[]。';
-  function pickWeightedSpeakerLimit(weights, participantCount, random=Math.random) {
+  function pickWeightedSpeakerCount(weights, participantCount, random=Math.random) {
     const count=Math.max(1,Math.min(6,Number(participantCount)||1));
     if(!Array.isArray(weights)||weights.length<6)throw new AppError('発言人数の重み設定が不正です。');
     const eligible=weights.slice(0,count).map(Number);
@@ -69,7 +69,7 @@
   }
   function makePayload(frames, settings, history, conversationHistory) {
     if (!Array.isArray(frames) || frames.length < 2 || frames.length > 6) throw new AppError('解析画像は2〜6枚で指定してください。');
-    const maxTurns=Math.max(1,Math.min(6,Number(settings.turnLimit)||6));
+    const turnCount=Math.max(1,Math.min(6,Number(settings.turnCount ?? settings.turnLimit)||6));
     const recentSpeakers=Array.isArray(settings.recentSpeakerIds)?settings.recentSpeakerIds:[];
     const recentConversation=Array.isArray(conversationHistory)?conversationHistory:[];
     const contentName=typeof settings.contentName==='string'?settings.contentName.trim():'';
@@ -82,10 +82,10 @@
       const suffix=i===0?'（最も前）':i===frames.length-1?'（現在）':'';
       parts.push({ text: `画像${i+1}${suffix}` }, { inlineData: { mimeType: 'image/jpeg', data: frame.data.split(',')[1] } });
     }
-    parts.push({ text: `共通の雰囲気: ${settings.persona}${contentGuidance}\n参加者（この中から必要な人だけ話す）: ${JSON.stringify(settings.profiles.map(({id,name,personality})=>({id,name,personality})))}\n今回の発言人数上限: ${maxTurns}人。上限を埋める必要はなく、1人だけでもよい。\n直近の話者: ${recentSpeakers.length?recentSpeakers.join(' → '):'なし'}。同じ人に偏りすぎないよう自然に話者を選ぶ。ただし状況に合う人を優先し、機械的な順番にはしない。\n最近の状況: ${history.join(' / ')}\n直近の会話履歴（古い順、発言者名つき）:\n${recentConversation.length?recentConversation.join('\n'):'なし'}\n画像1から画像${frames.length}まで古い順です。最後の画像を現在として、途中の変化も含めて判断して。` });
+    parts.push({ text: `共通の雰囲気: ${settings.persona}${contentGuidance}\n参加者（この中から必要な人だけ話す）: ${JSON.stringify(settings.profiles.map(({id,name,personality})=>({id,name,personality})))}\n今回の発言人数: ${turnCount}人。speak=trueにする場合は、異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。話す必要がない場合だけspeak=false、turns=[]にする。\n直近の話者: ${recentSpeakers.length?recentSpeakers.join(' → '):'なし'}。同じ人に偏りすぎないよう自然に話者を選ぶ。ただし状況に合う人を優先し、機械的な順番にはしない。\n最近の状況: ${history.join(' / ')}\n直近の会話履歴（古い順、発言者名つき）:\n${recentConversation.length?recentConversation.join('\n'):'なし'}\n画像1から画像${frames.length}まで古い順です。最後の画像を現在として、途中の変化も含めて判断して。` });
     return { systemInstruction: { parts: [{ text: instructions + speechGuidance(settings.talkativeness) }] }, contents: [{ role: 'user', parts }],
       generationConfig: { candidateCount: 1, maxOutputTokens: 1536, thinkingConfig: { thinkingLevel: 'MINIMAL', includeThoughts: false }, responseMimeType: 'application/json',
-        responseSchema: { type: 'OBJECT', properties: { speak: { type: 'BOOLEAN' }, summary: { type: 'STRING' }, turns: { type: 'ARRAY', maxItems: maxTurns, items: { type: 'OBJECT', properties: { speakerId: { type: 'STRING', enum: settings.profiles.map(p=>p.id) }, text: { type: 'STRING' }, speechText: { type: 'STRING' } }, required: ['speakerId','text','speechText'] } } }, required: ['speak', 'summary', 'turns'] } } };
+        responseSchema: { type: 'OBJECT', properties: { speak: { type: 'BOOLEAN' }, summary: { type: 'STRING' }, turns: { type: 'ARRAY', maxItems: turnCount, items: { type: 'OBJECT', properties: { speakerId: { type: 'STRING', enum: settings.profiles.map(p=>p.id) }, text: { type: 'STRING' }, speechText: { type: 'STRING' } }, required: ['speakerId','text','speechText'] } } }, required: ['speak', 'summary', 'turns'] } } };
   }
   function candidateText(body) {
     if (body.promptFeedback?.blockReason) return null;
@@ -96,12 +96,13 @@
     if (!text.trim()) throw new AppError('Geminiから空の応答が返りました。', 'RESPONSE');
     return text;
   }
-  function parseAnalysis(body, profiles, maxTurns=6) {
+  function parseAnalysis(body, profiles, expectedTurns=null) {
     const raw = candidateText(body); if (raw === null) return { speak: false, summary: '安全フィルターにより見送り', turns: [] };
     let a; try { a = JSON.parse(raw); } catch { throw new AppError('Geminiの応答形式が不正です。今回は読み上げません。', 'RESPONSE'); }
-    maxTurns=Math.max(1,Math.min(6,Number(maxTurns)||6));
-    if (!a || typeof a.speak !== 'boolean' || typeof a.summary !== 'string' || !Array.isArray(a.turns) || a.turns.length > maxTurns ||
-        (a.speak ? a.turns.length === 0 : a.turns.length !== 0)) throw new AppError('Geminiの応答項目が不正です。', 'RESPONSE');
+    const expected=expectedTurns==null?null:Math.max(1,Math.min(6,Number(expectedTurns)||1));
+    if (!a || typeof a.speak !== 'boolean' || typeof a.summary !== 'string' || !Array.isArray(a.turns) || a.turns.length > 6 ||
+        (a.speak ? a.turns.length === 0 || (expected!==null && a.turns.length!==expected) : a.turns.length !== 0))
+      throw new AppError(expected!==null&&a.speak?'Geminiの発言人数が今回の抽選結果と一致しません。今回は読み上げません。':'Geminiの応答項目が不正です。', 'RESPONSE');
     const ids = new Set(profiles.map(p=>p.id));
     const turns = a.turns.map(t=>{
       if (!t || !ids.has(t.speakerId) || typeof t.text !== 'string' || t.text.trim().length < 2 || t.text.trim().length > 80 ||
@@ -111,6 +112,8 @@
       if(speechText.length<2||speechText.length>120)throw new AppError('読み上げ用テキストの長さが設定範囲外です。今回は読み上げません。','RESPONSE');
       return { speakerId:t.speakerId, text, speechText };
     });
+    if(a.speak&&new Set(turns.map(t=>t.speakerId)).size!==turns.length)
+      throw new AppError('Geminiの同一話者が1回の掛け合い内で重複しました。今回は読み上げません。','RESPONSE');
     return { speak:a.speak, summary:a.summary.slice(0,1000), turns };
   }
   async function gemini(key, payload, signal, fetcher = fetch) {
@@ -211,7 +214,7 @@
       const ws = this.socket; this.socket = null; if (ws && ws.readyState < 2) ws.close();
     }
   }
-  const api = { MODEL, AppError, abortError, check, sleep, deadline, normalizeKey, localUrl, speechGuidance, pickWeightedSpeakerLimit, makePayload, parseAnalysis, candidateText,
+  const api = { MODEL, AppError, abortError, check, sleep, deadline, normalizeKey, localUrl, speechGuidance, pickWeightedSpeakerCount, pickWeightedSpeakerLimit:pickWeightedSpeakerCount, makePayload, parseAnalysis, candidateText,
     gemini, shouldAnalyze, fresh, skipReason, recoveryDelay, needsSettings, plainSpeech, sha64, ObsClient };
   root.LiveCore = api; if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(globalThis);
