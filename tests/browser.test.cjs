@@ -94,7 +94,7 @@ const results=[];
   assert.equal(await p.locator('meta[name="theme-color"]').getAttribute('content'),'#f3f6f9');
   let stored=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1')));assert.equal(stored.theme,'daylight');
   await p.reload();assert.equal(await p.locator('#theme').inputValue(),'daylight');assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'daylight');
-  for(const [value,color] of [['aurora','#111326'],['crimson','#1b1014'],['forest','#0f1813'],['amber','#1b1710']]){
+  for(const [value,color] of [['aurora','#111326'],['crimson','#1b1014'],['forest','#0f1813'],['amber','#1b1710'],['mist','#f2f3f4'],['lavender','#f3f0fb'],['rose','#fbf0f3'],['sage','#eef5ef']]){
     await p.locator('#theme').selectOption(value);assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),value);
     assert.equal(await p.locator('meta[name="theme-color"]').getAttribute('content'),color);
     stored=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1')));assert.equal(stored.theme,value);

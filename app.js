@@ -11,6 +11,10 @@
     crimson:{scheme:'dark',color:'#1b1014'},
     forest:{scheme:'dark',color:'#0f1813'},
     amber:{scheme:'dark',color:'#1b1710'},
+    mist:{scheme:'light',color:'#f2f3f4'},
+    lavender:{scheme:'light',color:'#f3f0fb'},
+    rose:{scheme:'light',color:'#fbf0f3'},
+    sage:{scheme:'light',color:'#eef5ef'},
     daylight:{scheme:'light',color:'#f3f6f9'},
     sand:{scheme:'light',color:'#f3ede3'}
   };
