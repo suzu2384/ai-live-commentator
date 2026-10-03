@@ -356,7 +356,7 @@
     const task=ending
       ? '実況を通常終了する直前の締めの挨拶を作る。今回見えていた状況に軽く触れてもよいが、確認できない成果・勝敗・進捗は断定しない。「また見よう」「おつかれ」など自然に締める。'
       : '実況開始直後の短い挨拶を作る。まだゲーム内容を見ていないので、ゲーム名・状況・成果を推測せず、「始まったね」「今日も見ていこう」程度の自然な開始挨拶にする。';
-    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n直近の状況: ${context}\n${task}\nこの挨拶は必ず発言する。speakは必ずtrueにする。今回の発言人数は${turnCount}人で、異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。各5〜25文字程度の自然な口語。架空の思い出は作らない。`}];
+    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n直近の状況: ${context}\n${task}\n開始・終了挨拶が有効なので、この応答のturnsは必ず読み上げる。異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。speakは互換用フィールドなので値にかかわらずturnsを生成する。各5〜25文字程度の自然な口語。架空の思い出は作らない。`}];
     return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。指定された開始または終了の挨拶だけを短く返す。各turnのtextは表示用の自然な日本語、speechTextは同じ内容を実際に声に出すとおりの読みだけで書く。speechTextはtext全文を読み仮名へ変換し、内容・意味・口調・言葉は変えない。漢字・英字・数字は一切含めず、ひらがな・カタカナ・長音・空白・句読点だけを使う。表記上の綴りではなく実際の発音を書く。方言や崩した言い方も実際の読みへ直す。textにある「、」「。」「！」「？」「!」「?」は削除・変更せず、同じ順序でspeechTextにも必ず残す。自然な間のために必要ならspeechText側へ「、」だけ追加してよい。たとえばtextが「早よ行こうや、間に合わへんで！」ならspeechTextは「はよいこうや、まにあわへんで！」とする。英字や数字を含む語も実際の読みをかなで書く。'}]},
       contents:[{role:'user',parts}],generationConfig:{candidateCount:1,maxOutputTokens:512,thinkingConfig:{thinkingLevel:'MINIMAL',includeThoughts:false},responseMimeType:'application/json',
         responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:turnCount,maxItems:turnCount,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'},speechText:{type:'STRING'}},required:['speakerId','text','speechText']}}},required:['speak','summary','turns']}}};
@@ -389,6 +389,26 @@
       for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);if(!await speak(spokenText(item.turn),{...s,...item.profile},null,signal,true))throw new C.AppError(`${label}を読み上げ先へ送信できませんでした。`,'VOICE');delivered(item);}
     }
   }
+  function fallbackGreetingTurns(kind,s,turnCount){
+    const start=[
+      ['じゃあ、今日も見ていこう','じゃあ、きょうもみていこう'],
+      ['楽しんでいこうか','たのしんでいこうか'],
+      ['どんな感じか見てみよう','どんなかんじかみてみよう'],
+      ['今日もよろしくね','きょうもよろしくね'],
+      ['さっそく見ていこう','さっそくみていこう'],
+      ['一緒に楽しもう','いっしょにたのしもう']
+    ];
+    const end=[
+      ['今日はこの辺かな。また見よう','きょうわこのへんかな。またみよう'],
+      ['うん、おつかれさま','うん、おつかれさま'],
+      ['今日も楽しかったね','きょうもたのしかったね'],
+      ['また続き見ようね','またつづきみようね'],
+      ['じゃあ、またね','じゃあ、またね'],
+      ['おつかれ、また見よう','おつかれ、またみよう']
+    ];
+    const phrases=kind==='end'?end:start;
+    return s.profiles.slice(0,turnCount).map((profile,i)=>({speakerId:profile.id,text:phrases[i][0],speechText:phrases[i][1]}));
+  }
   async function greeting(kind,runtime,signal,{tolerateFailure=false}={}){
     const s=runtime.s,key=runtime.key,label=kind==='end'?'終了の挨拶':'開始の挨拶';
     try{
@@ -398,14 +418,19 @@
         try{
           reserve(s);setStatus(`${label}を生成中`);log(`Geminiへ${label}を依頼（${stats.used}回・今回の発言人数${turnCount}人${attempt>1?'・再生成':''}）。`);
           const body=await C.deadline(token=>C.gemini(key,greetingPayload(kind,s,runtime.history,turnCount),token),60000,signal,`${label}の生成がタイムアウトしました。`);
-          result=C.parseAnalysis(body,s.profiles,turnCount);
-          if(!result.speak||result.turns.length!==turnCount)throw new C.AppError(`${label}が無言または指定人数と一致しません。`,'RESPONSE');
+          result=C.parseAnalysis(body,s.profiles,turnCount,true);
+          if(result.turns.length!==turnCount)throw new C.AppError(`${label}の人数が指定と一致しません。`,'RESPONSE');
           break;
         }catch(e){
           C.check(signal);
-          if(attempt===1&&e instanceof C.AppError&&e.code==='RESPONSE'){
-            log(`${label}の応答が条件を満たさなかったため、1回だけ再生成します。`,'warn');
-            continue;
+          if(e instanceof C.AppError&&e.code==='RESPONSE'){
+            if(attempt===1){
+              log(`${label}の応答が条件を満たさなかったため、1回だけ再生成します。`,'warn');
+              continue;
+            }
+            result={speak:true,summary:`${label}フォールバック`,turns:fallbackGreetingTurns(kind,s,turnCount)};
+            log(`${label}の生成結果が2回とも不正だったため、固定の短い挨拶で続行します。`,'warn');
+            break;
           }
           throw e;
         }
@@ -518,8 +543,10 @@
         const reason=candidateSkipReason(candidate,s,spoken);
         const hadPending=!!state.pending;
         state.pending=null;
-        if(reason)log(`見送り（${reason}）: ${result.summary}`);
-        else {
+        if(reason){
+          log(`見送り（${reason}）: ${result.summary}`);
+          if(reason==='AIが発言不要と判断'&&!state.speaking)setStatus('AIが今回は発言なしと判断');
+        } else {
           state.pending=candidate;
           log(hadPending?'次の発言候補を最新の解析結果に更新しました。':'次の発言候補を先読みしました。');
         }

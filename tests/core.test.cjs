@@ -34,10 +34,11 @@ test('analysis payload requires the sampled speaker count and carries recent spe
   const frames=[{data:'data:image/jpeg;base64,AQ=='},{data:'data:image/jpeg;base64,Ag=='}];
   const s={persona:'相方',talkativeness:2,profiles,turnCount:2,recentSpeakerIds:['p1','p2','p1']};
   const payload=C.makePayload(frames,s,[],['友達1: ほんまやな','友達2: 次も見てみよか']);
+  assert.equal(payload.generationConfig.responseSchema.properties.turns.minItems,2);
   assert.equal(payload.generationConfig.responseSchema.properties.turns.maxItems,2);
   const turnSchema=payload.generationConfig.responseSchema.properties.turns.items;
   assert.deepEqual(turnSchema.required,['speakerId','text','speechText']);assert.equal(turnSchema.properties.speechText.type,'STRING');
-  assert.ok(payload.contents[0].parts.at(-1).text.includes('今回の発言人数: 2人'));
+  assert.ok(payload.contents[0].parts.at(-1).text.includes('今回の候補発言人数: 2人'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('p1 → p2 → p1'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('直近の会話履歴（古い順、発言者名つき）'));
   assert.ok(payload.contents[0].parts.at(-1).text.includes('友達1: ほんまやな\n友達2: 次も見てみよか'));
@@ -51,6 +52,13 @@ test('analysis payload requires the sampled speaker count and carries recent spe
   assert.throws(()=>C.parseAnalysis(wrap(analysis),profiles,2));
   const duplicate={...analysis,turns:[{speakerId:'p1',text:'一つ目だよ',speechText:'ひとつめだよ'},{speakerId:'p1',text:'二つ目だよ',speechText:'ふたつめだよ'}]};
   assert.throws(()=>C.parseAnalysis(wrap(duplicate),profiles,2));
+});
+test('speak false may carry exact candidate turns and forceSpeak reuses them for greetings',()=>{
+  const silent={...analysis,speak:false,turns:[{speakerId:'p1',text:'今は見ておこう',speechText:'いまわみておこう'},{speakerId:'p2',text:'静かに見ようか',speechText:'しずかにみようか'}]};
+  const parsed=C.parseAnalysis(wrap(silent),profiles,2);
+  assert.equal(parsed.speak,false);assert.equal(parsed.turns.length,2);
+  const forced=C.parseAnalysis(wrap(silent),profiles,2,true);
+  assert.equal(forced.speak,true);assert.equal(forced.turns.length,2);
 });
 test('target content guidance is sent only when a content is selected',()=>{
   const frames=[{data:'data:image/jpeg;base64,AQ=='},{data:'data:image/jpeg;base64,Ag=='}];

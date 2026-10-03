@@ -273,16 +273,24 @@ const results=[];
   assert.ok(x.events.promptTexts[0].includes('漢字・英字・数字は一切含めず'));
   assert.ok(x.events.promptTexts[0].includes('同じ順序でspeechTextにも必ず残す'));
   assert.ok(x.events.promptTexts[0].includes('「早よ行こうや、間に合わへんで！」ならspeechTextは「はよいこうや、まにあわへんで！」'));
-  assert.ok(x.events.promptTexts[0].includes('speakは必ずtrue'));
+  assert.ok(x.events.promptTexts[0].includes('speakは互換用フィールド'));
   await stop(p);await x.close();
  });
- await test('start greeting retries once instead of silently accepting speak false',async()=>{
+ await test('start greeting uses candidate turns even when Gemini returns speak false',async()=>{
   const silent={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'開始',turns:[]})}]}}]};
   const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日も見ていこう',speechText:'きょうもみていこう'}]})}]}}]};
-  const x=await setup({answers:[silent,intro],before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
+  const silentWithCandidate={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'開始',turns:[{speakerId:'p1',text:'今日も見ていこう',speechText:'きょうもみていこう'}]})}]}}]};
+  const x=await setup({answer:silentWithCandidate,before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
   await p.locator('#start').click();await idle(p);
-  assert.equal(x.events.api,2);assert.deepEqual(x.events.talks,['きょうもみていこう']);
-  assert.ok((await p.locator('#log').innerText()).includes('1回だけ再生成'));
+  assert.equal(x.events.api,1);assert.deepEqual(x.events.talks,['きょうもみていこう']);
+  await stop(p);await x.close();
+ });
+ await test('start greeting falls back locally after two invalid generated greetings',async()=>{
+  const bad={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[]})}]}}]};
+  const x=await setup({answers:[bad,bad],before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
+  await p.locator('#start').click();await idle(p);
+  assert.equal(x.events.api,2);assert.deepEqual(x.events.talks,['じゃあ、きょうもみていこう']);
+  assert.ok((await p.locator('#log').innerText()).includes('固定の短い挨拶'));
   await stop(p);await x.close();
  });
  await test('start greeting is queued even when Bouyomi already has pending audio',async()=>{
@@ -300,7 +308,7 @@ const results=[];
   }});const p=x.page;
   await p.locator('#start').click();await idle(p);
   assert.equal(x.events.api,1);assert.deepEqual(x.events.analysisImages,[0]);assert.equal(x.events.turnLimits[0],3);
-  assert.ok(x.events.promptTexts[0].includes('今回の発言人数は3人'));assert.deepEqual(x.events.talks,['じゃあ今日も見ていこう','楽しんでいこうか','どんな感じか見てみよう']);
+  assert.ok(x.events.promptTexts[0].includes('異なる3人が1回ずつ発言'));assert.deepEqual(x.events.talks,['じゃあ今日も見ていこう','楽しんでいこうか','どんな感じか見てみよう']);
   assert.ok((await p.locator('#log').innerText()).includes('開始の挨拶'));await stop(p);await x.close();
  });
  await test('normal finish uses recent history and speaker-count weight for its closing greeting',async()=>{
@@ -313,7 +321,7 @@ const results=[];
   }});const p=x.page;
   await start(x);await idle(p);assert.equal(x.events.api,1);assert.deepEqual(x.events.talks,['景色がいいね','この先も見てみよう']);
   await finish(p);assert.equal(x.events.api,2);assert.deepEqual(x.events.analysisImages,[2,0]);assert.equal(x.events.turnLimits[1],2);
-  assert.ok(x.events.promptTexts[1].includes('道を進んでいる'));assert.ok(x.events.promptTexts[1].includes('今回の発言人数は2人'));
+  assert.ok(x.events.promptTexts[1].includes('道を進んでいる'));assert.ok(x.events.promptTexts[1].includes('異なる2人が1回ずつ発言'));
   assert.deepEqual(x.events.talks,['景色がいいね','この先も見てみよう','今日はこの辺かな。また見よう','うん、おつかれさま']);
   assert.ok((await p.locator('#log').innerText()).includes('実況を通常終了しました。'));await x.close();
  });
@@ -329,7 +337,7 @@ const results=[];
     for(let n=1;n<=6;n++)await p.locator('#speakerWeight'+n).fill(n===2?'100':'0');
   }});const p=x.page;
   await start(x);await idle(p);assert.equal(x.events.api,1);assert.equal(x.events.turnLimits[0],2);
-  assert.ok(x.events.promptTexts[0].includes('今回の発言人数: 2人'));assert.equal(x.events.talks.length,2);
+  assert.ok(x.events.promptTexts[0].includes('今回の候補発言人数: 2人'));assert.equal(x.events.talks.length,2);
   await stop(p);const saved=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1')));
   assert.equal(saved.speakerWeight2,100);assert.equal(saved.speakerWeight1,0);await x.close();
  });
