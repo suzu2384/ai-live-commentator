@@ -165,9 +165,9 @@ test('429 retries use bounded backoff while other transient hints are preserved'
 test('503 retry hint is preserved',async()=>{
   await assert.rejects(C.gemini('test',{},undefined,async()=>({status:503,ok:false,headers:{get:()=> '20'},json:async()=>({})})),e=>e.code==='503'&&e.retryAfter===20000);
 });
-test('display text is the only generated speech field and accepts ordinary mixed Japanese text',()=>{
+test('display text remains valid when speechText is missing and gains a safe fallback',()=>{
   const mixed={...analysis,turns:[{speakerId:'p1',text:'HP3でも行けそうだね？'}]};
-  assert.deepEqual(C.parseAnalysis(wrap(mixed),profiles).turns[0],{speakerId:'p1',text:'HP3でも行けそうだね？'});
+  assert.deepEqual(C.parseAnalysis(wrap(mixed),profiles).turns[0],{speakerId:'p1',text:'HP3でも行けそうだね？',speechText:'HP3でも行けそうだね？'});
 });
 test('speaker subset is accepted; inactive speakers, long text and oversized exchanges are rejected',()=>{
   assert.equal(C.parseAnalysis(wrap(analysis),profiles).turns.length,1);
