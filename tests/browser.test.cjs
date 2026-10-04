@@ -505,6 +505,17 @@ const results=[];
   assert.equal(await x.page.locator('#lastSpeechText strong').textContent(),'この性質は変わらないね？');
   await stop(x.page);await x.close();
  });
+ await test('analysis retries once when speechText is only a copy of risky display text',async()=>{
+  const copied={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'HP3でも行けそうだね？',speechText:'HP3でも行けそうだね？'}]})}]}}]};
+  const corrected={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'HP3でも行けそうだね？',speechText:'エイチピーさんでもいけそうだね？'}]})}]}}]};
+  const x=await setup({answers:[copied,corrected]});await start(x);await idle(x.page);
+  assert.equal(x.events.api,2);
+  assert.ok(x.events.promptTexts[1].includes('前回は読み上げ用speechTextが表示用textと同じままでした'));
+  assert.deepEqual(x.events.talks,['エイチピーさんでもいけそうだね?']);
+  assert.equal(await x.page.locator('#lastSpeechText strong').textContent(),'エイチピーさんでもいけそうだね？');
+  assert.ok((await x.page.locator('#log').innerText()).includes('1回だけ読みを作り直します'));
+  await stop(x.page);await x.close();
+ });
  await test('VOICEVOX prefers speechText for pronunciation while keeping display text unchanged',async()=>{
   const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'HP3でも行けそうだね？',speechText:'エイチピー3でもいけそうだね？'}]})}]}}]};
   const x=await setup({answer:reading});await setOutput(x.page,'voicevox');await start(x);await idle(x.page);
@@ -541,6 +552,17 @@ const results=[];
   const history=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-greeting-history-v1')));
   assert.equal(history.start.at(-1),'ちょっと楽しみだね');
   assert.equal(history.end.at(-1),'前と同じ終了だよ');
+  await stop(p);await x.close();
+ });
+ await test('greeting retries once when its speechText is just the display text',async()=>{
+  const copied={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日はMHを見よう',speechText:'今日はMHを見よう'}]})}]}}]};
+  const corrected={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日はMHを見よう',speechText:'きょうはモンハンをみよう'}]})}]}}]};
+  const x=await setup({answers:[copied,corrected],before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
+  await p.locator('#start').click();await idle(p);
+  assert.equal(x.events.api,2);
+  assert.ok(x.events.promptTexts[1].includes('前回は読み上げ用speechTextが表示用textと同じままでした'));
+  assert.deepEqual(x.events.talks,['きょうはモンハンをみよう']);
+  assert.ok((await p.locator('#log').innerText()).includes('読み上げ用テキストが表示文の丸コピーだったため'));
   await stop(p);await x.close();
  });
  await test('start greeting is shown in the OBS bubble',async()=>{
