@@ -61,7 +61,7 @@
   function speakerProfilesForDisplay(){
     if(streaming&&Array.isArray(lastSettings?.profiles)&&lastSettings.profiles.length)return lastSettings.profiles.map(({id,name})=>({id,name}));
     const selected=new Set(selectedProfileIds());
-    return Array.from({length:6},(_,i)=>{const id=`p${i+1}`;return {id,name:$('${id}-name')?.value.trim()||`友達${i+1}`};}).filter(p=>selected.has(p.id));
+    return Array.from({length:6},(_,i)=>{const id=`p${i+1}`;return {id,name:$(`${id}-name`)?.value.trim()||`友達${i+1}`};}).filter(p=>selected.has(p.id));
   }
   function renderSpeakerStats(){
     const root=$('speakerStatsList');if(!root)return;
