@@ -514,6 +514,17 @@ const results=[];
   assert.equal((await x.page.locator('#log').innerText()).includes('読みを作り直します'),false);
   await stop(x.page);await x.close();
  });
+ await test('VOICEVOX shows display and speech text as soon as playback starts, before playback finishes',async()=>{
+  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'HP3でも行けそうだね？',speechText:'エイチピー3でもいけそうだね？'}]})}]}}]};
+  const x=await setup({answer:reading,waveSamples:240000});const p=x.page;
+  await setOutput(p,'voicevox');
+  await p.locator('#start').click();
+  await p.waitForFunction(()=>document.getElementById('lastComment').textContent.includes('HP3でも行けそうだね？'));
+  assert.equal(await p.locator('#lastSpeechText strong').textContent(),'エイチピー3でもいけそうだね？');
+  assert.equal(await p.locator('#delivery').textContent(),'このブラウザで再生中');
+  assert.ok((await p.locator('#status').textContent()).includes('VOICEVOX'));
+  await p.locator('#stop').click();await stopped(p);await x.close();
+ });
  await test('VOICEVOX prefers speechText for pronunciation while keeping display text unchanged',async()=>{
   const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'HP3でも行けそうだね？',speechText:'エイチピー3でもいけそうだね？'}]})}]}}]};
   const x=await setup({answer:reading});await setOutput(x.page,'voicevox');await start(x);await idle(x.page);
