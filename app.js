@@ -32,6 +32,10 @@
     document.documentElement.style.colorScheme=config.scheme;
     document.querySelector('meta[name="theme-color"]').content=config.color;
     $('theme').value=theme;
+    // Static per-theme files work without a server or a blob manifest URL.
+    const assetVersion=new URL(document.querySelector('link[rel="icon"]').href,location.href).search;
+    document.querySelector('link[rel="manifest"]').setAttribute('href',`manifests/${theme}.webmanifest${assetVersion}`);
+    document.querySelector('link[rel="apple-touch-icon"]').setAttribute('href',`assets/home/${theme}-180.png${assetVersion}`);
     return theme;
   }
   function persistTheme(){
@@ -1417,7 +1421,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   if(migratedFont&&!fontLibrary.includes(migratedFont)){fontLibrary.push(migratedFont);fontLibrary=normalizeFontLibrary(fontLibrary);saveFontLibrary();stored.obsOverlayFont=migratedFont;}
   for(const id of savedIds){if(stored[id]===undefined)continue;if($(id).type==='checkbox')$(id).checked=stored[id]===true;else if(['string','number'].includes(typeof stored[id])&&id!=='obsOverlayFont')$(id).value=stored[id];}
   renderFontOptions(typeof stored.obsOverlayFont==='string'?stored.obsOverlayFont:'system');
-  applyTheme($('theme').value);
+  applyTheme(stored.theme===undefined ? new URLSearchParams(location.search).get('theme')||$('theme').value : $('theme').value);
   renderContentOptions(typeof stored.contentName==='string'?splitContentName(stored.contentName).raw:'');
   if(stored.analysisFrameCount===undefined)$('analysisFrameCount').value='2';
   const legacyCount=[1,2,3,4,5,6].includes(Number(stored.participantCount))?Number(stored.participantCount):1;
