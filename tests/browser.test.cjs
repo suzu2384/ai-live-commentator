@@ -161,6 +161,27 @@ const results=[];
   assert.equal(await p.locator('#theme').inputValue(),'midnight');assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'midnight');
   await x.close();
  });
+ await test('page title is concise and content manager follows active theme colors',async()=>{
+  const x=await setup();const p=x.page;
+  assert.equal(await p.title(),'みんコメAI');
+  await p.locator('#manageContents').click();
+  await p.locator('#newContentName').fill('ゲーム：Theme Test');await p.locator('#addContent').click();
+  for(const theme of ['midnight','crimson','forest','amber','mist','lavender','rose','sage','daylight','sand']){
+    await p.locator('#theme').selectOption(theme);
+    const colors=await p.locator('.content-manage-group').evaluate(group=>{
+      const root=document.documentElement,probe=document.createElement('span');
+      probe.style.cssText='position:absolute;background:var(--surface);color:var(--muted);border-color:var(--line)';
+      document.body.append(probe);
+      const expected={surface:getComputedStyle(probe).backgroundColor,muted:getComputedStyle(probe).color,line:getComputedStyle(probe).borderTopColor};
+      probe.style.background='var(--surface-open)';probe.style.color='var(--text)';
+      expected.open=getComputedStyle(probe).backgroundColor;expected.text=getComputedStyle(probe).color;probe.remove();
+      const main=group.querySelector('.content-main-row'),branch=group.querySelector('.content-branch'),sub=group.querySelector('.content-sub-name'),rows=group.querySelectorAll('.content-sub-row');
+      return {expected,groupBg:getComputedStyle(group).backgroundColor,groupBorder:getComputedStyle(group).borderTopColor,mainBg:getComputedStyle(main).backgroundColor,branch:getComputedStyle(branch).color,sub:getComputedStyle(sub).color,rowBorder:rows.length>1?getComputedStyle(rows[1]).borderTopColor:null};
+    });
+    assert.equal(colors.groupBg,colors.expected.surface);assert.equal(colors.groupBorder,colors.expected.line);assert.equal(colors.mainBg,colors.expected.open);assert.equal(colors.branch,colors.expected.muted);assert.equal(colors.sub,colors.expected.text);
+  }
+  await p.locator('#doneContentDialog').click();await x.close();
+ });
  await test('six friend cards keep unique visible colors across dark and light themes',async()=>{
   const x=await setup();const p=x.page;await p.locator('#tab-friends').click();
   for(const theme of ['midnight','crimson','forest','amber','daylight','rose','sage','sand']){
