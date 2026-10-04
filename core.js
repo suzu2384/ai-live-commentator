@@ -128,7 +128,7 @@
     const turns = a.turns.map(t=>{
       if (!t || !ids.has(t.speakerId) || typeof t.text !== 'string' || t.text.trim().length < 2 || t.text.trim().length > 80)
         throw new AppError('発言者または発言の長さが設定範囲外です。今回は読み上げません。', 'RESPONSE');
-      const text=t.text.trim(),speechText=typeof t.speechText==='string'&&t.speechText.trim()?t.speechText.trim():text;
+      const text=t.text.trim(),speechText=typeof t.speechText==='string'?t.speechText.trim():'';
       return { speakerId:t.speakerId, text, speechText };
     });
     if(new Set(turns.map(t=>t.speakerId)).size!==turns.length)
