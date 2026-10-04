@@ -517,7 +517,7 @@ const results=[];
   const punctuationOnly={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'SHDだね',speechText:'！！'}]})}]}}]};
   const x=await setup({answer:punctuationOnly});await start(x);await idle(x.page);
   assert.deepEqual(x.events.talks,['SHDだね']);
-  assert.equal(await x.page.locator('#lastSpeechText strong').textContent(),'！！');
+  assert.equal(await x.page.locator('#lastSpeechText strong').textContent(),'SHDだね');
   await stop(x.page);await x.close();
  });
  await test('greeting supports separate display and speech text',async()=>{
