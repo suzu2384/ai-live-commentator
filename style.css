@@ -489,6 +489,7 @@ html[data-theme="sand"]{
 .setting-section[open]>.setting-summary::after,.advanced-settings[open]>.setting-summary::after{content:"▼";transform:none}
 
 @media(max-width:900px){
+  .workspace{gap:0}
   .monitor-column{display:contents}
   .preview-card{display:contents}
   .preview-card>.card-head{
@@ -496,7 +497,8 @@ html[data-theme="sand"]{
     padding:14px 16px 12px;
     background:var(--card);
     border:1px solid var(--line);
-    border-radius:14px
+    border-bottom:0;
+    border-radius:14px 14px 0 0
   }
   .preview-sticky{
     position:sticky;
@@ -504,23 +506,33 @@ html[data-theme="sand"]{
     z-index:4;
     flex:none;
     min-height:0;
-    padding:6px 0 8px;
-    background:var(--bg);
+    padding:0;
+    background:var(--card);
+    border-left:1px solid var(--line);
+    border-right:1px solid var(--line);
     overflow:visible
   }
   .preview-sticky .preview{
-    border:1px solid var(--line);
-    border-radius:14px;
+    border:0;
+    border-radius:0;
     overflow:hidden;
     background:var(--preview-bg)
   }
   .preview-card>.metrics{
-    margin:0;
+    margin:0 0 16px;
     background:var(--card);
     border:1px solid var(--line);
-    border-radius:14px
+    border-top:0;
+    border-radius:0 0 14px 14px
   }
-  .tabs{top:calc(var(--toolbar-height,132px) + var(--preview-sticky-height,0px) + 8px)}
+  .monitor-column>.comment-card{margin:0 0 16px}
+  .tabs{
+    top:calc(var(--toolbar-height,132px) + var(--preview-sticky-height,0px));
+    z-index:4;
+    background:var(--card);
+    border-radius:0;
+    box-shadow:0 -1px 0 var(--line),0 1px 0 var(--line)
+  }
 }
 
 .comment-card{container-type:inline-size}
