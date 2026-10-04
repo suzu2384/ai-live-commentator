@@ -310,6 +310,19 @@ const results=[];
  });
  await test('OBS authentication and preview send no Gemini request',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#testObs').click();await stopped(x.page);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);await x.close();});
  await test('OBS source refresh reapplies input settings and refreshes preview',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#resetObsSource').click();await stopped(x.page);const req=x.events.obsRequests.find(r=>r.type==='SetInputSettings'&&r.data.inputName==='PS Remote Play');assert.ok(req);assert.deepEqual(req.data.inputSettings,{});assert.equal(req.data.overlay,true);assert.equal(x.events.images,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);assert.ok((await x.page.locator('#log').innerText()).includes('映像ソース「PS Remote Play」を再取得'));await x.close();});
+ await test('OBS source refresh stays available during streaming and reuses the active connection',async()=>{
+  const x=await setup();const p=x.page;
+  await p.locator('#start').click();await idle(p);
+  await p.locator('#tab-connect').click();
+  assert.equal(await p.locator('#resetObsSource').isDisabled(),false);
+  const identifiesBefore=x.events.identifies;
+  const resetsBefore=x.events.obsRequests.filter(r=>r.type==='SetInputSettings'&&r.data.inputName==='PS Remote Play').length;
+  await p.locator('#resetObsSource').click();
+  await p.waitForFunction(()=>document.getElementById('log').textContent.includes('映像ソース「PS Remote Play」を再取得'));
+  assert.equal(x.events.identifies,identifiesBefore);
+  assert.equal(x.events.obsRequests.filter(r=>r.type==='SetInputSettings'&&r.data.inputName==='PS Remote Play').length,resetsBefore+1);
+  await stop(p);await x.close();
+ });
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
  await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await setOutput(x.page,'voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
  await test('display text is sent directly to Bouyomi',async()=>{
