@@ -539,6 +539,13 @@ html[data-theme="sand"]{
   .tabs::before,.tabs::after{content:"";position:absolute;inset:0;pointer-events:none}
   .tabs::before{z-index:-2;background:var(--bg)}
   .tabs::after{z-index:-1;background:var(--card);border-radius:14px 14px 0 0;box-shadow:inset 0 1px 0 var(--line)}
+  .tabs.is-stuck{
+    border-radius:0;
+    margin-left:-1px;
+    margin-right:-1px;
+    box-shadow:0 -1px 0 var(--card),0 1px 0 var(--line)
+  }
+  .tabs.is-stuck::after{border-radius:0}
 }
 
 .comment-card{container-type:inline-size}
