@@ -905,16 +905,28 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     const s=runtime.s,key=runtime.key,label=kind==='end'?'終了の挨拶':'開始の挨拶';
     try{
       const turnCount=C.pickWeightedSpeakerCount(s.speakerCountWeights,s.profiles.length);
-      let result=null;
+      let result=null,firstSpeechResult=null,retrySpeech=false;
       for(let attempt=1;attempt<=2;attempt++){
         try{
-          reserve(s);setStatus(`${label}を生成中`);log(`Geminiへ${label}を依頼（${stats.used}回・今回の発言人数${turnCount}人${attempt>1?'・再生成':''}）。`);
-          const body=await C.deadline(token=>C.gemini(key,greetingPayload(kind,s,runtime.history,turnCount),token),60000,signal,`${label}の生成がタイムアウトしました。`);
+          const payload=greetingPayload(kind,s,runtime.history,turnCount);
+          if(attempt===2&&retrySpeech)payload.contents[0].parts.at(-1).text+='\n前回は読み上げ用speechTextが表示用textと同じままでした。今回は表示内容を変えず、漢字をかなへ、英字略語をカタカナ読みへ、数字を自然な読みへ変換したspeechTextを必ず作ってください。';
+          reserve(s);setStatus(`${label}を生成中`);log(`Geminiへ${label}を依頼（${stats.used}回・今回の発言人数${turnCount}人${attempt>1?(retrySpeech?'・読み上げ文を再生成':'・再生成'):''}）。`);
+          const body=await C.deadline(token=>C.gemini(key,payload,token),60000,signal,`${label}の生成がタイムアウトしました。`);
           result=C.parseAnalysis(body,s.profiles,turnCount,true);
           if(result.turns.length!==turnCount)throw new C.AppError(`${label}の人数が指定と一致しません。`,'RESPONSE');
+          if(attempt===1&&speechTextNeedsRetry(result.turns)){
+            firstSpeechResult=result;retrySpeech=true;
+            log(`${label}の読み上げ用テキストが表示文の丸コピーだったため、1回だけ読みを作り直します。`,'warn');
+            continue;
+          }
           break;
         }catch(e){
           C.check(signal);
+          if(attempt===2&&retrySpeech&&firstSpeechResult){
+            result=firstSpeechResult;
+            log(`${label}の読み上げ用テキスト再生成に失敗したため、最初の結果をそのまま読み上げます。`,'warn');
+            break;
+          }
           if(e instanceof C.AppError&&e.code==='RESPONSE'){
             if(attempt===1){
               log(`${label}の応答が条件を満たさなかったため、1回だけ再生成します。`,'warn');
