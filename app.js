@@ -580,7 +580,7 @@
       const clean=()=>{token.removeEventListener('abort',abort);source.disconnect();if(activeAudio===source)activeAudio=null;};
       const abort=()=>{source.onended=null;try{source.stop();}catch{}clean();reject(C.abortError());};
       source.onended=()=>{clean();resolve();};token.addEventListener('abort',abort,{once:true});
-      onStart?.();source.start();
+      source.start();onStart?.();
     }),120000,signal,'音声再生がタイムアウトしました。');
   }
   async function speak(text,s,frame,signal,ownQueue=false) {
