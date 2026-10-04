@@ -470,6 +470,16 @@ const results=[];
   assert.equal(await p.locator('#speakerStatsTotal').textContent(),'0');
   await stop(p);await x.close();
  });
+ await test('speaker balance uses one column up to three friends and two columns above three',async()=>{
+  const x=await setup();const p=x.page;
+  await selectParticipants(p,['p1','p2','p3']);
+  let layout=await p.locator('#speakerStatsList').evaluate(el=>({two:el.classList.contains('two-columns'),columns:getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length,rows:el.children.length}));
+  assert.equal(layout.two,false);assert.equal(layout.columns,1);assert.equal(layout.rows,3);
+  await selectParticipants(p,['p1','p2','p3','p4','p5','p6']);
+  layout=await p.locator('#speakerStatsList').evaluate(el=>({two:el.classList.contains('two-columns'),columns:getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length,rows:el.children.length}));
+  assert.equal(layout.two,true);assert.equal(layout.columns,2);assert.equal(layout.rows,6);
+  await x.close();
+ });
  await test('normal finish uses recent history and speaker-count weight for its closing greeting',async()=>{
   const normalTwo={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'この先も見てみよう'}]})}]}}]};
   const closing={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'終了',turns:[{speakerId:'p1',text:'今日はこの辺かな。また見よう'},{speakerId:'p2',text:'うん、おつかれさま'}]})}]}}]};
