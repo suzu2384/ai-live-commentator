@@ -528,7 +528,6 @@ html[data-theme="sand"]{
 .latest-comment-pane{min-width:0}
 @container (min-width:620px){
   .comment-status-layout{grid-template-columns:minmax(0,1.15fr) minmax(230px,.85fr);gap:16px;align-items:start}
-  .speaker-status-section{margin-top:0;padding-top:0;padding-left:16px;border-top:0;border-left:1px solid var(--line)}
 }
 
 /* Per-speaker live status and session balance. */
@@ -549,3 +548,6 @@ html[data-theme="sand"]{
 .speaker-stat-track{grid-column:1/-1;height:3px;border-radius:999px;overflow:hidden;background:var(--line)}
 .speaker-stat-bar{display:block;height:100%;border-radius:inherit;background:var(--speaker-color);transition:width .2s}
 @media(max-width:520px){.speaker-stat-row{padding:7px}.speaker-stat-main{gap:6px}.speaker-stat-state{font-size:9px}}
+@container (min-width:620px){
+  .comment-card .speaker-status-section{margin-top:0;padding-top:0;padding-left:16px;border-top:0;border-left:1px solid var(--line)}
+}
