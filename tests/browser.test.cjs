@@ -237,6 +237,9 @@ const results=[];
       tabsTop:parseFloat(getComputedStyle(tabs).top),
       tabsRadius:parseFloat(getComputedStyle(tabs).borderTopLeftRadius),
       tabsBackground:getComputedStyle(tabs).backgroundColor,
+      tabsMaskBackground:getComputedStyle(tabs,'::before').backgroundColor,
+      tabsCardBackground:getComputedStyle(tabs,'::after').backgroundColor,
+      tabsCardRadius:parseFloat(getComputedStyle(tabs,'::after').borderTopLeftRadius),
       previewHeight:previewBox.height,
       hasHeading:!!preview.querySelector('.card-head'),
       hasMetrics:!!preview.querySelector('.metrics'),
@@ -251,8 +254,11 @@ const results=[];
   assert.equal(layout.previewPosition,'sticky');
   assert.ok(layout.previewTop>=layout.toolbarHeight-1);
   assert.ok(Math.abs(layout.tabsTop-(layout.toolbarHeight+layout.previewHeight))<=1);
-  assert.equal(layout.tabsRadius,0);
-  assert.notEqual(layout.tabsBackground,'rgba(0, 0, 0, 0)');
+  assert.ok(layout.tabsRadius>0);
+  assert.equal(layout.tabsBackground,'rgba(0, 0, 0, 0)');
+  assert.notEqual(layout.tabsMaskBackground,'rgba(0, 0, 0, 0)');
+  assert.notEqual(layout.tabsCardBackground,'rgba(0, 0, 0, 0)');
+  assert.ok(layout.tabsCardRadius>0);
   assert.equal(layout.hasHeading,false);
   assert.equal(layout.hasMetrics,false);
   assert.equal(layout.hasImage,true);
@@ -282,6 +288,31 @@ const results=[];
     return {columns:getComputedStyle(layout).gridTemplateColumns.split(' ').filter(Boolean).length,borderLeft:parseFloat(getComputedStyle(status).borderLeftWidth),borderTop:parseFloat(getComputedStyle(status).borderTopWidth)};
   });
   assert.equal(narrow.columns,1);assert.equal(narrow.borderLeft,0);assert.ok(narrow.borderTop>0);
+  await x.close();
+ });
+ await test('mobile header shows version under theme without increasing header content height',async()=>{
+  const x=await setup();const p=x.page;
+  await p.setViewportSize({width:390,height:844});
+  const mobile=await p.evaluate(()=>{
+    const header=document.querySelector('header'),tools=document.querySelector('.header-tools'),logo=document.querySelector('.brand-logo'),badge=document.querySelector('.header-tools>.badge'),theme=document.querySelector('.theme-picker');
+    const tb=theme.getBoundingClientRect(),bb=badge.getBoundingClientRect();
+    return {
+      version:badge.textContent.trim(),
+      badgeDisplay:getComputedStyle(badge).display,
+      toolsDirection:getComputedStyle(tools).flexDirection,
+      toolsHeight:tools.getBoundingClientRect().height,
+      logoHeight:logo.getBoundingClientRect().height,
+      headerHeight:header.getBoundingClientRect().height,
+      themeTop:tb.top,
+      badgeTop:bb.top
+    };
+  });
+  assert.ok(mobile.version.includes('v4.'));
+  assert.notEqual(mobile.badgeDisplay,'none');
+  assert.equal(mobile.toolsDirection,'column');
+  assert.ok(mobile.badgeTop>mobile.themeTop);
+  assert.ok(mobile.toolsHeight<=mobile.logoHeight+1);
+  assert.ok(mobile.headerHeight<=mobile.logoHeight+30);
   await x.close();
  });
  await test('saved v4 settings survive the tab reorganization',async()=>{
