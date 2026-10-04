@@ -266,6 +266,26 @@ const results=[];
   assert.equal(layout.imageRadius,0);
   assert.ok(layout.headingToPreview<=1);
   assert.ok(layout.previewToMetrics<=1);
+  await p.evaluate(()=>scrollTo(0,document.body.scrollHeight));
+  await p.clock.fastForward(20);
+  await p.waitForFunction(()=>document.querySelector('.tabs').classList.contains('is-stuck'));
+  const stuck=await p.evaluate(()=>{
+    const tabs=document.querySelector('.tabs');
+    return {
+      radius:parseFloat(getComputedStyle(tabs).borderTopLeftRadius),
+      cardRadius:parseFloat(getComputedStyle(tabs,'::after').borderTopLeftRadius),
+      marginLeft:parseFloat(getComputedStyle(tabs).marginLeft),
+      marginRight:parseFloat(getComputedStyle(tabs).marginRight)
+    };
+  });
+  assert.equal(stuck.radius,0);
+  assert.equal(stuck.cardRadius,0);
+  assert.equal(stuck.marginLeft,-1);
+  assert.equal(stuck.marginRight,-1);
+  await p.evaluate(()=>scrollTo(0,0));
+  await p.clock.fastForward(20);
+  await p.waitForFunction(()=>!document.querySelector('.tabs').classList.contains('is-stuck'));
+  assert.ok(await p.locator('.tabs').evaluate(el=>parseFloat(getComputedStyle(el).borderTopLeftRadius)>0));
   await p.locator('#tab-connect').click();
   const summary=p.locator('#settings-video > .setting-summary');
   const closedIcon=await summary.evaluate(el=>getComputedStyle(el,'::after').content);
