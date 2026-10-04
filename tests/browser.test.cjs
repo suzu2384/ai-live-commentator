@@ -237,9 +237,9 @@ const results=[];
       tabsTop:parseFloat(getComputedStyle(tabs).top),
       tabsRadius:parseFloat(getComputedStyle(tabs).borderTopLeftRadius),
       tabsBackground:getComputedStyle(tabs).backgroundColor,
-      tabsMaskBackground:getComputedStyle(tabs,'::before').backgroundColor,
-      tabsCardBackground:getComputedStyle(tabs,'::after').backgroundColor,
-      tabsCardRadius:parseFloat(getComputedStyle(tabs,'::after').borderTopLeftRadius),
+      tabsTopBorder:parseFloat(getComputedStyle(tabs).borderTopWidth),
+      tabsBottomBorder:parseFloat(getComputedStyle(tabs).borderBottomWidth),
+      tabsTransition:getComputedStyle(tabs).transitionDuration,
       previewHeight:previewBox.height,
       hasHeading:!!preview.querySelector('.card-head'),
       hasMetrics:!!preview.querySelector('.metrics'),
@@ -255,10 +255,10 @@ const results=[];
   assert.ok(layout.previewTop>=layout.toolbarHeight-1);
   assert.ok(Math.abs(layout.tabsTop-(layout.toolbarHeight+layout.previewHeight))<=1);
   assert.ok(layout.tabsRadius>0);
-  assert.equal(layout.tabsBackground,'rgba(0, 0, 0, 0)');
-  assert.notEqual(layout.tabsMaskBackground,'rgba(0, 0, 0, 0)');
-  assert.notEqual(layout.tabsCardBackground,'rgba(0, 0, 0, 0)');
-  assert.ok(layout.tabsCardRadius>0);
+  assert.notEqual(layout.tabsBackground,'rgba(0, 0, 0, 0)');
+  assert.equal(layout.tabsTopBorder,1);
+  assert.equal(layout.tabsBottomBorder,1);
+  assert.notEqual(layout.tabsTransition,'0s');
   assert.equal(layout.hasHeading,false);
   assert.equal(layout.hasMetrics,false);
   assert.equal(layout.hasImage,true);
@@ -269,22 +269,28 @@ const results=[];
   await p.evaluate(()=>scrollTo(0,document.body.scrollHeight));
   await p.clock.fastForward(20);
   await p.waitForFunction(()=>document.querySelector('.tabs').classList.contains('is-stuck'));
+  await p.clock.fastForward(200);
   const stuck=await p.evaluate(()=>{
-    const tabs=document.querySelector('.tabs');
+    const tabs=document.querySelector('.tabs'),style=getComputedStyle(tabs);
     return {
-      radius:parseFloat(getComputedStyle(tabs).borderTopLeftRadius),
-      cardRadius:parseFloat(getComputedStyle(tabs,'::after').borderTopLeftRadius),
-      marginLeft:parseFloat(getComputedStyle(tabs).marginLeft),
-      marginRight:parseFloat(getComputedStyle(tabs).marginRight)
+      radius:parseFloat(style.borderTopLeftRadius),
+      marginLeft:parseFloat(style.marginLeft),
+      marginRight:parseFloat(style.marginRight),
+      topBorder:parseFloat(style.borderTopWidth),
+      bottomBorder:parseFloat(style.borderBottomWidth),
+      boxShadow:style.boxShadow
     };
   });
   assert.equal(stuck.radius,0);
-  assert.equal(stuck.cardRadius,0);
-  assert.equal(stuck.marginLeft,-1);
-  assert.equal(stuck.marginRight,-1);
+  assert.equal(stuck.marginLeft,0);
+  assert.equal(stuck.marginRight,0);
+  assert.equal(stuck.topBorder,1);
+  assert.equal(stuck.bottomBorder,1);
+  assert.equal(stuck.boxShadow,'none');
   await p.evaluate(()=>scrollTo(0,0));
   await p.clock.fastForward(20);
   await p.waitForFunction(()=>!document.querySelector('.tabs').classList.contains('is-stuck'));
+  await p.clock.fastForward(200);
   assert.ok(await p.locator('.tabs').evaluate(el=>parseFloat(getComputedStyle(el).borderTopLeftRadius)>0));
   await p.locator('#tab-connect').click();
   const summary=p.locator('#settings-video > .setting-summary');
