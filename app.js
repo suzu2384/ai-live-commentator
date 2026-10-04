@@ -47,6 +47,7 @@
   let phaseAt = performance.now(), lastCaptureAt = null, busy = false, lastSettings = null;
   const stats = { used:0, stale:0 };
   let resumeAction=null, finishAction=null, streaming=false, vaultBusy=false, pageEpoch=0;
+  let obsSourceFailurePending=false,obsSourceRecoveryReady=false;
   function log(message, kind='') {
     const li = document.createElement('li'), time = document.createElement('time');
     time.textContent = new Date().toLocaleTimeString('ja-JP'); li.className = kind;
@@ -410,7 +411,12 @@
   function reserve() { stats.used++; updateStats(); }
   async function getFrame(s, signal) {
     C.check(signal); const capturedAt = performance.now();
-    const result = await obs.screenshot(s.sourceName, s.imageWidth, signal);
+    let result;
+    try{result=await obs.screenshot(s.sourceName, s.imageWidth, signal);}
+    catch(e){
+      if(e instanceof C.AppError&&e.code==='OBS_SOURCE'){obsSourceFailurePending=true;obsSourceRecoveryReady=false;}
+      throw e;
+    }
     const data = typeof result.imageData === 'string' ? result.imageData.replace(/^data:image\/jpg;/, 'data:image/jpeg;') : result.imageData;
     if (typeof data !== 'string' || data.length > 8 * 1024 * 1024 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(data)) throw new C.AppError('OBSから有効なJPEG画像を取得できませんでした。');
     const im = new Image();
@@ -784,7 +790,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     const duration=(performance.now()-began)/1000; $('latency').textContent=duration.toFixed(1)+' 秒';log(`Gemini応答 ${duration.toFixed(1)}秒。`);
     checkFresh(current,s);return C.parseAnalysis(response,s.profiles,turnCount);
   }
-  async function waitForSettings(signal) {
+  async function waitForSettings(signal,{autoResumeObsSource=false}={}) {
     C.check(signal); $('resume').hidden=false;
     for(const el of document.querySelectorAll('#settings input,#settings select,#settings textarea,#panel-friends input,#panel-friends select,#panel-friends textarea'))el.disabled=false;
     setStatus('設定の修正待ち（修正後に再開できます）',true);
@@ -799,6 +805,10 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
         } catch(e){if(!signal.aborted)log(e instanceof C.AppError?e.message:'設定を確認してください。','warn');}
         finally{$('resume').disabled=false;}
       };
+      if(autoResumeObsSource&&obsSourceFailurePending&&obsSourceRecoveryReady){
+        log('映像ソースは復旧済みのため、実況を自動再開します。');
+        queueMicrotask(()=>resumeAction?.());
+      }
     }); } finally { $('resume').hidden=true;resumeAction=null;setBusy(true); }
   }
   function validateEndpoints(s){
@@ -1028,7 +1038,9 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
           stats.stale++;updateStats();log(e.message,'warn');$('latency').textContent='鮮度切れ';
         } else log(e instanceof C.AppError?e.message:'処理に失敗しました。設定と接続を確認してください。','warn');
         if(!(e instanceof C.AppError)||C.needsSettings(e)){
-          obs?.close();obs=null;({s,key}=await waitForSettings(signal));runtime.s=s;runtime.key=key;
+          const obsSourceFailure=e instanceof C.AppError&&e.code==='OBS_SOURCE';
+          obs?.close();obs=null;({s,key}=await waitForSettings(signal,{autoResumeObsSource:obsSourceFailure}));runtime.s=s;runtime.key=key;
+          if(obsSourceFailure){obsSourceFailurePending=false;obsSourceRecoveryReady=false;}
         }else if(e.code==='STALE'){
           setStatus('鮮度切れ・最新映像で再解析中');
         }else{
@@ -1090,6 +1102,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
         const s=lastSettings||settings(),signal=controller.signal;
         if(!obs?.ready){obs?.close();await connectObs(s,signal);}
         await refreshObsSource(s,signal);
+        if(obsSourceFailurePending)obsSourceRecoveryReady=true;
         if(resumeAction){
           log('映像ソースの再取得に成功したため、実況を自動再開します。');
           await resumeAction();
