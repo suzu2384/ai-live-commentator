@@ -4,6 +4,7 @@
   const storageKey = 'ai-live-commentator-browser-v1';
   const contentLibraryKey = 'ai-live-commentator-content-library-v1';
   const contentKnowledgeKey = 'ai-live-commentator-content-knowledge-v1';
+  const greetingHistoryKey = 'ai-live-commentator-greeting-history-v1';
   const fontLibraryKey = 'ai-live-commentator-font-library-v1';
   const settingsExportFormat = 'minkome-settings';
   const settingsExportVersion = 1;
@@ -793,15 +794,55 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     $('lastComment').textContent=profile.name+'：'+turn.text;
     $('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
   }
+  function greetingHistory(){
+    try{
+      const raw=JSON.parse(localStorage.getItem(greetingHistoryKey)||'{}'),result={start:[],end:[]};
+      for(const kind of ['start','end']){
+        const values=Array.isArray(raw?.[kind])?raw[kind]:[];
+        result[kind]=values.filter(v=>typeof v==='string').map(v=>v.trim().slice(0,300)).filter(Boolean).slice(-8);
+      }
+      return result;
+    }catch{return {start:[],end:[]};}
+  }
+  function recordGreetingHistory(kind,turns){
+    const text=turns.map(turn=>String(turn?.text??'').trim()).filter(Boolean).join(' / ').slice(0,300);if(!text)return;
+    const history=greetingHistory();history[kind]=[...history[kind],text].slice(-8);
+    try{localStorage.setItem(greetingHistoryKey,JSON.stringify(history));}catch{}
+  }
+  function greetingVariation(kind){
+    const start=[
+      '合流型。配信開始そのものを宣言せず、友達が席についたような自然な一言から入る。「始まったね」「見ていこう」「よろしく」は使わない。',
+      '期待型。これから何が起きるかへの軽い楽しみを出す。「今日も」「さあ」「じゃあ」で始めない。',
+      '雑談開始型。挨拶らしい定型句を避け、友達同士の短い一言から自然に会話を始める。ゲーム内容はまだ推測しない。',
+      '軽いテンション型。少し楽しみ・気になる、という温度感から入る。「始まった」「開始」「見ていこう」は使わない。',
+      'タイトル寄り型。対象コンテンツ名が設定されていれば一人だけ自然に触れてよいが、全員でタイトルを繰り返さない。設定がなければ普通の一言にする。',
+      'あっさり型。5〜15文字程度の短い一言で始め、典型的な開始挨拶を使わない。'
+    ];
+    const end=[
+      '余韻型。終了を宣言せず、直近の雰囲気への一言で自然に締める。「おつかれ」「また見よう」は使わない。',
+      '次回期待型。続きへの軽い興味を残して締める。ただし進捗や成果は断定しない。「おつかれ」で終わらせない。',
+      '雑談締め型。一人だけが締め役になり、複数人なら他の人は短い反応や別視点を添える。全員が別れの挨拶を繰り返さない。',
+      '感想型。今回確認できた状況の雰囲気に軽く触れて締める。「またね」「おつかれ」を両方とも使わない。',
+      '区切り型。今日はここで一区切り、という空気だけを自然に出す。定型的な「今日はこの辺」「また続き」を避ける。',
+      'あっさり型。5〜15文字程度の短い一言で終え、別れの定型句を使わない。'
+    ];
+    const list=kind==='end'?end:start;
+    return list[Math.floor(Math.random()*list.length)];
+  }
   function greetingPayload(kind,s,history,turnCount){
     turnCount=Math.max(1,Math.min(s.profiles.length,Number(turnCount)||1));
     const ending=kind==='end';
-    const context=ending&&history.length?history.slice(-5).join(' / '):'まだゲーム内容は判断しない';
+    const context=ending&&history.length?history.slice(-5).join(' / '):'まだゲーム画面の内容は判断しない';
+    const recent=greetingHistory()[kind].slice(-5);
+    const variation=greetingVariation(kind);
+    const content=s.contentName?`対象コンテンツはユーザーが「${s.contentName}」と設定済み。名前は必要な時だけ自然に使ってよいが、未確認の状況や成果は推測しない。`:'対象コンテンツ名は設定されていない。';
     const task=ending
-      ? '実況を通常終了する直前の締めの挨拶を作る。今回見えていた状況に軽く触れてもよいが、確認できない成果・勝敗・進捗は断定しない。「また見よう」「おつかれ」など自然に締める。'
-      : '実況開始直後の短い挨拶を作る。まだゲーム内容を見ていないので、ゲーム名・状況・成果を推測せず、「始まったね」「今日も見ていこう」程度の自然な開始挨拶にする。';
-    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n直近の状況: ${context}\n${task}\n開始・終了挨拶が有効なので、この応答のturnsは必ず読み上げる。異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。speakは互換用フィールドなので値にかかわらずturnsを生成する。各5〜25文字程度の自然な口語。架空の思い出は作らない。`}];
-    return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。指定された開始または終了の挨拶だけを短く返す。各turnのtextは表示と読み上げの両方にそのまま使う自然な日本語の口語にする。方言や崩した言い方も、その友達が実際に話す自然な表記で書く。'}]},
+      ? `実況を通常終了する直前の締めを作る。今回見えていた状況に軽く触れてよいが、確認できない成果・勝敗・進捗は断定しない。毎回「おつかれ」「また見よう」「今日はこの辺」の言い換えになるのを避ける。今回の変化パターン: ${variation}`
+      : `実況開始直後の短い一言を作る。まだゲーム画面を見ていないので状況・成果を推測しない。毎回「始まったね」「今日も見ていこう」「よろしく」の言い換えになるのを避ける。今回の変化パターン: ${variation}`;
+    const recentNote=recent.length?`直近の${ending?'終了':'開始'}挨拶（同一・類似の入り方、語尾、意味を避ける）:\n${recent.map(text=>`・${text}`).join('\n')}`:`直近の${ending?'終了':'開始'}挨拶: なし`;
+    const multi=turnCount>1?'複数人のときは全員が独立した挨拶を並べず、最初の一言を受けて軽く反応したり別の温度感を添えたりして、ひと続きの短い掛け合いにする。':'';
+    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n${content}\n直近の状況: ${context}\n${recentNote}\n${task}\n${multi}\n開始・終了挨拶が有効なので、この応答のturnsは必ず読み上げる。異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。speakは互換用フィールドなので値にかかわらずturnsを生成する。各5〜25文字程度の自然な口語。架空の思い出は作らない。`}];
+    return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。開始や終了の定型句を機械的に言い換えるのではなく、その場の友達同士として自然で変化のある短い一言を返す。各turnのtextは表示と読み上げの両方にそのまま使う自然な日本語の口語にする。方言や崩した言い方も、その友達が実際に話す自然な表記で書く。'}]},
       contents:[{role:'user',parts}],generationConfig:{candidateCount:1,maxOutputTokens:512,thinkingConfig:{thinkingLevel:'MINIMAL',includeThoughts:false},responseMimeType:'application/json',
         responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:turnCount,maxItems:turnCount,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'}},required:['speakerId','text']}}},required:['speak','summary','turns']}}};
   }
@@ -835,10 +876,11 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     }
   }
   function fallbackGreetingTurns(kind,s,turnCount){
-    const start=['じゃあ、今日も見ていこう','楽しんでいこうか','どんな感じか見てみよう','今日もよろしくね','さっそく見ていこう','一緒に楽しもう'];
-    const end=['今日はこの辺かな。また見よう','うん、おつかれさま','今日も楽しかったね','また続き見ようね','じゃあ、またね','おつかれ、また見よう'];
-    const phrases=kind==='end'?end:start;
-    return s.profiles.slice(0,turnCount).map((profile,i)=>({speakerId:profile.id,text:phrases[i]}));
+    const start=['ちょっと楽しみだね','さて、どんな感じかな','のんびり見てよっか','今日は何があるかな','気楽にいこうか','ちょっと気になるね','いい感じにいこう','ま、ゆるく見よっか','何が来るかな','楽しめるといいね'];
+    const end=['いい余韻だったね','ここで一区切りかな','続きも気になるね','なかなか面白かったね','今日はいい感じだった','この先も気になるな','ひとまずここまでかな','いいところで切れたね','今日は満足だね','余韻残るね'];
+    const pool=[...(kind==='end'?end:start)];
+    for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+    return s.profiles.slice(0,turnCount).map((profile,i)=>({speakerId:profile.id,text:pool[i%pool.length]}));
   }
   async function greeting(kind,runtime,signal,{tolerateFailure=false}={}){
     const s=runtime.s,key=runtime.key,label=kind==='end'?'終了の挨拶':'開始の挨拶';
@@ -866,7 +908,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
           throw e;
         }
       }
-      await playGreetingTurns(result.turns,s,signal,label);
+      await playGreetingTurns(result.turns,s,signal,label);recordGreetingHistory(kind,result.turns);
     }catch(e){
       C.check(signal);
       log(`${label}を省略: ${e instanceof C.AppError?e.message:'生成または再生に失敗しました。'}`,'warn');
