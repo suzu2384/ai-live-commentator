@@ -3,6 +3,7 @@
   const C = LiveCore, $ = id => document.getElementById(id);
   const storageKey = 'ai-live-commentator-browser-v1';
   const contentLibraryKey = 'ai-live-commentator-content-library-v1';
+  const contentKnowledgeKey = 'ai-live-commentator-content-knowledge-v1';
   const fontLibraryKey = 'ai-live-commentator-font-library-v1';
   const settingsExportFormat = 'minkome-settings';
   const settingsExportVersion = 1;
@@ -138,7 +139,8 @@
     $('settings').addEventListener('change',updateSettingSummaries);
     updateSettingSummaries();
   }
-  let contentLibrary=[],fontLibrary=[];
+  let contentLibrary=[],contentKnowledge={},fontLibrary=[];
+  let editingContentKnowledgeName='';
   function splitContentName(value){
     const name=typeof value==='string'?value.trim():'';
     const match=name.match(/^([^：:]+)[：:](.+)$/);
@@ -168,6 +170,27 @@
     try{localStorage.setItem(contentLibraryKey,JSON.stringify(contentLibrary));}
     catch{log('対象コンテンツ一覧を保存できませんでした。ブラウザ設定を確認してください。','warn');}
   }
+  function normalizeContentKnowledge(value,library=contentLibrary){
+    const result={};
+    if(!plainObject(value))return result;
+    const allowed=new Set(library);
+    for(const [rawName,rawText] of Object.entries(value)){
+      const name=splitContentName(rawName).raw;
+      if(!name||!allowed.has(name)||typeof rawText!=='string')continue;
+      const text=rawText.trim().slice(0,4000);
+      if(text)result[name]=text;
+    }
+    return result;
+  }
+  function loadContentKnowledge(){
+    try{return normalizeContentKnowledge(JSON.parse(localStorage.getItem(contentKnowledgeKey)||'{}'));}
+    catch{return {};}
+  }
+  function saveContentKnowledge(){
+    contentKnowledge=normalizeContentKnowledge(contentKnowledge);
+    try{localStorage.setItem(contentKnowledgeKey,JSON.stringify(contentKnowledge));}
+    catch{log('対象コンテンツの追加知識を保存できませんでした。ブラウザ設定を確認してください。','warn');}
+  }
   function contentGroups(){
     const groups=[];
     for(const raw of contentLibrary){
@@ -194,6 +217,15 @@
     if(main)button.dataset.contentMain=name;else button.dataset.contentName=name;
     return button;
   }
+  function knowledgeButton(name){
+    const button=document.createElement('button');button.type='button';button.className='content-knowledge-button';button.textContent=contentKnowledge[name]?'知識あり':'知識';
+    button.dataset.contentKnowledge=name;
+    return button;
+  }
+  function contentManageActions(name,main=false){
+    const actions=document.createElement('div');actions.className='content-manage-actions';
+    actions.append(knowledgeButton(name),deleteButton(name,main));return actions;
+  }
   function renderContentManageList(){
     const container=$('contentManageList');container.replaceChildren();
     if(!contentLibrary.length){
@@ -203,19 +235,37 @@
       const section=document.createElement('section');section.className='content-manage-group';
       const mainRow=document.createElement('div');mainRow.className='content-main-row';
       const mainLabel=document.createElement('strong');mainLabel.textContent=group.main;
-      mainRow.append(mainLabel,deleteButton(group.main,true));section.append(mainRow);
+      mainRow.append(mainLabel,contentManageActions(group.main,true));section.append(mainRow);
       if(group.children.length){
         const children=document.createElement('div');children.className='content-sub-list';
         for(const child of group.children){
           const row=document.createElement('div');row.className='content-sub-row';
           const branch=document.createElement('span');branch.className='content-branch';branch.textContent='└';
           const label=document.createElement('span');label.className='content-sub-name';label.textContent=child.sub;
-          row.append(branch,label,deleteButton(child.raw));children.append(row);
+          row.append(branch,label,contentManageActions(child.raw));children.append(row);
         }
         section.append(children);
       }
       container.append(section);
     }
+  }
+  function openContentKnowledgeEditor(name){
+    name=splitContentName(name).raw;if(!contentLibrary.includes(name))return;
+    editingContentKnowledgeName=name;$('contentKnowledgeName').textContent=name;
+    $('contentKnowledgeText').value=contentKnowledge[name]||'';
+    $('contentKnowledgeState').textContent='空欄で保存すると、このコンテンツの追加知識を削除します。';
+    $('contentKnowledgeEditor').hidden=false;
+    setTimeout(()=>$('contentKnowledgeText').focus(),0);
+  }
+  function closeContentKnowledgeEditor(){
+    editingContentKnowledgeName='';$('contentKnowledgeEditor').hidden=true;$('contentKnowledgeText').value='';
+  }
+  function saveContentKnowledgeEditor(){
+    if(!editingContentKnowledgeName||!contentLibrary.includes(editingContentKnowledgeName)){closeContentKnowledgeEditor();return;}
+    const text=$('contentKnowledgeText').value.trim().slice(0,4000);
+    if(text)contentKnowledge[editingContentKnowledgeName]=text;else delete contentKnowledge[editingContentKnowledgeName];
+    saveContentKnowledge();renderContentManageList();
+    $('contentKnowledgeState').textContent=text?'追加知識を保存しました。':'追加知識を削除しました。';
   }
   function addContent(){
     const input=$('newContentName'),item=splitContentName(input.value.slice(0,100));
@@ -229,8 +279,8 @@
     name=splitContentName(name).raw;
     if(!contentLibrary.includes(name))return;
     if(!confirm(`「${name}」を対象コンテンツ一覧から削除しますか？`))return;
-    const selected=$('contentName').value;contentLibrary=contentLibrary.filter(item=>item!==name);saveContentLibrary();
-    renderContentOptions(selected===name?'':selected);renderContentManageList();
+    const selected=$('contentName').value;contentLibrary=contentLibrary.filter(item=>item!==name);delete contentKnowledge[name];saveContentLibrary();saveContentKnowledge();
+    if(editingContentKnowledgeName===name)closeContentKnowledgeEditor();renderContentOptions(selected===name?'':selected);renderContentManageList();
   }
   function deleteContentMain(main){
     const group=contentGroups().find(item=>item.main===main);if(!group)return;
@@ -238,11 +288,11 @@
     const message=count?`「${main}」とサブ項目${count}件を削除しますか？`:`「${main}」を対象コンテンツ一覧から削除しますか？`;
     if(!confirm(message))return;
     const selected=splitContentName($('contentName').value);
-    contentLibrary=contentLibrary.filter(raw=>{const item=splitContentName(raw);return item.main!==main;});
-    saveContentLibrary();renderContentOptions(selected.main===main?'':selected.raw);renderContentManageList();
+    const removed=contentLibrary.filter(raw=>splitContentName(raw).main===main);contentLibrary=contentLibrary.filter(raw=>{const item=splitContentName(raw);return item.main!==main;});
+    for(const name of removed)delete contentKnowledge[name];saveContentLibrary();saveContentKnowledge();if(removed.includes(editingContentKnowledgeName))closeContentKnowledgeEditor();renderContentOptions(selected.main===main?'':selected.raw);renderContentManageList();
   }
-  function openContentDialog(){renderContentManageList();$('contentDialog').showModal();setTimeout(()=>$('newContentName').focus(),0);}
-  function closeContentDialog(){$('contentDialog').close();}
+  function openContentDialog(){closeContentKnowledgeEditor();renderContentManageList();$('contentDialog').showModal();setTimeout(()=>$('newContentName').focus(),0);}
+  function closeContentDialog(){closeContentKnowledgeEditor();$('contentDialog').close();}
 
   function normalizeFontName(value){
     if(typeof value!=='string')return '';
@@ -346,6 +396,7 @@
     for (const id of savedIds) s[id] = $(id).type === 'checkbox' ? $(id).checked : $(id).value.trim();
     s.contentName=splitContentName($('contentName').value).raw;
     if(s.contentName&&!contentLibrary.includes(s.contentName))s.contentName='';
+    s.contentKnowledge=s.contentName?(contentKnowledge[s.contentName]||''):'';
     for (const [id,[min,max]] of Object.entries(numberRules)) {
       const value = Number(s[id]);
       if (s[id] === '' || !Number.isInteger(value) || value < min || value > max){revealSetting(id);throw new C.AppError(`${settingLabel(id)}は${min}〜${max}の整数で指定してください。`);}
@@ -378,6 +429,7 @@
     if(!plainObject(value)||value.format!==settingsExportFormat||value.version!==settingsExportVersion||!plainObject(value.settings))throw new C.AppError('みんコメの設定ファイルとして認識できません。');
     const source=value.settings,data={};
     const importedContents=normalizeContentLibrary(Array.isArray(value.contentLibrary)?value.contentLibrary:[]);
+    const importedKnowledge=normalizeContentKnowledge(value.contentKnowledge,importedContents);
     const importedFonts=normalizeFontLibrary(Array.isArray(value.fontLibrary)?value.fontLibrary:[]);
     for(const id of savedIds){
       if(source[id]===undefined)throw new C.AppError('設定ファイルに必要な設定項目が不足しています。');
@@ -414,10 +466,10 @@
     const selected=Array.isArray(source.selectedProfileIds)?[...new Set(source.selectedProfileIds.filter(id=>/^p[1-6]$/.test(id)))]:[];
     if(!selected.length)throw new C.AppError('参加する友達を1人以上指定してください。');
     if(Array.from({length:selected.length},(_,i)=>data[`speakerWeight${i+1}`]).every(w=>w===0))throw new C.AppError('選択した友達の人数以内の発言人数の重みを1つ以上0より大きくしてください。');
-    return {data:{...data,contentName,selectedProfileIds:selected,participantCount:selected.length,profiles},contentLibrary:importedContents,fontLibrary:importedFonts};
+    return {data:{...data,contentName,selectedProfileIds:selected,participantCount:selected.length,profiles},contentLibrary:importedContents,contentKnowledge:importedKnowledge,fontLibrary:importedFonts};
   }
   function applyImportedBundle(bundle){
-    contentLibrary=bundle.contentLibrary;fontLibrary=bundle.fontLibrary;saveContentLibrary();saveFontLibrary();
+    contentLibrary=bundle.contentLibrary;contentKnowledge=bundle.contentKnowledge||{};fontLibrary=bundle.fontLibrary;saveContentLibrary();saveContentKnowledge();saveFontLibrary();
     for(const id of savedIds){
       if(bundle.data[id]===undefined)continue;
       if($(id).type==='checkbox')$(id).checked=bundle.data[id]===true;else $(id).value=String(bundle.data[id]);
@@ -429,11 +481,11 @@
     outputFields();overlayFields();updateSettingSummaries();
     const s=settings();save(s);
     $('saveState').textContent='設定をインポートしました。APIキーとOBSパスワードは変更していません。';
-    log('設定をインポートしました。友達設定・対象コンテンツ一覧・登録フォント一覧も反映しました。');
+    log('設定をインポートしました。友達設定・対象コンテンツ一覧・追加知識・登録フォント一覧も反映しました。');
   }
   function exportSettings(){
     const s=settings();
-    const bundle={format:settingsExportFormat,version:settingsExportVersion,exportedAt:new Date().toISOString(),secretsIncluded:false,settings:persistedSettings(s),contentLibrary:[...contentLibrary],fontLibrary:[...fontLibrary]};
+    const bundle={format:settingsExportFormat,version:settingsExportVersion,exportedAt:new Date().toISOString(),secretsIncluded:false,settings:persistedSettings(s),contentLibrary:[...contentLibrary],contentKnowledge:{...contentKnowledge},fontLibrary:[...fontLibrary]};
     const blob=new Blob([JSON.stringify(bundle,null,2)+'\n'],{type:'application/json'});
     const url=URL.createObjectURL(blob),a=document.createElement('a'),stamp=new Date().toISOString().slice(0,10).replaceAll('-','');
     a.href=url;a.download=`minkome-settings-${stamp}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),0);
@@ -1190,7 +1242,9 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('doneContentDialog').addEventListener('click',closeContentDialog);
   $('addContent').addEventListener('click',addContent);
   $('newContentName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addContent();}});
-  $('contentManageList').addEventListener('click',e=>{const child=e.target.closest('[data-content-name]');if(child){deleteContent(child.dataset.contentName);return;}const main=e.target.closest('[data-content-main]');if(main)deleteContentMain(main.dataset.contentMain);});
+  $('contentManageList').addEventListener('click',e=>{const knowledge=e.target.closest('[data-content-knowledge]');if(knowledge){openContentKnowledgeEditor(knowledge.dataset.contentKnowledge);return;}const child=e.target.closest('[data-content-name]');if(child){deleteContent(child.dataset.contentName);return;}const main=e.target.closest('[data-content-main]');if(main)deleteContentMain(main.dataset.contentMain);});
+  $('saveContentKnowledge').addEventListener('click',saveContentKnowledgeEditor);
+  $('closeContentKnowledge').addEventListener('click',closeContentKnowledgeEditor);
   $('contentDialog').addEventListener('click',e=>{if(e.target===$('contentDialog'))closeContentDialog();});
   $('manageFonts').addEventListener('click',openFontDialog);
   $('closeFontDialog').addEventListener('click',closeFontDialog);
@@ -1301,7 +1355,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   }));
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
-  contentLibrary=loadContentLibrary();renderContentOptions('');
+  contentLibrary=loadContentLibrary();contentKnowledge=loadContentKnowledge();renderContentOptions('');
   fontLibrary=loadFontLibrary();
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};}catch{}
   const migratedFont=legacyFontName(stored.obsOverlayFont);
