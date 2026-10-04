@@ -789,6 +789,17 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
       disableObsOverlayTarget();obsOverlayTarget=null;
     },Math.max(0,s.obsOverlayHold)*1000);
   }
+  function normalizedSpeechCompare(text){
+    return C.plainSpeech(String(text??'')).normalize('NFKC').toLocaleLowerCase('ja-JP').replace(/[\s。、！？!?ー〜～・,.\-]/g,'');
+  }
+  function speechTextNeedsRetry(turns){
+    return Array.isArray(turns)&&turns.some(turn=>{
+      const display=String(turn?.text??'').trim(),speech=String(turn?.speechText??'').trim();
+      if(!/[\p{Script=Han}A-Za-z0-9]/u.test(display))return false;
+      if(!speech)return true;
+      return normalizedSpeechCompare(display)===normalizedSpeechCompare(speech);
+    });
+  }
   function speechSourceText(turn){
     const display=String(turn?.text??'').trim(),candidate=String(turn?.speechText??'').trim();
     const normalized=C.plainSpeech(candidate);
@@ -850,10 +861,10 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
       : `実況開始直後の短い一言を作る。まだゲーム画面を見ていないので状況・成果を推測しない。毎回「始まったね」「今日も見ていこう」「よろしく」の言い換えになるのを避ける。今回の変化パターン: ${variation}`;
     const recentNote=recent.length?`直近の${ending?'終了':'開始'}挨拶（同一・類似の入り方、語尾、意味を避ける）:\n${recent.map(text=>`・${text}`).join('\n')}`:`直近の${ending?'終了':'開始'}挨拶: なし`;
     const multi=turnCount>1?'複数人のときは全員が独立した挨拶を並べず、最初の一言を受けて軽く反応したり別の温度感を添えたりして、ひと続きの短い掛け合いにする。':'';
-    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n${content}\n直近の状況: ${context}\n${recentNote}\n${task}\n${multi}\n開始・終了挨拶が有効なので、この応答のturnsは必ず読み上げる。異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。各turnには表示用textと読み上げ用speechTextを入れる。speechTextは同じ意味を保ったまま読み間違えやすい固有名詞・英数字などを読みやすくする。読みが不確かな場合でも空にせずtextをそのまま入れてよく、漢字が残ってもよい。speakは互換用フィールドなので値にかかわらずturnsを生成する。各5〜25文字程度の自然な口語。架空の思い出は作らない。`}];
-    return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。開始や終了の定型句を機械的に言い換えるのではなく、その場の友達同士として自然で変化のある短い一言を返す。各turnのtextは画面表示用、speechTextは読み上げ用にする。speechTextはtextと同じ意味を保ち、読みやすさだけを調整する。読みが不確かな場合はtextをそのまま入れてよい。方言や崩した言い方も、その友達が実際に話す自然な表記で書く。'}]},
+    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n${content}\n直近の状況: ${context}\n${recentNote}\n${task}\n${multi}\n開始・終了挨拶が有効なので、この応答のturnsは必ず読み上げる。異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。各turnには表示用textと読み上げ用speechTextを必ず入れる。speechTextは発音用なので、漢字はできるだけかなへ、英字略語はカタカナ読みへ、数字は文脈に合う自然な読みへ変換する。漢字・英字・数字を含むtextをspeechTextへ丸コピーしない。読みが不確かな固有名詞だけは原表記を残してよい。speakは互換用フィールドなので値にかかわらずturnsを生成する。各5〜25文字程度の自然な口語。架空の思い出は作らない。`}];
+    return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。開始や終了の定型句を機械的に言い換えるのではなく、その場の友達同士として自然で変化のある短い一言を返す。各turnのtextは画面表示用、speechTextは読み上げ専用にする。speechTextはVOICEVOXや棒読みちゃんが自然に読める発音表記にし、漢字はできるだけかなへ、英字略語はカタカナ読みへ、数字は自然な日本語読みへ直す。漢字・英字・数字を含むtextをそのままコピーしない。読みが不確かな固有名詞だけ原表記を残してよい。方言や崩した言い方も、その友達が実際に話す自然な表記で書く。'}]},
       contents:[{role:'user',parts}],generationConfig:{candidateCount:1,maxOutputTokens:512,thinkingConfig:{thinkingLevel:'MINIMAL',includeThoughts:false},responseMimeType:'application/json',
-        responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:turnCount,maxItems:turnCount,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'},speechText:{type:'STRING'}},required:['speakerId','text']}}},required:['speak','summary','turns']}}};
+        responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:turnCount,maxItems:turnCount,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'},speechText:{type:'STRING'}},required:['speakerId','text','speechText']}}},required:['speak','summary','turns']}}};
   }
   async function playGreetingTurns(turns,s,signal,label){
     const items=turns.map(turn=>({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)})).filter(x=>x.profile);
