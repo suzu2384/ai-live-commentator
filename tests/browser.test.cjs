@@ -221,6 +221,32 @@ const results=[];
   await p.locator('#openHelp').click();assert.equal(await p.locator('#helpDialog').getAttribute('open'),'');await p.locator('#doneHelpDialog').click();
   await x.close();
  });
+ await test('narrow layout keeps the acquired preview stacked above sticky tabs and uses triangle disclosure icons',async()=>{
+  const x=await setup();const p=x.page;
+  await p.setViewportSize({width:800,height:900});
+  await p.waitForFunction(()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--preview-sticky-height'))>0);
+  const layout=await p.evaluate(()=>{
+    const toolbar=document.querySelector('.toolbar'),preview=document.querySelector('.preview-sticky'),tabs=document.querySelector('.tabs');
+    return {
+      previewPosition:getComputedStyle(preview).position,
+      previewTop:parseFloat(getComputedStyle(preview).top),
+      toolbarHeight:toolbar.getBoundingClientRect().height,
+      tabsTop:parseFloat(getComputedStyle(tabs).top),
+      previewHeight:preview.getBoundingClientRect().height
+    };
+  });
+  assert.equal(layout.previewPosition,'sticky');
+  assert.ok(layout.previewTop>=layout.toolbarHeight-1);
+  assert.ok(layout.tabsTop>=layout.toolbarHeight+layout.previewHeight-1);
+  await p.locator('#tab-connect').click();
+  const summary=p.locator('#settings-video > .setting-summary');
+  const closedIcon=await summary.evaluate(el=>getComputedStyle(el,'::after').content);
+  assert.ok(closedIcon.includes('▶'));
+  await summary.click();
+  const openIcon=await summary.evaluate(el=>getComputedStyle(el,'::after').content);
+  assert.ok(openIcon.includes('▼'));
+  await x.close();
+ });
  await test('saved v4 settings survive the tab reorganization',async()=>{
   const x=await setup();const p=x.page;
   await p.evaluate(()=>{
