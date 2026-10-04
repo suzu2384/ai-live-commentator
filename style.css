@@ -534,9 +534,14 @@ html[data-theme="sand"]{
 .speaker-status-section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .speaker-status-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
 .speaker-status-head strong{font-size:12px}
-.speaker-status-head span{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-.speaker-stats-list{display:grid;gap:6px}
-.speaker-stat-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface-section);transition:border-color .15s,background .15s}
+.speaker-status-body{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;align-items:center}
+.speaker-stats-donut{width:96px;aspect-ratio:1;border-radius:50%;position:relative;display:grid;place-items:center;background:var(--line)}
+.speaker-stats-donut::after{content:"";position:absolute;inset:18px;border-radius:50%;background:var(--card);border:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.speaker-stats-donut-center{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05}
+.speaker-stats-donut-center strong{font-size:22px;font-variant-numeric:tabular-nums}
+.speaker-stats-donut-center span{margin-top:4px;font-size:10px;color:var(--muted)}
+.speaker-stats-list{display:grid;gap:5px;min-width:0}
+.speaker-stat-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:6px 7px;border:1px solid var(--line);border-radius:8px;background:var(--surface-section);transition:border-color .15s,background .15s}
 .speaker-stat-row.active{border-color:var(--speaker-color);background:color-mix(in srgb,var(--speaker-color) 13%,var(--surface-section))}
 .speaker-stat-row.recent{border-color:color-mix(in srgb,var(--speaker-color) 45%,var(--line))}
 .speaker-stat-main{display:flex;align-items:center;gap:7px;min-width:0}
@@ -545,9 +550,7 @@ html[data-theme="sand"]{
 .speaker-stat-state{font-size:10px;color:var(--muted);white-space:nowrap}
 .speaker-stat-row.active .speaker-stat-state{color:var(--speaker-color);font-weight:700}
 .speaker-stat-value{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-.speaker-stat-track{grid-column:1/-1;height:3px;border-radius:999px;overflow:hidden;background:var(--line)}
-.speaker-stat-bar{display:block;height:100%;border-radius:inherit;background:var(--speaker-color);transition:width .2s}
-@media(max-width:520px){.speaker-stat-row{padding:7px}.speaker-stat-main{gap:6px}.speaker-stat-state{font-size:9px}}
+@media(max-width:520px){.speaker-status-body{grid-template-columns:82px minmax(0,1fr);gap:9px}.speaker-stats-donut{width:82px}.speaker-stats-donut::after{inset:16px}.speaker-stats-donut-center strong{font-size:19px}.speaker-stat-row{padding:6px}.speaker-stat-main{gap:6px}.speaker-stat-state{font-size:9px}}
 @container (min-width:620px){
   .comment-card .speaker-status-section{margin-top:0;padding-top:0;padding-left:16px;border-top:0;border-left:1px solid var(--line)}
 }
