@@ -309,11 +309,11 @@ const results=[];
   await x.close();
  });
  await test('OBS authentication and preview send no Gemini request',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#testObs').click();await stopped(x.page);assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);await x.close();});
- await test('OBS source refresh reapplies input settings and refreshes preview',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#resetObsSource').click();await stopped(x.page);const req=x.events.obsRequests.find(r=>r.type==='SetInputSettings'&&r.data.inputName==='PS Remote Play');assert.ok(req);assert.deepEqual(req.data.inputSettings,{});assert.equal(req.data.overlay,true);assert.equal(x.events.images,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);assert.ok((await x.page.locator('#log').innerText()).includes('映像ソース「PS Remote Play」を再取得'));await x.close();});
+ await test('OBS source refresh is placed on the preview card, reapplies input settings and refreshes preview',async()=>{const x=await setup();assert.equal(await x.page.locator('#resetObsSource').evaluate(el=>el.closest('.preview-card')!==null),true);assert.equal(await x.page.locator('#settings-video #resetObsSource').count(),0);await x.page.locator('#resetObsSource').click();await stopped(x.page);const req=x.events.obsRequests.find(r=>r.type==='SetInputSettings'&&r.data.inputName==='PS Remote Play');assert.ok(req);assert.deepEqual(req.data.inputSettings,{});assert.equal(req.data.overlay,true);assert.equal(x.events.images,1);assert.equal(x.events.api,0);assert.equal(await x.page.locator('#preview').isVisible(),true);assert.ok((await x.page.locator('#log').innerText()).includes('映像ソース「PS Remote Play」を再取得'));await x.close();});
  await test('OBS source refresh stays available during streaming and reuses the active connection',async()=>{
   const x=await setup();const p=x.page;
   await p.locator('#start').click();await idle(p);
-  await p.locator('#tab-connect').click();
+  assert.equal(await p.locator('#resetObsSource').evaluate(el=>el.closest('.preview-card')!==null),true);
   assert.equal(await p.locator('#resetObsSource').isDisabled(),false);
   const identifiesBefore=x.events.identifies;
   const resetsBefore=x.events.obsRequests.filter(r=>r.type==='SetInputSettings'&&r.data.inputName==='PS Remote Play').length;
