@@ -1074,7 +1074,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('finish').addEventListener('click',()=>finishAction?.());
   $('stop').addEventListener('click',()=>{clearObsOverlayNow();controller?.abort();obs?.close();try{activeAudio?.stop();}catch{}setStatus('即停止処理中');if(lastSettings?.output==='bouyomi')log('新しい送信を即停止します。棒読みちゃんに送信済みの音声は、必要なら棒読みちゃん側で停止してください。');});
   $('testObs').addEventListener('click',()=>operation(async signal=>{const s=settings();await connectObs(s,signal);setStatus('OBSの画像取得中');await getFrame(s,signal);log('映像確認完了。Geminiへの送信はありません。');}));
-  $('resetObsSource').addEventListener('click',()=>operation(async signal=>{const s=settings();await connectObs(s,signal);setStatus('OBS映像ソースを再取得中');await obs.request('SetInputSettings',{inputName:s.sourceName,inputSettings:{},overlay:true},signal,{errorCode:'OBS_SOURCE',errorMessage:'OBS映像ソースの再取得に失敗しました'});log(`映像ソース「${s.sourceName}」の再取得を要求しました。OBSがウィンドウを探し直します。`);}));
+  $('resetObsSource').addEventListener('click',()=>operation(async signal=>{const s=settings();await connectObs(s,signal);setStatus('OBS映像ソースを再取得中');await obs.request('SetInputSettings',{inputName:s.sourceName,inputSettings:{},overlay:true},signal,{errorCode:'OBS_SOURCE',errorMessage:'OBS映像ソースの再取得に失敗しました'});await C.sleep(300,signal);setStatus('再取得後の映像を確認中');await getFrame(s,signal);log(`映像ソース「${s.sourceName}」を再取得し、映像を確認しました。`);}));
   $('testObsOverlay').addEventListener('click',()=>operation(async signal=>{
     const s=settings();if(!s.obsOverlayEnabled){revealSetting('obsOverlayEnabled');throw new C.AppError('「OBSにコメントを表示」をONにしてからテストしてください。');}
     await connectObs(s,signal);const profile=s.profiles[0];setStatus('OBSコメント表示をテスト中');
