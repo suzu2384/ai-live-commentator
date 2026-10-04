@@ -324,7 +324,7 @@
     const importedContents=normalizeContentLibrary(Array.isArray(value.contentLibrary)?value.contentLibrary:[]);
     const importedFonts=normalizeFontLibrary(Array.isArray(value.fontLibrary)?value.fontLibrary:[]);
     for(const id of savedIds){
-      if(source[id]===undefined)continue;
+      if(source[id]===undefined)throw new C.AppError('設定ファイルに必要な設定項目が不足しています。');
       const el=$(id),raw=source[id];
       if(el.type==='checkbox'){
         if(typeof raw!=='boolean')throw new C.AppError(`${settingLabel(id)}の値が不正です。`);
@@ -357,6 +357,7 @@
     });
     const selected=Array.isArray(source.selectedProfileIds)?[...new Set(source.selectedProfileIds.filter(id=>/^p[1-6]$/.test(id)))]:[];
     if(!selected.length)throw new C.AppError('参加する友達を1人以上指定してください。');
+    if(Array.from({length:selected.length},(_,i)=>data[`speakerWeight${i+1}`]).every(w=>w===0))throw new C.AppError('選択した友達の人数以内の発言人数の重みを1つ以上0より大きくしてください。');
     return {data:{...data,contentName,selectedProfileIds:selected,participantCount:selected.length,profiles},contentLibrary:importedContents,fontLibrary:importedFonts};
   }
   function applyImportedBundle(bundle){
