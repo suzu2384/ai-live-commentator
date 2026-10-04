@@ -64,14 +64,18 @@
     return Array.from({length:6},(_,i)=>{const id=`p${i+1}`;return {id,name:$(`${id}-name`)?.value.trim()||`友達${i+1}`};}).filter(p=>selected.has(p.id));
   }
   function renderSpeakerStats(){
-    const root=$('speakerStatsList');if(!root)return;
+    const root=$('speakerStatsList'),donut=$('speakerStatsDonut');if(!root||!donut)return;
     const profiles=speakerProfilesForDisplay(),total=profiles.reduce((sum,p)=>sum+(speakerSessionCounts[p.id]||0),0);
-    $('speakerStatsTotal').textContent=`今回 ${total}発言`;
+    $('speakerStatsTotal').textContent=String(total);
     root.replaceChildren();
+    const segments=[];let angle=0;
     for(const profile of profiles){
       const count=speakerSessionCounts[profile.id]||0,percent=total?Math.round(count*100/total):0;
-      const row=document.createElement('div');row.className='speaker-stat-row';row.dataset.speakerId=profile.id;
-      const index=Math.max(0,Math.min(5,Number(profile.id.slice(1))-1));row.style.setProperty('--speaker-color',obsOverlayColors[index]);
+      const index=Math.max(0,Math.min(5,Number(profile.id.slice(1))-1)),color=`var(--friend-${index+1})`;
+      if(total&&count){
+        const next=angle+count/total*360;segments.push(`${color} ${angle.toFixed(2)}deg ${next.toFixed(2)}deg`);angle=next;
+      }
+      const row=document.createElement('div');row.className='speaker-stat-row';row.dataset.speakerId=profile.id;row.style.setProperty('--speaker-color',color);
       if(activeSpeakerId===profile.id)row.classList.add('active');
       else if(lastSpeakerId===profile.id&&count>0)row.classList.add('recent');
       const main=document.createElement('div');main.className='speaker-stat-main';
@@ -81,10 +85,12 @@
       state.textContent=activeSpeakerId===profile.id?(activeSpeakerMode||'発話中'):(lastSpeakerId===profile.id&&count>0?'直近':'待機');
       main.append(dot,name,state);
       const value=document.createElement('span');value.className='speaker-stat-value';value.textContent=`${count}回 · ${percent}%`;
-      const track=document.createElement('span');track.className='speaker-stat-track';track.setAttribute('aria-hidden','true');
-      const bar=document.createElement('span');bar.className='speaker-stat-bar';bar.style.width=`${percent}%`;track.append(bar);
-      row.append(main,value,track);root.append(row);
+      row.append(main,value);root.append(row);
     }
+    donut.style.background=total?`conic-gradient(${segments.join(',')})`:'var(--line)';
+    donut.setAttribute('aria-label',total
+      ?`今回 ${total}発言。 ${profiles.map(p=>{const count=speakerSessionCounts[p.id]||0;return `${p.name} ${count}回 ${Math.round(count*100/total)}%`;}).join('、')}`
+      :'今回の発言はまだありません');
   }
   function resetSpeakerStats(){
     for(const id of Object.keys(speakerSessionCounts))speakerSessionCounts[id]=0;
