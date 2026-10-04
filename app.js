@@ -789,15 +789,18 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
       disableObsOverlayTarget();obsOverlayTarget=null;
     },Math.max(0,s.obsOverlayHold)*1000);
   }
+  function speechSourceText(turn){
+    const display=String(turn?.text??'').trim(),candidate=String(turn?.speechText??'').trim();
+    const normalized=C.plainSpeech(candidate);
+    return /[\p{L}\p{N}]/u.test(normalized)?candidate:display;
+  }
   function spokenText(turn){
-    const display=C.plainSpeech(String(turn?.text??''));
-    const speech=C.plainSpeech(String(turn?.speechText??''));
-    return /[\p{L}\p{N}]/u.test(speech)?speech:(display||speech);
+    const source=speechSourceText(turn),spoken=C.plainSpeech(source);
+    return spoken||C.plainSpeech(String(turn?.text??''));
   }
   function showLatestComment(profile,turn){
     $('lastComment').textContent=profile.name+'：'+turn.text;
-    const reading=typeof turn?.speechText==='string'&&turn.speechText.trim()?turn.speechText.trim():turn.text;
-    $('lastSpeechText').querySelector('strong').textContent=reading||'—';
+    $('lastSpeechText').querySelector('strong').textContent=speechSourceText(turn)||'—';
     $('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
   }
   function greetingHistory(){
