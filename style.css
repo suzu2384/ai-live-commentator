@@ -483,7 +483,7 @@ html[data-theme="sand"]{
 .font-picker-row button{margin:0;padding:7px 10px;white-space:nowrap}
 
 
-/* Keep the live preview visible above settings when the window stacks vertically. */
+/* Keep only the acquired image visible above settings when the window stacks vertically. */
 .preview-sticky{display:flex;flex-direction:column;flex:1;min-height:0}
 .setting-summary::after{content:"▶";font-size:10px;line-height:1;transition:none;text-align:center}
 .setting-section[open]>.setting-summary::after,.advanced-settings[open]>.setting-summary::after{content:"▼";transform:none}
@@ -491,17 +491,28 @@ html[data-theme="sand"]{
 @media(max-width:900px){
   .monitor-column{display:contents}
   .preview-card{display:contents}
+  .preview-card>.card-head{
+    margin:0;
+    padding:14px 16px 12px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px
+  }
   .preview-sticky{
     position:sticky;
     top:var(--toolbar-height,132px);
     z-index:4;
     flex:none;
     min-height:0;
-    background:var(--card);
+    padding:6px 0 8px;
+    background:var(--bg);
+    overflow:visible
+  }
+  .preview-sticky .preview{
     border:1px solid var(--line);
     border-radius:14px;
     overflow:hidden;
-    box-shadow:0 8px 18px color-mix(in srgb,var(--bg) 55%,transparent)
+    background:var(--preview-bg)
   }
   .preview-card>.metrics{
     margin:0;
@@ -512,6 +523,13 @@ html[data-theme="sand"]{
   .tabs{top:calc(var(--toolbar-height,132px) + var(--preview-sticky-height,0px) + 8px)}
 }
 
+.comment-card{container-type:inline-size}
+.comment-status-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.latest-comment-pane{min-width:0}
+@container (min-width:620px){
+  .comment-status-layout{grid-template-columns:minmax(0,1.15fr) minmax(230px,.85fr);gap:16px;align-items:start}
+  .speaker-status-section{margin-top:0;padding-top:0;padding-left:16px;border-top:0;border-left:1px solid var(--line)}
+}
 
 /* Per-speaker live status and session balance. */
 .speaker-status-section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
