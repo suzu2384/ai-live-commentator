@@ -226,27 +226,40 @@ const results=[];
   await p.setViewportSize({width:800,height:900});
   await p.waitForFunction(()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--preview-sticky-height'))>0);
   const layout=await p.evaluate(()=>{
-    const toolbar=document.querySelector('.toolbar'),preview=document.querySelector('.preview-sticky'),tabs=document.querySelector('.tabs');
-    const previewImage=preview.querySelector('.preview');
+    const workspace=document.querySelector('.workspace'),toolbar=document.querySelector('.toolbar'),preview=document.querySelector('.preview-sticky'),tabs=document.querySelector('.tabs');
+    const previewImage=preview.querySelector('.preview'),heading=document.querySelector('.preview-card>.card-head'),metrics=document.querySelector('.preview-card>.metrics');
+    const headingBox=heading.getBoundingClientRect(),previewBox=preview.getBoundingClientRect(),metricsBox=metrics.getBoundingClientRect();
     return {
+      workspaceGap:parseFloat(getComputedStyle(workspace).gap),
       previewPosition:getComputedStyle(preview).position,
       previewTop:parseFloat(getComputedStyle(preview).top),
       toolbarHeight:toolbar.getBoundingClientRect().height,
       tabsTop:parseFloat(getComputedStyle(tabs).top),
-      previewHeight:preview.getBoundingClientRect().height,
+      tabsRadius:parseFloat(getComputedStyle(tabs).borderTopLeftRadius),
+      tabsBackground:getComputedStyle(tabs).backgroundColor,
+      previewHeight:previewBox.height,
       hasHeading:!!preview.querySelector('.card-head'),
+      hasMetrics:!!preview.querySelector('.metrics'),
       hasImage:!!previewImage,
       stickyBackground:getComputedStyle(preview).backgroundColor,
-      imageRadius:parseFloat(getComputedStyle(previewImage).borderTopLeftRadius)
+      imageRadius:parseFloat(getComputedStyle(previewImage).borderTopLeftRadius),
+      headingToPreview:Math.abs(headingBox.bottom-previewBox.top),
+      previewToMetrics:Math.abs(previewBox.bottom-metricsBox.top)
     };
   });
+  assert.equal(layout.workspaceGap,0);
   assert.equal(layout.previewPosition,'sticky');
   assert.ok(layout.previewTop>=layout.toolbarHeight-1);
-  assert.ok(layout.tabsTop>=layout.toolbarHeight+layout.previewHeight-1);
+  assert.ok(Math.abs(layout.tabsTop-(layout.toolbarHeight+layout.previewHeight))<=1);
+  assert.equal(layout.tabsRadius,0);
+  assert.notEqual(layout.tabsBackground,'rgba(0, 0, 0, 0)');
   assert.equal(layout.hasHeading,false);
+  assert.equal(layout.hasMetrics,false);
   assert.equal(layout.hasImage,true);
   assert.notEqual(layout.stickyBackground,'rgba(0, 0, 0, 0)');
-  assert.ok(layout.imageRadius>0);
+  assert.equal(layout.imageRadius,0);
+  assert.ok(layout.headingToPreview<=1);
+  assert.ok(layout.previewToMetrics<=1);
   await p.locator('#tab-connect').click();
   const summary=p.locator('#settings-video > .setting-summary');
   const closedIcon=await summary.evaluate(el=>getComputedStyle(el,'::after').content);
