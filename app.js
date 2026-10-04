@@ -4,6 +4,8 @@
   const storageKey = 'ai-live-commentator-browser-v1';
   const contentLibraryKey = 'ai-live-commentator-content-library-v1';
   const fontLibraryKey = 'ai-live-commentator-font-library-v1';
+  const settingsExportFormat = 'minkome-settings';
+  const settingsExportVersion = 1;
   const obsOverlaySourceName='みんコメ 吹き出し';
   const legacyObsOverlaySourceName='みんコメ コメント';
   const obsOverlayColors=['#2e7fa3','#a93b6b','#3f7f46','#b47420','#6549a7','#a8443b'];
@@ -306,11 +308,88 @@
     s.speaker=s.profiles[0].speaker; s.speedScale=s.profiles[0].speedScale; s.bouyomiVoice=s.profiles[0].bouyomiVoice;
     return s;
   }
+  function persistedSettings(s){
+    // Explicit allowlist: secrets and free-tier confirmation are never persisted or exported.
+    return {...Object.fromEntries(savedIds.map(id => [id, s[id]])),contentName:s.contentName,selectedProfileIds:s.selectedProfileIds,participantCount:s.participantCount,profiles:s.allProfiles};
+  }
   function save(s) {
-    // Explicit allowlist: secrets and free-tier confirmation are never persisted.
-    const data = {...Object.fromEntries(savedIds.map(id => [id, s[id]])), contentName:s.contentName, selectedProfileIds:s.selectedProfileIds, participantCount:s.participantCount, profiles:s.allProfiles};
+    const data=persistedSettings(s);
     try { localStorage.setItem(storageKey, JSON.stringify(data)); $('saveState').textContent = '設定を保存しました。キー類の保存は「暗号化して保存」から行えます。'; }
     catch { $('saveState').textContent = 'ブラウザが保存を許可していません。このタブ内では使えます。'; }
+  }
+  function plainObject(value){return value!==null&&typeof value==='object'&&!Array.isArray(value);}
+  function normalizeImportedBundle(value){
+    if(!plainObject(value)||value.format!==settingsExportFormat||value.version!==settingsExportVersion||!plainObject(value.settings))throw new C.AppError('みんコメの設定ファイルとして認識できません。');
+    const source=value.settings,data={};
+    const importedContents=normalizeContentLibrary(Array.isArray(value.contentLibrary)?value.contentLibrary:[]);
+    const importedFonts=normalizeFontLibrary(Array.isArray(value.fontLibrary)?value.fontLibrary:[]);
+    for(const id of savedIds){
+      if(source[id]===undefined)continue;
+      const el=$(id),raw=source[id];
+      if(el.type==='checkbox'){
+        if(typeof raw!=='boolean')throw new C.AppError(`${settingLabel(id)}の値が不正です。`);
+        data[id]=raw;
+      }else if(typeof raw==='string'||typeof raw==='number')data[id]=raw;
+      else throw new C.AppError(`${settingLabel(id)}の値が不正です。`);
+    }
+    for(const [id,[min,max]] of Object.entries(numberRules)){
+      if(data[id]===undefined)continue;
+      const n=Number(data[id]);
+      if(!Number.isInteger(n)||n<min||n>max)throw new C.AppError(`${settingLabel(id)}は${min}〜${max}の整数で指定してください。`);
+      data[id]=n;
+    }
+    if(data.theme!==undefined&&!Object.hasOwn(themes,String(data.theme)))throw new C.AppError('テーマの値が不正です。');
+    if(data.imageWidth!==undefined&&![320,640,960].includes(data.imageWidth))throw new C.AppError('画像サイズの値が不正です。');
+    if(data.obsOverlayPosition!==undefined&&!['top-left','top-center','top-right','bottom-left','bottom-center','bottom-right'].includes(String(data.obsOverlayPosition)))throw new C.AppError('OBSコメントの表示位置が不正です。');
+    if(data.output!==undefined&&!['bouyomi','voicevox'].includes(String(data.output)))throw new C.AppError('読み上げ先の値が不正です。');
+    if(data.obsOverlayFont!==undefined&&data.obsOverlayFont!=='system'&&!importedFonts.includes(String(data.obsOverlayFont)))throw new C.AppError('OBSコメントのフォントが登録フォント一覧にありません。');
+    const contentName=typeof source.contentName==='string'?splitContentName(source.contentName).raw:'';
+    if(contentName&&!importedContents.includes(contentName))throw new C.AppError('対象コンテンツが対象コンテンツ一覧にありません。');
+    const rawProfiles=Array.isArray(source.profiles)?source.profiles:[];
+    if(rawProfiles.length!==6)throw new C.AppError('友達設定は6人分必要です。');
+    const profiles=rawProfiles.map((raw,i)=>{
+      if(!plainObject(raw))throw new C.AppError(`友達${i+1}の設定が不正です。`);
+      const name=typeof raw.name==='string'?raw.name.trim():'',personality=typeof raw.personality==='string'?raw.personality.trim():'';
+      const speaker=Number(raw.speaker),speedScale=Number(raw.speedScale),bouyomiVoice=Number(raw.bouyomiVoice);
+      if(!name||name.length>40||!personality||personality.length>300)throw new C.AppError(`友達${i+1}の呼び名または性格・話し方が不正です。`);
+      if(!Number.isInteger(speaker)||speaker<0||speaker>99999||!Number.isFinite(speedScale)||speedScale<0.5||speedScale>2||!Number.isInteger(bouyomiVoice)||bouyomiVoice<0||bouyomiVoice>65535)throw new C.AppError(`友達${i+1}の音声設定が不正です。`);
+      return {id:`p${i+1}`,name,personality,speaker,speedScale,bouyomiVoice};
+    });
+    const selected=Array.isArray(source.selectedProfileIds)?[...new Set(source.selectedProfileIds.filter(id=>/^p[1-6]$/.test(id)))]:[];
+    if(!selected.length)throw new C.AppError('参加する友達を1人以上指定してください。');
+    return {data:{...data,contentName,selectedProfileIds:selected,participantCount:selected.length,profiles},contentLibrary:importedContents,fontLibrary:importedFonts};
+  }
+  function applyImportedBundle(bundle){
+    contentLibrary=bundle.contentLibrary;fontLibrary=bundle.fontLibrary;saveContentLibrary();saveFontLibrary();
+    for(const id of savedIds){
+      if(bundle.data[id]===undefined)continue;
+      if($(id).type==='checkbox')$(id).checked=bundle.data[id]===true;else $(id).value=String(bundle.data[id]);
+    }
+    renderFontOptions(bundle.data.obsOverlayFont===undefined?$('obsOverlayFont').value:String(bundle.data.obsOverlayFont));
+    applyTheme($('theme').value);
+    renderContentOptions(bundle.data.contentName);
+    $('profiles').replaceChildren();buildProfiles(bundle.data.profiles);renderParticipantSelection(bundle.data.selectedProfileIds);
+    outputFields();overlayFields();updateSettingSummaries();
+    const s=settings();save(s);
+    $('saveState').textContent='設定をインポートしました。APIキーとOBSパスワードは変更していません。';
+    log('設定をインポートしました。友達設定・対象コンテンツ一覧・登録フォント一覧も反映しました。');
+  }
+  function exportSettings(){
+    const s=settings();
+    const bundle={format:settingsExportFormat,version:settingsExportVersion,exportedAt:new Date().toISOString(),secretsIncluded:false,settings:persistedSettings(s),contentLibrary:[...contentLibrary],fontLibrary:[...fontLibrary]};
+    const blob=new Blob([JSON.stringify(bundle,null,2)+'\n'],{type:'application/json'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a'),stamp=new Date().toISOString().slice(0,10).replaceAll('-','');
+    a.href=url;a.download=`minkome-settings-${stamp}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),0);
+    $('saveState').textContent='設定を書き出しました。APIキーとOBSパスワードは含まれていません。';
+    log('設定をエクスポートしました。秘密情報は含めていません。');
+  }
+  async function importSettingsFile(file){
+    if(!file)return;
+    if(file.size>1024*1024)throw new C.AppError('設定ファイルが大きすぎます。1MB以下のJSONファイルを選択してください。');
+    let raw;try{raw=JSON.parse(await file.text());}catch{throw new C.AppError('設定ファイルのJSONを読み取れませんでした。');}
+    const bundle=normalizeImportedBundle(raw);
+    if(!confirm('現在の通常設定を、選択した設定ファイルの内容で置き換えますか？\nAPIキーとOBSパスワードは変更しません。'))return;
+    applyImportedBundle(bundle);
   }
   function voicevoxSettingsLink(){
     try{$('voicevoxSettingsLink').href=C.localUrl($('voicevoxUrl').value,'http:')+'/setting';}
@@ -1008,6 +1087,9 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     C.candidateText(body);const seconds=(performance.now()-began)/1000;$('latency').textContent=seconds.toFixed(1)+' 秒';log(`文章だけの応答を受信: ${seconds.toFixed(1)}秒。画像解析・音声再生は行っていません。`);
   }));
   $('save').addEventListener('click',()=>{try{const s=settings();save(s);updateStats();}catch(e){log(e.message,'warn');}});
+  $('exportSettings').addEventListener('click',()=>{try{exportSettings();}catch(e){$('saveState').textContent=e.message;log(e.message,'warn');}});
+  $('importSettings').addEventListener('click',()=>{$('importSettingsFile').click();});
+  $('importSettingsFile').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';try{await importSettingsFile(file);}catch(error){$('saveState').textContent=error.message||'設定のインポートに失敗しました。';log(error.message||'設定のインポートに失敗しました。','warn');}});
   $('preset').addEventListener('click',()=>{for(const [id,value] of Object.entries({talkativeness:2,apiInterval:30,speechInterval:20,quietInterval:60}))$(id).value=value;updateSettingSummaries();log('よく話す設定を適用しました。「設定を保存」または「実況を開始」で保存します。');});
   $('clearLog').addEventListener('click',()=>$('log').replaceChildren());$('output').addEventListener('change',outputFields);$('obsOverlayEnabled').addEventListener('change',overlayFields);
   $('manageContents').addEventListener('click',openContentDialog);
