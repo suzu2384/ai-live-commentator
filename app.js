@@ -789,9 +789,15 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
       disableObsOverlayTarget();obsOverlayTarget=null;
     },Math.max(0,s.obsOverlayHold)*1000);
   }
-  function spokenText(turn){return C.plainSpeech(String(turn?.text??''));}
+  function spokenText(turn){
+    const display=C.plainSpeech(String(turn?.text??''));
+    const speech=C.plainSpeech(String(turn?.speechText??''));
+    return /[\p{L}\p{N}]/u.test(speech)?speech:(display||speech);
+  }
   function showLatestComment(profile,turn){
     $('lastComment').textContent=profile.name+'：'+turn.text;
+    const reading=typeof turn?.speechText==='string'&&turn.speechText.trim()?turn.speechText.trim():turn.text;
+    $('lastSpeechText').querySelector('strong').textContent=reading||'—';
     $('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
   }
   function greetingHistory(){
@@ -841,10 +847,10 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
       : `実況開始直後の短い一言を作る。まだゲーム画面を見ていないので状況・成果を推測しない。毎回「始まったね」「今日も見ていこう」「よろしく」の言い換えになるのを避ける。今回の変化パターン: ${variation}`;
     const recentNote=recent.length?`直近の${ending?'終了':'開始'}挨拶（同一・類似の入り方、語尾、意味を避ける）:\n${recent.map(text=>`・${text}`).join('\n')}`:`直近の${ending?'終了':'開始'}挨拶: なし`;
     const multi=turnCount>1?'複数人のときは全員が独立した挨拶を並べず、最初の一言を受けて軽く反応したり別の温度感を添えたりして、ひと続きの短い掛け合いにする。':'';
-    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n${content}\n直近の状況: ${context}\n${recentNote}\n${task}\n${multi}\n開始・終了挨拶が有効なので、この応答のturnsは必ず読み上げる。異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。speakは互換用フィールドなので値にかかわらずturnsを生成する。各5〜25文字程度の自然な口語。架空の思い出は作らない。`}];
-    return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。開始や終了の定型句を機械的に言い換えるのではなく、その場の友達同士として自然で変化のある短い一言を返す。各turnのtextは表示と読み上げの両方にそのまま使う自然な日本語の口語にする。方言や崩した言い方も、その友達が実際に話す自然な表記で書く。'}]},
+    const parts=[{text:`共通の雰囲気: ${s.persona}\n参加者: ${JSON.stringify(s.profiles.map(({id,name,personality})=>({id,name,personality})))}\n${content}\n直近の状況: ${context}\n${recentNote}\n${task}\n${multi}\n開始・終了挨拶が有効なので、この応答のturnsは必ず読み上げる。異なる${turnCount}人が1回ずつ発言し、turnsを必ず${turnCount}件にする。同じspeakerIdを重複させない。各turnには表示用textと読み上げ用speechTextを入れる。speechTextは同じ意味を保ったまま読み間違えやすい固有名詞・英数字などを読みやすくする。読みが不確かな場合でも空にせずtextをそのまま入れてよく、漢字が残ってもよい。speakは互換用フィールドなので値にかかわらずturnsを生成する。各5〜25文字程度の自然な口語。架空の思い出は作らない。`}];
+    return {systemInstruction:{parts:[{text:'あなたは無言のゲーム配信に添える友達役。開始や終了の定型句を機械的に言い換えるのではなく、その場の友達同士として自然で変化のある短い一言を返す。各turnのtextは画面表示用、speechTextは読み上げ用にする。speechTextはtextと同じ意味を保ち、読みやすさだけを調整する。読みが不確かな場合はtextをそのまま入れてよい。方言や崩した言い方も、その友達が実際に話す自然な表記で書く。'}]},
       contents:[{role:'user',parts}],generationConfig:{candidateCount:1,maxOutputTokens:512,thinkingConfig:{thinkingLevel:'MINIMAL',includeThoughts:false},responseMimeType:'application/json',
-        responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:turnCount,maxItems:turnCount,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'}},required:['speakerId','text']}}},required:['speak','summary','turns']}}};
+        responseSchema:{type:'OBJECT',properties:{speak:{type:'BOOLEAN'},summary:{type:'STRING'},turns:{type:'ARRAY',minItems:turnCount,maxItems:turnCount,items:{type:'OBJECT',properties:{speakerId:{type:'STRING',enum:s.profiles.map(p=>p.id)},text:{type:'STRING'},speechText:{type:'STRING'}},required:['speakerId','text']}}},required:['speak','summary','turns']}}};
   }
   async function playGreetingTurns(turns,s,signal,label){
     const items=turns.map(turn=>({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)})).filter(x=>x.profile);
