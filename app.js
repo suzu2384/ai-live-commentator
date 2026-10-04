@@ -572,14 +572,15 @@
       const decoded=await audioContext.decodeAudioData(wave);C.check(token);return decoded;
     },ms,signal,frame?'音声生成中に鮮度上限に達したため破棄しました。':'VOICEVOXの音声生成がタイムアウトしました。',frame?'STALE':'TIMEOUT');
   }
-  async function playVoicevoxAudio(audio,s,frame,signal) {
+  async function playVoicevoxAudio(audio,s,frame,signal,onStart=null) {
     checkFresh(frame,s);C.check(signal);
     if(audioContext.state!=='running')throw new C.AppError('音声再生が中断されています。音声テストをやり直してください。');
     await C.deadline(token=>new Promise((resolve,reject)=>{
       const source=audioContext.createBufferSource();activeAudio=source;source.buffer=audio;source.connect(audioContext.destination);
       const clean=()=>{token.removeEventListener('abort',abort);source.disconnect();if(activeAudio===source)activeAudio=null;};
       const abort=()=>{source.onended=null;try{source.stop();}catch{}clean();reject(C.abortError());};
-      source.onended=()=>{clean();resolve();};token.addEventListener('abort',abort,{once:true});source.start();
+      source.onended=()=>{clean();resolve();};token.addEventListener('abort',abort,{once:true});
+      onStart?.();source.start();
     }),120000,signal,'音声再生がタイムアウトしました。');
   }
   async function speak(text,s,frame,signal,ownQueue=false) {
@@ -858,7 +859,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   async function playGreetingTurns(turns,s,signal,label){
     const items=turns.map(turn=>({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)})).filter(x=>x.profile);
     const delivered=({turn,profile})=>{
-      recordSpeaker(profile);showLatestComment(profile,turn);
+      recordSpeaker(profile);
       $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
       log(`${label}・${profile.name}: ${turn.text}`,'spoken');
     };
@@ -869,7 +870,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
         const item=items[i],next=items[i+1];
         setStatus(next?`${label}を再生中・次の音声を先読み中`:`${label}を再生中`);
         const overlayEpoch=await showObsOverlay(item.profile,item.turn,s,signal);
-        setSpeakerActivity(item.profile,'発話中');const playback=playVoicevoxAudio(audio,{...s,...item.profile},null,signal);
+        setSpeakerActivity(item.profile,'発話中');const playback=playVoicevoxAudio(audio,{...s,...item.profile},null,signal,()=>{showLatestComment(item.profile,item.turn);$('delivery').textContent='このブラウザで再生中';});
         let prefetch=null,prefetchController=null,unlink=null;
         if(next){
           prefetchController=new AbortController();
@@ -881,7 +882,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
         if(prefetch){const prepared=await prefetch;unlink?.();if(prepared.error)throw prepared.error;audio=prepared.value;}
       }
     }else{
-      for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);setSpeakerActivity(item.profile,'送信中');let sent=false;try{sent=await speak(spokenText(item.turn),{...s,...item.profile},null,signal,true);}finally{clearSpeakerActivity(item.profile.id);}if(!sent)throw new C.AppError(`${label}を読み上げ先へ送信できませんでした。`,'VOICE');const overlayEpoch=await showObsOverlay(item.profile,item.turn,s,signal);delivered(item);scheduleObsOverlayHide(s,overlayEpoch);}
+      for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);setSpeakerActivity(item.profile,'送信中');let sent=false;try{sent=await speak(spokenText(item.turn),{...s,...item.profile},null,signal,true);}finally{clearSpeakerActivity(item.profile.id);}if(!sent)throw new C.AppError(`${label}を読み上げ先へ送信できませんでした。`,'VOICE');showLatestComment(item.profile,item.turn);$('delivery').textContent='棒読みちゃんへ送信済み（PC側の再生開始は未確認）';const overlayEpoch=await showObsOverlay(item.profile,item.turn,s,signal);delivered(item);scheduleObsOverlayHide(s,overlayEpoch);}
     }
   }
   function fallbackGreetingTurns(kind,s,turnCount){
@@ -1107,7 +1108,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     const delivered=(turn,profile)=>{
       conversationStarted=true;state.lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>20)spoken.shift();
       speakerHistory.push(turn.speakerId);if(speakerHistory.length>20)speakerHistory.shift();
-      recordSpeaker(profile);showLatestComment(profile,turn);
+      recordSpeaker(profile);
       $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
       log(`${profile.name}: ${turn.text}`,'spoken');
     };
@@ -1122,7 +1123,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
           const suffix=state.analysisInFlight?'・裏でGemini解析中':'';
           setStatus((next?'VOICEVOX再生中・次の音声を先読み中':'VOICEVOXの音声再生中')+suffix);
           const overlayEpoch=await showObsOverlay(item.profile,item.turn,s,signal);
-          setSpeakerActivity(item.profile,'発話中');const playback=playVoicevoxAudio(audio,{...s,...item.profile},i===0?current:null,signal);
+          setSpeakerActivity(item.profile,'発話中');const playback=playVoicevoxAudio(audio,{...s,...item.profile},i===0?current:null,signal,()=>{showLatestComment(item.profile,item.turn);$('delivery').textContent='このブラウザで再生中';});
           let prefetch=null,prefetchController=null,unlink=null;
           if(next){
             prefetchController=new AbortController();
@@ -1138,6 +1139,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
           C.check(signal);setStatus(state.analysisInFlight?'棒読みちゃんへ送信中・裏でGemini解析中':'棒読みちゃんへ送信中');
           setSpeakerActivity(profile,'送信中');let sent=false;try{sent=await speak(spokenText(turn),{...s,...profile},conversationStarted?null:current,signal,conversationStarted);}finally{clearSpeakerActivity(profile.id);}if(!sent)break;
           if(!conversationStarted)state.lastConversationStart=performance.now();
+          showLatestComment(profile,turn);$('delivery').textContent='棒読みちゃんへ送信済み（PC側の再生開始は未確認）';
           const overlayEpoch=await showObsOverlay(profile,turn,s,signal);
           delivered(turn,profile);scheduleObsOverlayHide(s,overlayEpoch);
         }
