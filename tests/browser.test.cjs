@@ -316,6 +316,23 @@ const results=[];
   assert.equal(narrow.columns,1);assert.equal(narrow.borderLeft,0);assert.ok(narrow.borderTop>0);
   await x.close();
  });
+ await test('desktop header and toolbar stay compact to preserve preview height',async()=>{
+  const x=await setup();const p=x.page;
+  const desktop=await p.evaluate(()=>{
+    const header=document.querySelector('header'),toolbar=document.querySelector('.toolbar'),logo=document.querySelector('.brand-logo'),tagline=document.querySelector('.brand-copy>p');
+    return {
+      headerHeight:header.getBoundingClientRect().height,
+      toolbarHeight:toolbar.getBoundingClientRect().height,
+      logoWidth:logo.getBoundingClientRect().width,
+      taglineDisplay:getComputedStyle(tagline).display
+    };
+  });
+  assert.ok(desktop.headerHeight<=70);
+  assert.ok(desktop.toolbarHeight<=52);
+  assert.ok(desktop.logoWidth<=156);
+  assert.equal(desktop.taglineDisplay,'none');
+  await x.close();
+ });
  await test('mobile header shows version under theme without increasing header content height',async()=>{
   const x=await setup();const p=x.page;
   await p.setViewportSize({width:390,height:844});
@@ -499,6 +516,22 @@ const results=[];
   assert.deepEqual(x.events.talks,['今日は見ていこう']);
   await stop(p);await x.close();
  });
+ await test('start greeting varies its direction and avoids recent greeting patterns',async()=>{
+  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'ちょっと楽しみだね'}]})}]}}]};
+  const x=await setup({answer:intro,before:async p=>{
+    await p.evaluate(()=>localStorage.setItem('ai-live-commentator-greeting-history-v1',JSON.stringify({start:['前と同じ開始だよ'],end:['前と同じ終了だよ']})));
+    await p.locator('#greetStart').check();
+  }});const p=x.page;
+  await p.locator('#start').click();await idle(p);
+  assert.ok(x.events.promptTexts[0].includes('今回の変化パターン:'));
+  assert.ok(x.events.promptTexts[0].includes('前と同じ開始だよ'));
+  assert.ok(x.events.promptTexts[0].includes('同一・類似の入り方、語尾、意味を避ける'));
+  assert.ok(x.events.promptTexts[0].includes('毎回「始まったね」「今日も見ていこう」「よろしく」の言い換えになるのを避ける'));
+  const history=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-greeting-history-v1')));
+  assert.equal(history.start.at(-1),'ちょっと楽しみだね');
+  assert.equal(history.end.at(-1),'前と同じ終了だよ');
+  await stop(p);await x.close();
+ });
  await test('start greeting is shown in the OBS bubble',async()=>{
   const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日も見ていこう'}]})}]}}]};
   const x=await setup({answer:intro,before:async p=>{
@@ -525,8 +558,9 @@ const results=[];
   const bad={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[]})}]}}]};
   const x=await setup({answers:[bad,bad],before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
   await p.locator('#start').click();await idle(p);
-  assert.equal(x.events.api,2);assert.deepEqual(x.events.talks,['じゃあ、きょうもみていこう']);
+  assert.equal(x.events.api,2);assert.equal(x.events.talks.length,1);assert.ok(x.events.talks[0].length>0);
   assert.ok((await p.locator('#log').innerText()).includes('固定の短い挨拶'));
+  const fallbackHistory=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-greeting-history-v1')));assert.equal(fallbackHistory.start.length,1);
   await stop(p);await x.close();
  });
  await test('start greeting is queued even when Bouyomi already has pending audio',async()=>{
