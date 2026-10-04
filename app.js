@@ -67,6 +67,7 @@
     const root=$('speakerStatsList'),donut=$('speakerStatsDonut');if(!root||!donut)return;
     const profiles=speakerProfilesForDisplay(),total=profiles.reduce((sum,p)=>sum+(speakerSessionCounts[p.id]||0),0);
     $('speakerStatsTotal').textContent=String(total);
+    root.classList.toggle('two-columns',profiles.length>3);
     root.replaceChildren();
     const segments=[];let angle=0;
     for(const profile of profiles){
