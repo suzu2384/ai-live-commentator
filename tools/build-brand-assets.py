@@ -12,6 +12,16 @@ ASSETS = ROOT / 'assets'
 VERSION = re.search(r'BROWSER · (v[\d.]+)', (ROOT/'index.html').read_text())[1]
 THEMES = dict(re.findall(r"(\w+):\{scheme:'(?:dark|light)',color:'(#[0-9a-f]+)'\}", (ROOT/'app.js').read_text()))
 
+# Home-screen tiles need stronger hue differences than the subtle page backgrounds.
+# Keep these separate from manifest splash/window colors, which still match the UI.
+ICON_BACKGROUNDS = {
+    'midnight': '#245aa8', 'graphite': '#59636f', 'aurora': '#6941b0',
+    'crimson': '#a83356', 'forest': '#23764f', 'amber': '#a96518',
+    'mist': '#c5ccd5', 'lavender': '#ceaff1', 'rose': '#f5aac6',
+    'sage': '#9ed9b4', 'daylight': '#9ccdf5', 'sand': '#edcc8d',
+}
+assert ICON_BACKGROUNDS.keys() == THEMES.keys(), 'Each theme needs an icon background.'
+
 def render(name, size):
     return Image.open(BytesIO(cairosvg.svg2png(url=str(ASSETS/name), output_width=size))).convert('RGBA')
 
@@ -28,16 +38,17 @@ for size in (192,512):
 render('header-logo.svg',2172).resize((1086,362),Image.Resampling.LANCZOS).save(ASSETS/'header-logo.png')
 render('icon.svg',96).resize((32,32),Image.Resampling.LANCZOS).save(ASSETS/'favicon-32.png')
 render('icon.svg',192).save(ASSETS/'favicon.ico', sizes=[(16,16),(32,32),(48,48)])
-home(180,THEMES['midnight']).save(ASSETS/'apple-touch-icon.png')
+home(180,ICON_BACKGROUNDS['midnight']).save(ASSETS/'apple-touch-icon.png')
 base=json.loads((ROOT/'manifest.webmanifest').read_text())
 base['id']='./index.html'
 (ASSETS/'home').mkdir(exist_ok=True)
 (ROOT/'manifests').mkdir(exist_ok=True)
 for theme,background in THEMES.items():
+    icon_background = ICON_BACKGROUNDS[theme]
     for size in (180,192,512):
-        home(size,background).save(ASSETS/'home'/f'{theme}-{size}.png')
+        home(size,icon_background).save(ASSETS/'home'/f'{theme}-{size}.png')
     # The entire illustration fits within the maskable icon's safe circle.
-    home(512,background,.60).save(ASSETS/'home'/f'{theme}-maskable-512.png')
+    home(512,icon_background,.60).save(ASSETS/'home'/f'{theme}-maskable-512.png')
     manifest={**base,'id':'../index.html','start_url':f'../index.html?theme={theme}','scope':'../',
               'background_color':background,'theme_color':background,'icons':[
         {'src':f'../assets/home/{theme}-{size}.png?{VERSION}','sizes':f'{size}x{size}','type':'image/png','purpose':'any'} for size in (192,512)] + [

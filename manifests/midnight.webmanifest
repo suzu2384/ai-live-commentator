@@ -9,19 +9,19 @@
   "theme_color": "#0d151c",
   "icons": [
     {
-      "src": "../assets/home/midnight-192.png?v4.39",
+      "src": "../assets/home/midnight-192.png?v4.39.1",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "../assets/home/midnight-512.png?v4.39",
+      "src": "../assets/home/midnight-512.png?v4.39.1",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "../assets/home/midnight-maskable-512.png?v4.39",
+      "src": "../assets/home/midnight-maskable-512.png?v4.39.1",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
