@@ -497,23 +497,34 @@ const results=[];
  });
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
  await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await setOutput(x.page,'voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
- await test('display text is sent directly to Bouyomi',async()=>{
-  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'この性は変わらないね？'}]})}]}}]};
+ await test('Bouyomi prefers speechText even when it still contains kanji and shows both texts in the UI',async()=>{
+  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'この性は変わらないね？',speechText:'この性質は変わらないね？'}]})}]}}]};
   const x=await setup({answer:reading});await start(x);await idle(x.page);
-  assert.deepEqual(x.events.talks,['この性は変わらないね?']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね？'));
+  assert.deepEqual(x.events.talks,['この性質は変わらないね?']);
+  assert.ok((await x.page.locator('#lastComment').textContent()).includes('この性は変わらないね？'));
+  assert.equal(await x.page.locator('#lastSpeechText strong').textContent(),'この性質は変わらないね？');
   await stop(x.page);await x.close();
  });
- await test('display text is sent directly to VOICEVOX',async()=>{
-  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'HP3でも行けそうだね？'}]})}]}}]};
+ await test('VOICEVOX prefers speechText for pronunciation while keeping display text unchanged',async()=>{
+  const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'HP3でも行けそうだね？',speechText:'エイチピー3でもいけそうだね？'}]})}]}}]};
   const x=await setup({answer:reading});await setOutput(x.page,'voicevox');await start(x);await idle(x.page);
-  assert.deepEqual(x.events.voiceTexts,['HP3でも行けそうだね?']);assert.ok((await x.page.locator('#lastComment').textContent()).includes('HP3でも行けそうだね？'));
+  assert.deepEqual(x.events.voiceTexts,['エイチピー3でもいけそうだね?']);
+  assert.ok((await x.page.locator('#lastComment').textContent()).includes('HP3でも行けそうだね？'));
+  assert.equal(await x.page.locator('#lastSpeechText strong').textContent(),'エイチピー3でもいけそうだね？');
   await stop(x.page);await x.close();
  });
- await test('greeting schema uses only one comment text field',async()=>{
-  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日は見ていこう'}]})}]}}]};
+ await test('invalid or missing speechText falls back to display text instead of skipping speech',async()=>{
+  const punctuationOnly={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'SHDだね',speechText:'！！'}]})}]}}]};
+  const x=await setup({answer:punctuationOnly});await start(x);await idle(x.page);
+  assert.deepEqual(x.events.talks,['SHDだね']);
+  assert.equal(await x.page.locator('#lastSpeechText strong').textContent(),'！！');
+  await stop(x.page);await x.close();
+ });
+ await test('greeting supports separate display and speech text',async()=>{
+  const intro={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'開始',turns:[{speakerId:'p1',text:'今日はMHを見よう',speechText:'きょうはモンハンをみよう'}]})}]}}]};
   const x=await setup({answer:intro,before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
   await p.locator('#start').click();await idle(p);
-  assert.deepEqual(x.events.talks,['今日は見ていこう']);
+  assert.deepEqual(x.events.talks,['きょうはモンハンをみよう']);assert.ok((await p.locator('#lastComment').textContent()).includes('今日はMHを見よう'));assert.equal(await p.locator('#lastSpeechText strong').textContent(),'きょうはモンハンをみよう');assert.ok(x.events.promptTexts[0].includes('表示用textと読み上げ用speechText'));
   await stop(p);await x.close();
  });
  await test('start greeting varies its direction and avoids recent greeting patterns',async()=>{
