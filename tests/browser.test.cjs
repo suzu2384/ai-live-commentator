@@ -557,7 +557,7 @@ const results=[];
   const x=await setup({answer:copied,before:async p=>{await p.locator('#greetStart').check();}});const p=x.page;
   await p.locator('#start').click();await idle(p);
   assert.equal(x.events.api,1);
-  assert.deepEqual(x.events.talks,['きょうはMHをみよう']);
+  assert.deepEqual(x.events.talks,['今日はMHを見よう']);
   assert.equal((await p.locator('#log').innerText()).includes('読み上げ用テキストが表示文の丸コピーだったため'),false);
   await stop(p);await x.close();
  });
