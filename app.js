@@ -1084,11 +1084,19 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   }
   $('testObs').addEventListener('click',()=>operation(async signal=>{const s=settings();await connectObs(s,signal);setStatus('OBSの画像取得中');await getFrame(s,signal);log('映像確認完了。Geminiへの送信はありません。');}));
   $('resetObsSource').addEventListener('click',async()=>{
-    if(streaming&&obs?.ready&&controller){
+    if(streaming&&controller){
       const button=$('resetObsSource');button.disabled=true;
-      try{await refreshObsSource(lastSettings||settings(),controller.signal);}
-      catch(e){if(e.name!=='AbortError')log('映像ソース再取得: '+(e instanceof C.AppError?e.message:'処理に失敗しました。'),'warn');}
-      finally{updateObsRefreshButton();}
+      try{
+        const s=lastSettings||settings(),signal=controller.signal;
+        if(!obs?.ready){obs?.close();await connectObs(s,signal);}
+        await refreshObsSource(s,signal);
+        if(resumeAction){
+          log('映像ソースの再取得に成功したため、実況を自動再開します。');
+          await resumeAction();
+        }
+      }catch(e){
+        if(e.name!=='AbortError')log('映像ソース再取得: '+(e instanceof C.AppError?e.message:'処理に失敗しました。'),'warn');
+      }finally{updateObsRefreshButton();}
       return;
     }
     operation(async signal=>{const s=settings();await connectObs(s,signal);await refreshObsSource(s,signal);});
