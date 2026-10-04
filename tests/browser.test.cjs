@@ -44,12 +44,13 @@ const results=[];
   let jpeg,bubbleExists=false,bubbleSceneItem=false,legacyExists=!!config.legacyOverlay,legacySceneItem=!!config.legacyOverlay;
   await page.routeWebSocket(`ws://${host}:4455`,ws=>{
    const reply=(m,responseData={})=>ws.send(JSON.stringify({op:7,d:{requestType:m.d.requestType,requestId:m.d.requestId,requestStatus:{result:true,code:100},responseData}}));
+   const fail=(m,code=600,comment='test failure')=>ws.send(JSON.stringify({op:7,d:{requestType:m.d.requestType,requestId:m.d.requestId,requestStatus:{result:false,code,comment}}}));
    ws.onMessage(raw=>{
     const m=JSON.parse(raw);
     if(m.op===1){events.identifies++;assert.equal(m.d.authentication,sha(sha('obs-secret'+'salt')+'challenge'));ws.send(JSON.stringify({op:2,d:{negotiatedRpcVersion:1}}));}
     if(m.op!==6)return;
     const type=m.d.requestType,data=m.d.requestData||{};events.obsRequests.push({type,data});
-    if(type==='GetSourceScreenshot'){events.images++;return reply(m,{imageData:jpeg.replace('image/jpeg','image/jpg')});}
+    if(type==='GetSourceScreenshot'){events.images++;if(config.failScreenshotCount&&events.images<=config.failScreenshotCount)return fail(m,600,'source unavailable');return reply(m,{imageData:jpeg.replace('image/jpeg','image/jpg')});}
     if(type==='GetCurrentProgramScene')return reply(m,{sceneName:'Gameplay',currentProgramSceneName:'Gameplay'});
     if(type==='GetInputList'){
       const inputs=[];
@@ -321,6 +322,19 @@ const results=[];
   await p.waitForFunction(()=>document.getElementById('log').textContent.includes('映像ソース「PS Remote Play」を再取得'));
   assert.equal(x.events.identifies,identifiesBefore);
   assert.equal(x.events.obsRequests.filter(r=>r.type==='SetInputSettings'&&r.data.inputName==='PS Remote Play').length,resetsBefore+1);
+  await stop(p);await x.close();
+ });
+ await test('OBS source refresh automatically resumes monitoring after a source capture failure',async()=>{
+  const x=await setup({failScreenshotCount:1});const p=x.page;
+  await p.locator('#start').click();
+  await p.waitForFunction(()=>document.getElementById('status').textContent.includes('設定の修正待ち'));
+  assert.equal(await p.locator('#resume').isVisible(),true);
+  assert.equal(await p.locator('#resetObsSource').isDisabled(),false);
+  await p.locator('#resetObsSource').click();await p.clock.fastForward(400);
+  await p.waitForFunction(()=>document.getElementById('status').textContent.includes('映像監視中')||document.getElementById('status').textContent.includes('映像履歴を準備中'));
+  assert.equal(await p.locator('#resume').isVisible(),false);
+  assert.ok(x.events.identifies>=2);assert.ok(x.events.images>=2);
+  assert.ok((await p.locator('#log').innerText()).includes('映像ソースの再取得に成功したため、実況を自動再開します。'));
   await stop(p);await x.close();
  });
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
