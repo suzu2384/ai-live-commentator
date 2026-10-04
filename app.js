@@ -795,8 +795,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   function speechTextNeedsRetry(turns){
     return Array.isArray(turns)&&turns.some(turn=>{
       const display=String(turn?.text??'').trim(),speech=String(turn?.speechText??'').trim();
-      if(!/[\p{Script=Han}A-Za-z0-9]/u.test(display))return false;
-      if(!speech)return true;
+      if(!/[\p{Script=Han}A-Za-z0-9]/u.test(display)||!speech)return false;
       return normalizedSpeechCompare(display)===normalizedSpeechCompare(speech);
     });
   }
@@ -948,13 +947,31 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     const recentConversation=s.conversationHistoryCount>0
       ? spoken.slice(-s.conversationHistoryCount)
       : [];
-    const remaining=current.capturedAt+s.freshness*1000-performance.now();
-    if(remaining<=0) throw new C.AppError('画像取得中に鮮度上限に達しました。','STALE');
-    const payload=C.makePayload(frames,analysisSettings,history,recentConversation); reserve(s); const began=performance.now();
-    setStatus(state.speaking?'読み上げ中・裏でGemini解析中':'Geminiの応答待ち'); log(`Geminiへ画像${frames.length}枚を送信（${stats.used}回・今回の発言人数${turnCount}人・${quietMode?'雑談モード':'通常実況'}・鮮度上限${s.freshness}秒）。`);
-    const response=await C.deadline(token=>C.gemini(key,payload,token),Math.min(180000,remaining),signal,'鮮度上限に達したためGeminiの応答待ちを打ち切りました。','STALE');
-    const duration=(performance.now()-began)/1000; $('latency').textContent=duration.toFixed(1)+' 秒';log(`Gemini応答 ${duration.toFixed(1)}秒。`);
-    checkFresh(current,s);return C.parseAnalysis(response,s.profiles,turnCount);
+    const began=performance.now();
+    let result=null;
+    for(let attempt=1;attempt<=2;attempt++){
+      const remaining=current.capturedAt+s.freshness*1000-performance.now();
+      if(remaining<=0) throw new C.AppError('画像取得中に鮮度上限に達しました。','STALE');
+      const payload=C.makePayload(frames,analysisSettings,history,recentConversation);
+      if(attempt===2)payload.contents[0].parts.at(-1).text+='\n前回は読み上げ用speechTextが表示用textと同じままでした。今回はtextの内容を変えず、漢字をかなへ、英字略語をカタカナ読みへ、数字を自然な読みへ変換したspeechTextを必ず作ってください。';
+      reserve(s);
+      setStatus(state.speaking?'読み上げ中・裏でGemini解析中':'Geminiの応答待ち');
+      log(`Geminiへ画像${frames.length}枚を送信（${stats.used}回・今回の発言人数${turnCount}人・${quietMode?'雑談モード':'通常実況'}・鮮度上限${s.freshness}秒${attempt===2?'・読み上げ文を再生成':''}）。`);
+      try{
+        const response=await C.deadline(token=>C.gemini(key,payload,token),Math.min(180000,remaining),signal,'鮮度上限に達したためGeminiの応答待ちを打ち切りました。','STALE');
+        result=C.parseAnalysis(response,s.profiles,turnCount);
+      }catch(e){
+        if(attempt===2&&result){log('読み上げ用テキストの再生成に失敗したため、最初の結果をそのまま読み上げます。','warn');break;}
+        throw e;
+      }
+      if(attempt===1&&speechTextNeedsRetry(result.turns)){
+        log('読み上げ用テキストが表示文の丸コピーだったため、1回だけ読みを作り直します。','warn');
+        continue;
+      }
+      break;
+    }
+    const duration=(performance.now()-began)/1000;$('latency').textContent=duration.toFixed(1)+' 秒';log(`Gemini応答 ${duration.toFixed(1)}秒。`);
+    checkFresh(current,s);return result;
   }
   async function waitForSettings(signal,{autoResumeObsSource=false}={}) {
     C.check(signal); $('resume').hidden=false;
