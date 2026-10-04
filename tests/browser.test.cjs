@@ -227,17 +227,26 @@ const results=[];
   await p.waitForFunction(()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--preview-sticky-height'))>0);
   const layout=await p.evaluate(()=>{
     const toolbar=document.querySelector('.toolbar'),preview=document.querySelector('.preview-sticky'),tabs=document.querySelector('.tabs');
+    const previewImage=preview.querySelector('.preview');
     return {
       previewPosition:getComputedStyle(preview).position,
       previewTop:parseFloat(getComputedStyle(preview).top),
       toolbarHeight:toolbar.getBoundingClientRect().height,
       tabsTop:parseFloat(getComputedStyle(tabs).top),
-      previewHeight:preview.getBoundingClientRect().height
+      previewHeight:preview.getBoundingClientRect().height,
+      hasHeading:!!preview.querySelector('.card-head'),
+      hasImage:!!previewImage,
+      stickyBackground:getComputedStyle(preview).backgroundColor,
+      imageRadius:parseFloat(getComputedStyle(previewImage).borderTopLeftRadius)
     };
   });
   assert.equal(layout.previewPosition,'sticky');
   assert.ok(layout.previewTop>=layout.toolbarHeight-1);
   assert.ok(layout.tabsTop>=layout.toolbarHeight+layout.previewHeight-1);
+  assert.equal(layout.hasHeading,false);
+  assert.equal(layout.hasImage,true);
+  assert.notEqual(layout.stickyBackground,'rgba(0, 0, 0, 0)');
+  assert.ok(layout.imageRadius>0);
   await p.locator('#tab-connect').click();
   const summary=p.locator('#settings-video > .setting-summary');
   const closedIcon=await summary.evaluate(el=>getComputedStyle(el,'::after').content);
@@ -245,6 +254,21 @@ const results=[];
   await summary.click();
   const openIcon=await summary.evaluate(el=>getComputedStyle(el,'::after').content);
   assert.ok(openIcon.includes('▼'));
+  await x.close();
+ });
+ await test('speaker balance sits beside the latest comment when wide and stacks below when narrow',async()=>{
+  const x=await setup();const p=x.page;
+  const wide=await p.evaluate(()=>{
+    const layout=document.querySelector('.comment-status-layout'),status=document.querySelector('.speaker-status-section');
+    return {columns:getComputedStyle(layout).gridTemplateColumns.split(' ').filter(Boolean).length,borderLeft:parseFloat(getComputedStyle(status).borderLeftWidth),borderTop:parseFloat(getComputedStyle(status).borderTopWidth)};
+  });
+  assert.equal(wide.columns,2);assert.ok(wide.borderLeft>0);assert.equal(wide.borderTop,0);
+  await p.setViewportSize({width:800,height:900});
+  const narrow=await p.evaluate(()=>{
+    const layout=document.querySelector('.comment-status-layout'),status=document.querySelector('.speaker-status-section');
+    return {columns:getComputedStyle(layout).gridTemplateColumns.split(' ').filter(Boolean).length,borderLeft:parseFloat(getComputedStyle(status).borderLeftWidth),borderTop:parseFloat(getComputedStyle(status).borderTopWidth)};
+  });
+  assert.equal(narrow.columns,1);assert.equal(narrow.borderLeft,0);assert.ok(narrow.borderTop>0);
   await x.close();
  });
  await test('saved v4 settings survive the tab reorganization',async()=>{
