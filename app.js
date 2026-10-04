@@ -55,10 +55,13 @@
   }
   function setStatus(text, error=false) { $('status').textContent = text; phaseAt = performance.now(); $('stateDot').className = 'dot' + (error ? ' error' : busy ? ' running' : ''); }
   function updateStats() { $('usage').textContent = `${stats.used} 回`; $('staleCount').textContent = stats.stale; }
+  function updateObsRefreshButton(){
+    $('resetObsSource').disabled=vaultBusy||(busy&&!streaming);
+  }
   function setBusy(value) {
     busy = value;
     for (const el of document.querySelectorAll('#settings input,#settings select,#settings textarea,#settings button,#panel-friends input,#panel-friends select,#panel-friends textarea,#panel-friends button')) el.disabled = value || vaultBusy;
-    $('start').disabled = value; $('stop').disabled = !value; $('finish').disabled = !streaming;
+    $('start').disabled = value; $('stop').disabled = !value; $('finish').disabled = !streaming;updateObsRefreshButton();
   }
   function revealSetting(id){
     const el=$(id),panel=el?.closest('[role=tabpanel]');
@@ -1050,7 +1053,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();$('latency').textContent='—';
     const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,speechEpoch:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],rateLimitStreak:0,quietSceneStreak:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
-    streaming=true;$('finish').disabled=true;
+    streaming=true;$('finish').disabled=true;updateObsRefreshButton();
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
     if(s.greetStart&&s.obsOverlayEnabled&&!obs?.ready)await connectObs(s,signal);
@@ -1073,8 +1076,23 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('resume').addEventListener('click',()=>resumeAction?.());
   $('finish').addEventListener('click',()=>finishAction?.());
   $('stop').addEventListener('click',()=>{clearObsOverlayNow();controller?.abort();obs?.close();try{activeAudio?.stop();}catch{}setStatus('即停止処理中');if(lastSettings?.output==='bouyomi')log('新しい送信を即停止します。棒読みちゃんに送信済みの音声は、必要なら棒読みちゃん側で停止してください。');});
+  async function refreshObsSource(s,signal){
+    setStatus('OBS映像ソースを再取得中');
+    await obs.request('SetInputSettings',{inputName:s.sourceName,inputSettings:{},overlay:true},signal,{errorCode:'OBS_SOURCE',errorMessage:'OBS映像ソースの再取得に失敗しました'});
+    await C.sleep(300,signal);setStatus('再取得後の映像を確認中');await getFrame(s,signal);
+    log(`映像ソース「${s.sourceName}」を再取得し、映像を確認しました。`);
+  }
   $('testObs').addEventListener('click',()=>operation(async signal=>{const s=settings();await connectObs(s,signal);setStatus('OBSの画像取得中');await getFrame(s,signal);log('映像確認完了。Geminiへの送信はありません。');}));
-  $('resetObsSource').addEventListener('click',()=>operation(async signal=>{const s=settings();await connectObs(s,signal);setStatus('OBS映像ソースを再取得中');await obs.request('SetInputSettings',{inputName:s.sourceName,inputSettings:{},overlay:true},signal,{errorCode:'OBS_SOURCE',errorMessage:'OBS映像ソースの再取得に失敗しました'});await C.sleep(300,signal);setStatus('再取得後の映像を確認中');await getFrame(s,signal);log(`映像ソース「${s.sourceName}」を再取得し、映像を確認しました。`);}));
+  $('resetObsSource').addEventListener('click',async()=>{
+    if(streaming&&obs?.ready&&controller){
+      const button=$('resetObsSource');button.disabled=true;
+      try{await refreshObsSource(lastSettings||settings(),controller.signal);}
+      catch(e){if(e.name!=='AbortError')log('映像ソース再取得: '+(e instanceof C.AppError?e.message:'処理に失敗しました。'),'warn');}
+      finally{updateObsRefreshButton();}
+      return;
+    }
+    operation(async signal=>{const s=settings();await connectObs(s,signal);await refreshObsSource(s,signal);});
+  });
   $('testObsOverlay').addEventListener('click',()=>operation(async signal=>{
     const s=settings();if(!s.obsOverlayEnabled){revealSetting('obsOverlayEnabled');throw new C.AppError('「OBSにコメントを表示」をONにしてからテストしてください。');}
     await connectObs(s,signal);const profile=s.profiles[0];setStatus('OBSコメント表示をテスト中');
