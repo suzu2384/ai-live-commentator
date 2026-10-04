@@ -1055,7 +1055,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
       e.preventDefault();selectTab(tabs[n].id.slice(4),true);
     });
   }
-  function defaultProfile(i){return {id:`p${i+1}`,name:`友達${i+1}`,personality:['気さくで明るい。感想と応援が多い。','落ち着いていて、軽いツッコミが得意。','好奇心旺盛。景色や細部に気づく。'][i%3],speaker:i%2===0?3:2,speedScale:1.0,bouyomiVoice:0};}
+  function defaultProfile(i){return {id:`p${i+1}`,name:`友達${i+1}`,personality:['気さくで明るい。感想と応援が多い。','落ち着いていて、軽いツッコミが得意。','好奇心旺盛。景色や細部に気づく。','リアクションが大きくノリがいい。驚きや盛り上がりを素直に出す。','冷静な分析好き。状況整理や先の予想を短く口にする。','マイペースで少し天然。独特な着眼点で一言を挟む。'][i],speaker:i%2===0?3:2,speedScale:1.0,bouyomiVoice:0};}
   function buildProfiles(saved=[]){
     for(let i=0;i<6;i++){
       const d={...defaultProfile(i),...saved[i]},section=document.createElement('section');section.className='card friend';section.dataset.index=i;
