@@ -20,10 +20,10 @@ try{
 <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.38.3">
 <link rel="manifest" href="manifest.webmanifest?v=4.38.3">
 <link rel="stylesheet" href="style.css?v=4.38.3">
-<script src="core.js?v=4.38.3" defer></script><script src="vault.js?v=4.38.3" defer></script><script src="app.js?v=4.38.3" defer></script>
+<script src="core.js?v=4.38.3" defer></script><script src="vault.js?v=4.38.3" defer></script><script src="chapters.js?v=4.40.0" defer></script><script src="chapters-ui.js?v=4.40.0" defer></script><script src="app.js?v=4.38.3" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.38.3" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.39.1</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.38.3" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.40.0</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -37,6 +37,7 @@ try{
 <button id="tab-friends" role="tab" aria-controls="panel-friends" aria-selected="false" tabindex="-1">友達</button>
 <button id="tab-connect" role="tab" aria-controls="panel-connect" aria-selected="false" tabindex="-1">接続</button>
 <button id="tab-history" role="tab" aria-controls="panel-history" aria-selected="false" tabindex="-1">履歴</button>
+<button id="tab-chapters" role="tab" aria-controls="panel-chapters" aria-selected="false" tabindex="-1">チャプター</button>
 <button id="openHelp" type="button" class="help-tab-button" aria-label="ヘルプを開く" title="ヘルプ">？</button>
 </nav>
 <div class="panel-scroll">
@@ -145,6 +146,25 @@ try{
 </div>
 </form>
 
+<div id="panel-chapters" role="tabpanel" aria-labelledby="tab-chapters" hidden>
+<section class="card chapter-panel">
+<div class="card-head"><h2>チャプター</h2></div>
+<p class="hint">映像解析で確認できた出来事を端末内に保存します。日時は端末の時計・表示タイムゾーンを使用し、YouTubeの動画内時刻ではありません。</p>
+<p id="chapterStorageWarning" class="chapter-warning" role="alert" hidden>端末への保存に失敗しました。この画面では記録を保持しますが、再読み込みすると未保存分が失われます。ブラウザの保存容量・設定を確認してください。</p>
+<label>実況の記録<select id="chapterSession"></select></label>
+<p id="chapterSessionInfo" class="hint"></p>
+<label class="check"><input id="chapterAuto" type="checkbox" checked>「実況を終了」後にチャプターを自動生成</label>
+<p class="hint">生成・再生成はGeminiの無料枠を使用します。長い記録は分割整理して統合するため複数回送信します。「即停止」では自動生成せず、記録を残します。</p>
+<div class="actions wrap"><button id="chapterGenerate" type="button" disabled>生成・再生成</button></div>
+<p id="chapterStatus" class="hint" role="status" aria-live="polite">イベントを蓄積すると生成できます。</p>
+<label>生成履歴<select id="chapterGeneration"></select></label>
+<ol id="chapterCandidates" class="chapter-list" aria-label="チャプター候補"></ol>
+<p id="chapterCandidateEmpty" class="hint">生成されたチャプター候補がここに表示されます。</p>
+<details id="chapterEventsSection" open><summary id="chapterEventCount">元イベントログ（0件）</summary>
+<div class="chapter-pagination"><button id="chapterPrev" type="button">前へ</button><span id="chapterPage"></span><button id="chapterNext" type="button">次へ</button></div>
+<ol id="chapterEvents" class="chapter-list" aria-label="元イベントログ"></ol></details>
+</section></div>
+
 <div id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden>
 <section class="card"><div class="card-head"><h2>実行履歴</h2><button id="clearLog" type="button" class="subtle">クリア</button></div><ol id="log" aria-label="実行履歴"></ol></section>
 </div>
@@ -156,6 +176,7 @@ try{
 <div class="content-dialog-head"><div><h2 id="helpDialogTitle">ヘルプ</h2><p>準備・接続・トラブルシューティング</p></div><button type="button" id="closeHelpDialog" class="content-dialog-close" aria-label="閉じる">×</button></div>
 <div class="help-dialog-body"><section class="help"><div class="card-head"><h2>準備とトラブルシューティング</h2></div>
 <h3>ホーム画面アイコンの背景色</h3><p>上部の「テーマ」で色を選んでから、ブラウザの「ホーム画面に追加」を実行してください。選択中のテーマに合わせた、色の違いが分かりやすいアイコン専用の背景色を使います。追加済みのアイコンは即時に変わるとは限りません。色が変わらない場合は、ブラウザでこのページを開き直してテーマを確認し、ホーム画面に追加し直してください。アプリのアンインストールでは保存設定が消える場合があるため、必要なら先に設定をエクスポートしてください。</p>
+<h3>イベントログとチャプター</h3><p>実況開始ごとに記録を作り、映像解析の応答から客観的なイベントを蓄積します。解析しなかった瞬間や通信・安全フィルターで取得できなかった出来事は記録されません。時刻は画像取得時の端末日時であり、出来事の厳密な開始時刻ではありません。「実況を終了」後に自動生成するか、「チャプター」タブから手動で生成・再生成できます。生成履歴と元イベントは別に保存します。中止・エラー時も前回の候補と記録は残ります。生成中は「即停止」で中止できます。保存はこのブラウザ内のみで、ブラウザデータを消すと失われます。YouTube連携、相対時刻への変換、編集・コピーは今後の対応です。</p>
 <h3>はじめに</h3><p>フォルダ内の index.html を、操作するPCのChrome・Edgeで開きます。専用サーバーは不要です。「映像確認」「音声テスト」を試し、Geminiのキーを設定して開始してください。</p>
 <h3>VOICEVOX：Windows版では鳴るのにブラウザでは失敗する</h3><p>開発者ツールに origin 'null'、CORS、403 Forbidden が出る場合は、VOICEVOXを起動し、<a id="voicevoxSettingsLink" href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>を開きます（設定したVOICEVOX URLの設定画面）。CORS Policy Mode を localapps、Allow Origin に null を追加し、保存してVOICEVOXを再起動してください。ほかの許可設定は必要に応じて残します。その後、音声テストをやり直します。</p><p>null の許可は、このアプリ以外のローカルファイルや一部の隔離されたページにも適用されます。信頼できないHTMLを同時に開かず、使わなくなったら許可を外してください。CORSを all にしたり、ブラウザの保護を無効化したりする必要はありません。</p>
 <h3>読み上げ先に接続できない・音が出ない</h3><p>起動状態、URLとポート、ブラウザのローカルネットワーク許可、OSの音量を確認してください。VOICEVOX直接は操作しているブラウザで再生します。棒読みちゃんは設定のHTTP連携を有効にし、PC側の声・音量を確認します。声が異なる場合は「友達」タブのスタイルID・声IDを、速すぎる・遅すぎる場合はVOICEVOX話速を見直してください。</p>

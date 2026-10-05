@@ -95,7 +95,7 @@ test('quiet-mode payload favors relaxed friend chat and explicitly forbids rushi
   assert.ok(text.includes('停滞を責める・急かす・進行を要求する発言は禁止'));
   assert.ok(text.includes('「進もう」「次へ行こう」「動こう」「何か起きないかな」'));
   assert.ok(text.includes('飲み物を取りに行く'));
-  assert.ok(text.includes('生活雑談を、画面や直前の会話に明確なきっかけがないのに埋め草として使わない'));
+  assert.ok(text.includes('生活雑談を、画面や現在の状況に明確なきっかけがないのに埋め草として使わない'));
   assert.ok(text.includes('コメント役自身が画面外で何かをしに行く宣言もしない'));
   const normal=C.makePayload(frames,{persona:'相方',talkativeness:2,profiles,turnCount:1,quietMode:false},[],[]);
   assert.ok(normal.contents[0].parts.at(-1).text.includes('通常実況モード'));

@@ -70,6 +70,7 @@
     '発言は日本語5〜35文字程度の自然な口語。各turnのtextは画面表示用、speechTextは読み上げ専用。speechTextはVOICEVOXや棒読みちゃんが自然に読める発音表記にする。text内の日本語の漢字は、読みが分かるものを原則ひらがな・カタカナへ直す。英字略語は実際の読みへ直す（例: HP→エイチピー、SHD→エスエイチディー）。数字も文脈に合う自然な読みへ直す（例: 3人→さんにん）。textに漢字・英字・数字が含まれる場合、原則としてspeechTextへtextをそのままコピーしない。意味・話し方・語尾はtextと同じに保ち、読みだけを調整する。固有名詞の読みが確実でない場合は、その固有名詞だけ原表記を残してよいが、他の読める部分まで丸コピーしない。speechTextは必ず空にしない。各参加者の方言・崩した言い方も、友達が実際に話す自然な表記で書く。コマンド・タグ・URL・ファイルパスは含めない。' +
     '学生時代の友達が家に集まってゲームを見ている雰囲気。短い感想や軽いツッコミを自然に交わす。架空の思い出は作らない。' +
     '今回指定された発言人数ぶんのturnsは、speakの真偽にかかわらず必ず作る。各turnは別の参加者にし、同じspeakerIdを1回の応答内で重複させない。speakはその候補を実際に読み上げるかだけを表し、話す必要がない場合はspeak=falseにする。順番は固定しない。各発言は短く。' +
+    'chapterEventsは実況コメント・感想・雑談とは独立した、画面から確認できる客観的なイベント要約。各要約は日本語150文字以内。kindはscene（場面変更）、progress（進行）、battle（戦闘）、result（結果）、menu（メニュー）、other。画像で確認できた事実のみ記し、勝敗・地名・開始や終了を推測しない。個人情報は含めない。発言をしない場合や雑談モードでも、確認できた出来事は記録する。新しい出来事がなければ空配列。最大3件。日時はアプリで付けるため生成しない。' +
     'summaryには観察できた状況を1文で記す。turnsは発言順のspeakerIdとtext。speak=falseでも候補turnsは指定人数ぶん返す。';
   function pickWeightedSpeakerCount(weights, participantCount, random=Math.random) {
     const count=Math.max(1,Math.min(6,Number(participantCount)||1));
@@ -102,8 +103,8 @@
     }
     parts.push({ text: `共通の雰囲気: ${settings.persona}${contentGuidance}${quietGuidance}\n参加者: ${JSON.stringify(settings.profiles.map(({id,name,personality})=>({id,name,personality})))}\n今回の候補発言人数: ${turnCount}人。speakの真偽にかかわらず、異なる${turnCount}人が1回ずつ発言する候補をturnsに必ず${turnCount}件入れる。同じspeakerIdを重複させない。各turnには表示用textと読み上げ用speechTextを必ず入れる。speechTextは発音用なので、漢字はできるだけかなへ、英字略語はカタカナ読みへ、数字は文脈に合う自然な読みへ変換する。漢字・英字・数字を含むtextをspeechTextへ丸コピーしない。読みが不確かな固有名詞だけは原表記を残してよい。実際に今しゃべるのが自然ならspeak=true、今は無言が自然ならspeak=falseにする。speak=falseでもturnsは空にしない。\n直近の話者: ${recentSpeakers.length?recentSpeakers.join(' → '):'なし'}。同じ人に偏りすぎないよう自然に話者を選ぶ。ただし状況に合う人を優先し、機械的な順番にはしない。\n最近の状況: ${history.join(' / ')}\n過去に読み上げ済みの発言（古い順・返答対象ではなく重複回避用）:\n${recentConversation.length?recentConversation.map(text=>`・${text}`).join('\n'):'なし'}\n画像1から画像${frames.length}まで古い順です。最後の画像を現在として、途中の変化も含めて判断して。` });
     return { systemInstruction: { parts: [{ text: instructions + speechGuidance(settings.talkativeness) }] }, contents: [{ role: 'user', parts }],
-      generationConfig: { candidateCount: 1, maxOutputTokens: 1536, thinkingConfig: { thinkingLevel: 'MINIMAL', includeThoughts: false }, responseMimeType: 'application/json',
-        responseSchema: { type: 'OBJECT', properties: { speak: { type: 'BOOLEAN' }, summary: { type: 'STRING' }, turns: { type: 'ARRAY', minItems: turnCount, maxItems: turnCount, items: { type: 'OBJECT', properties: { speakerId: { type: 'STRING', enum: settings.profiles.map(p=>p.id) }, text: { type: 'STRING' }, speechText: { type: 'STRING' } }, required: ['speakerId','text','speechText'] } } }, required: ['speak', 'summary', 'turns'] } } };
+      generationConfig: { candidateCount: 1, maxOutputTokens: 2048, thinkingConfig: { thinkingLevel: 'MINIMAL', includeThoughts: false }, responseMimeType: 'application/json',
+        responseSchema: { type: 'OBJECT', properties: { chapterEvents: { type: 'ARRAY', maxItems: 3, items: { type: 'OBJECT', properties: { kind: { type: 'STRING', enum: ['scene','progress','battle','result','menu','other'] }, summary: { type: 'STRING' } }, required: ['kind','summary'] } }, speak: { type: 'BOOLEAN' }, summary: { type: 'STRING' }, turns: { type: 'ARRAY', minItems: turnCount, maxItems: turnCount, items: { type: 'OBJECT', properties: { speakerId: { type: 'STRING', enum: settings.profiles.map(p=>p.id) }, text: { type: 'STRING' }, speechText: { type: 'STRING' } }, required: ['speakerId','text','speechText'] } } }, required: ['speak', 'summary', 'turns', 'chapterEvents'] } } };
   }
   function candidateText(body) {
     if (body.promptFeedback?.blockReason) return null;

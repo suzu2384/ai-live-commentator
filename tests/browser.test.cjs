@@ -5,7 +5,7 @@ const path=require('node:path');
 const {createHash}=require('node:crypto');
 const entry='file://'+path.resolve(__dirname,'../index.html');
 const sha=s=>createHash('sha256').update(s).digest('base64');
-const answer={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね'}]})}]}}]};
+const answer={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進んでいる',chapterEvents:[],turns:[{speakerId:'p1',text:'景色がいいね'}]})}]}}]};
 require('node:fs').mkdirSync(path.resolve(__dirname,'../../.browser-test'),{recursive:true});
 function wave(samples=2400){
     const b=Buffer.alloc(44+samples*2);b.write('RIFF');b.writeUInt32LE(b.length-8,4);b.write('WAVE',8);b.write('fmt ',12);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(1,22);b.writeUInt32LE(24000,24);b.writeUInt32LE(48000,28);b.writeUInt16LE(2,32);b.writeUInt16LE(16,34);b.write('data',36);b.writeUInt32LE(samples*2,40);
@@ -22,7 +22,14 @@ const results=[];
   await page.route('https://**/*',async r=>{
    if(!r.request().url().startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent')){events.unexpected.push(r.request().url());return r.abort();}
    events.api++;assert.equal(r.request().headers()['x-goog-api-key'],'fake.test-key');
-   const requestBody=JSON.parse(r.request().postData()||'{}');const parts=requestBody.contents?.[0]?.parts||[];events.analysisImages.push(parts.filter(p=>p.inlineData).length);events.turnLimits.push(requestBody.generationConfig?.responseSchema?.properties?.turns?.maxItems??null);events.speakerEnums.push(requestBody.generationConfig?.responseSchema?.properties?.turns?.items?.properties?.speakerId?.enum??[]);events.promptTexts.push(parts.filter(p=>typeof p.text==='string').map(p=>p.text).join('\n'));
+   const requestBody=JSON.parse(r.request().postData()||'{}');
+   if(requestBody.generationConfig?.responseSchema?.properties?.chapters){
+    if(config.holdChapter){held=r;return;}
+    if(config.chapterStatus)return r.fulfill({status:config.chapterStatus,contentType:'application/json',body:'{}'});
+    const items=JSON.parse(requestBody.contents[0].parts[0].text).events;
+    return r.fulfill({contentType:'application/json',body:JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({chapters:[{eventId:items[0].eventId,title:'新しいエリアを探索'}]})}]}}]})});
+   }
+   const parts=requestBody.contents?.[0]?.parts||[];events.analysisImages.push(parts.filter(p=>p.inlineData).length);events.turnLimits.push(requestBody.generationConfig?.responseSchema?.properties?.turns?.maxItems??null);events.speakerEnums.push(requestBody.generationConfig?.responseSchema?.properties?.turns?.items?.properties?.speakerId?.enum??[]);events.promptTexts.push(parts.filter(p=>typeof p.text==='string').map(p=>p.text).join('\n'));
    if(config.hold){held=r;return;}
    if(config.status && (!config.failCount || events.api<=config.failCount))await r.fulfill({status:config.status,contentType:'application/json',body:'{}'});
    else {const response=config.answers?.[events.api-1]||config.answer||answer;await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(response)});}
@@ -107,7 +114,41 @@ const results=[];
   await p.locator('#tab-live').click();const selected=new Set(ids);
   for(let n=1;n<=6;n++)await p.locator('#participant-p'+n).setChecked(selected.has('p'+n));
  }
- async function test(name,fn){await fn();results.push(name);console.log('PASS:',name);}
+ async function test(name,fn){if(process.env.TEST_FILTER&&!new RegExp(process.env.TEST_FILTER).test(name))return;await fn();results.push(name);console.log('PASS:',name);}
+ async function chapterRecords(p){return p.evaluate(()=>new Promise((resolve,reject)=>{const open=indexedDB.open('minkome-chapters-v1',1);open.onsuccess=()=>{const db=open.result,tx=db.transaction('sessions'),r=tx.objectStore('sessions').getAll();r.onsuccess=()=>{db.close();resolve(r.result)};r.onerror=reject;};open.onerror=reject;}));}
+ await test('chapters record silent observations, auto-generate, persist and retain history on failure or cancellation',async()=>{
+  const config={answer:{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'感想ではない状況',chapterEvents:[{kind:'scene',summary:'新しいエリアに移動した'}],turns:[{speakerId:'p1',text:'静かだね',speechText:'しずかだね'}]})}]}}]}};
+  const x=await setup(config),p=x.page;await start(x);
+  await p.waitForFunction(()=>document.getElementById('chapterEventCount').textContent.includes('1件'));
+  assert.equal(x.events.talks.length,0);
+  await finish(p);
+  assert.equal(await p.locator('#chapterCandidates li').count(),1);
+  let records=await chapterRecords(p),record=records[0];assert.equal(record.status,'finished');assert.equal(record.events.length,1);assert.equal(record.generations.length,1);
+  assert(record.events[0].observedAtMs>1700000000000);assert(record.events[0].recordedAtMs>=record.events[0].observedAtMs);assert.equal(record.generations[0].chapters[0].sourceEventId,record.events[0].id);
+  assert.equal(record.generations[0].chapters[0].observedAtMs,record.events[0].observedAtMs);
+  await p.locator('#chapterCandidates button').click();assert.equal(await p.locator('#chapterEvents li').count(),1);
+  await p.locator('#chapterGenerate').click();await stopped(p);assert.equal((await chapterRecords(p))[0].generations.length,2);
+  config.chapterStatus=503;await p.locator('#chapterGenerate').click();await stopped(p);assert((await p.locator('#chapterStatus').textContent()).includes('503'));assert.equal((await chapterRecords(p))[0].generations.length,2);
+  config.chapterStatus=0;config.holdChapter=true;await p.locator('#chapterGenerate').click();await p.waitForFunction(()=>document.getElementById('chapterStatus').textContent.includes('生成中'));await stop(p);assert.equal((await chapterRecords(p))[0].generations.length,2);
+  await p.reload();await p.locator('#tab-chapters').click();await p.waitForFunction(()=>document.getElementById('chapterGeneration').options.length===2);
+  assert.equal(await p.locator('#chapterEvents li').count(),1);assert.equal(await p.locator('#chapterCandidates li').count(),1);
+  assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#freeTier').isChecked(),false);
+  await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/chapters-desktop.png')});
+  await p.setViewportSize({width:390,height:844});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.locator('#chapterSession').scrollIntoViewIfNeeded();await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/chapters-mobile.png')});
+  await x.close();
+ });
+ await test('immediate stop keeps events without automatic chapter requests',async()=>{
+  const x=await setup({answer:{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'結果',chapterEvents:[{kind:'result',summary:'結果画面が表示された'}],turns:[{speakerId:'p1',text:'結果だね'}]})}]}}]}});await start(x);await x.page.waitForFunction(()=>document.getElementById('chapterEventCount').textContent.includes('1件'));await stop(x.page);
+  const records=await chapterRecords(x.page);assert.equal(records[0].status,'interrupted');assert.equal(records[0].events.length,1);assert.equal(records[0].generations.length,0);assert.equal(x.events.api,1);await x.close();
+ });
+ await test('chapter recording preserves speech and closing greeting before auto-generation',async()=>{
+  const wrap=value=>({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(value)}]}}]});
+  const x=await setup({answers:[wrap({speak:true,summary:'新しいエリア',chapterEvents:[{kind:'scene',summary:'新しいエリアに移動した'}],turns:[{speakerId:'p1',text:'景色が変わったね'}]}),wrap({speak:true,summary:'終了',turns:[{speakerId:'p1',text:'続きが気になるね'}]})],before:async p=>{await p.locator('#greetEnd').check();}});
+  const p=x.page;await start(x);await p.waitForFunction(()=>document.getElementById('speakerStatsTotal').textContent==='1');
+  assert.deepEqual(x.events.talks,['景色が変わったね']);await finish(p);
+  assert.deepEqual(x.events.talks,['景色が変わったね','続きが気になるね']);assert.equal(x.events.api,3);
+  const s=(await chapterRecords(p))[0];assert.equal(s.events.length,1);assert.equal(s.generations.length,1);assert.equal(s.status,'finished');await x.close();
+ });
  await test('file startup, responsive layout, settings persistence excludes credentials',async()=>{
   const x=await setup();const p=x.page;await p.locator('#conversationHistoryCount').fill('4');await p.locator('#save').click();const data=await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1'));
   assert.ok(!data.includes('fake.test-key')&&!data.includes('obs-secret')&&!data.includes('freeTier'));assert.equal(JSON.parse(data).theme,'midnight');
@@ -210,7 +251,7 @@ const results=[];
  });
  await test('tabs group live, friends, connection and history without changing setting ids',async()=>{
   const x=await setup();const p=x.page;
-  assert.deepEqual(await p.locator('[role=tab]').allTextContents(),['実況','友達','接続','履歴']);
+  assert.deepEqual(await p.locator('[role=tab]').allTextContents(),['実況','友達','接続','履歴','チャプター']);
   assert.equal(await p.locator('#contentName').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-live');
   assert.equal(await p.locator('#participantCount').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-live');
   assert.equal(await p.locator('#apiInterval').evaluate(el=>el.closest('details').id),'settings-advanced');

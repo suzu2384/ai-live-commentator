@@ -1,6 +1,7 @@
 (function () {
   'use strict';
   const C = LiveCore, $ = id => document.getElementById(id);
+  let chapterUI=null;
   const storageKey = 'ai-live-commentator-browser-v1';
   const contentLibraryKey = 'ai-live-commentator-content-library-v1';
   const contentKnowledgeKey = 'ai-live-commentator-content-knowledge-v1';
@@ -117,7 +118,7 @@
     $('resetObsSource').disabled=vaultBusy||(busy&&!streaming);
   }
   function setBusy(value) {
-    busy = value;
+    busy = value;chapterUI?.setBusy(value||vaultBusy);
     for (const el of document.querySelectorAll('#settings input,#settings select,#settings textarea,#settings button,#panel-friends input,#panel-friends select,#panel-friends textarea,#panel-friends button')) el.disabled = value || vaultBusy;
     $('start').disabled = value; $('stop').disabled = !value; $('finish').disabled = !streaming;updateObsRefreshButton();
   }
@@ -519,7 +520,7 @@
   }
   function reserve() { stats.used++; updateStats(); }
   async function getFrame(s, signal) {
-    C.check(signal); const capturedAt = performance.now();
+    C.check(signal); const capturedAt = performance.now(),capturedAtMs=Date.now();
     let result;
     try{result=await obs.screenshot(s.sourceName, s.imageWidth, signal);}
     catch(e){
@@ -542,7 +543,7 @@
     $('preview').src = data; $('preview').hidden = false; $('placeholder').hidden = true;
     $('imageInfo').textContent = `${im.naturalWidth} × ${im.naturalHeight} · ${new Date().toLocaleTimeString('ja-JP')}`;
     lastCaptureAt=performance.now();
-    return { data, capturedAt, pixels };
+    return { data, capturedAt, capturedAtMs, pixels };
   }
   function motion(a,b) { let changed=0; for(let i=0;i<a.length;i+=4) if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>85) changed++; return changed/(a.length/4); }
   async function fetchLocal(url, options, signal) {
@@ -950,6 +951,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     log(`Geminiへ画像${frames.length}枚を送信（${stats.used}回・今回の発言人数${turnCount}人・${quietMode?'雑談モード':'通常実況'}・鮮度上限${s.freshness}秒）。`);
     const response=await C.deadline(token=>C.gemini(key,payload,token),Math.min(180000,remaining),signal,'鮮度上限に達したためGeminiの応答待ちを打ち切りました。','STALE');
     const duration=(performance.now()-began)/1000;$('latency').textContent=duration.toFixed(1)+' 秒';log(`Gemini応答 ${duration.toFixed(1)}秒。`);
+    chapterUI.observe(response,frames,s.contentName);
     checkFresh(current,s);return C.parseAnalysis(response,s.profiles,turnCount);
   }
   async function waitForSettings(signal,{autoResumeObsSource=false}={}) {
@@ -1222,12 +1224,13 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     controller=new AbortController();const signal=controller.signal;setBusy(true);let failed=false;
     try {await fn(signal);}
     catch(e){if(signal.aborted || e.name==='AbortError')log('停止しました。');else{failed=true;log('停止: '+(e instanceof C.AppError?e.message:'処理に失敗しました。接続先やブラウザの状態を確認してください。'),'warn');}}
-    finally{clearObsOverlayNow();obs?.close();obs=null;activeAudio?.stop();activeAudio=null;await wakeLock?.release().catch(()=>{});wakeLock=null;controller=null;finishAction=null;streaming=false;lastCaptureAt=null;setBusy(false);setStatus(failed?'エラーで停止・履歴を確認してください':'停止中',failed);$('elapsed').textContent='';}
+    finally{await chapterUI?.end('interrupted');clearObsOverlayNow();obs?.close();obs=null;activeAudio?.stop();activeAudio=null;await wakeLock?.release().catch(()=>{});wakeLock=null;controller=null;finishAction=null;streaming=false;lastCaptureAt=null;setBusy(false);setStatus(failed?'エラーで停止・履歴を確認してください':'停止中',failed);$('elapsed').textContent='';}
   }
   $('start').addEventListener('click',()=>operation(async signal=>{
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();resetSpeakerStats();$('latency').textContent='—';
     const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,speechEpoch:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],rateLimitStreak:0,quietSceneStreak:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
+    await chapterUI.begin(s.contentName);C.check(signal);
     streaming=true;$('finish').disabled=true;updateObsRefreshButton();
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
@@ -1247,6 +1250,10 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     }
     if(runtime.s.greetEnd)await greeting('end',runtime,signal,{tolerateFailure:true});
     log('実況を通常終了しました。');
+    const chapterSession=await chapterUI.end('finished');
+    if($('chapterAuto').checked&&chapterUI.store.records.get(chapterSession)?.events.length){
+      streaming=false;await chapterUI.generate(requireKey(),signal,reserve,chapterSession);
+    }
   }));
   $('resume').addEventListener('click',()=>resumeAction?.());
   $('finish').addEventListener('click',()=>finishAction?.());
@@ -1414,6 +1421,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   }));
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
+  chapterUI=new LiveChapterUI({log,onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);})});
   contentLibrary=loadContentLibrary();contentKnowledge=loadContentKnowledge();renderContentOptions('');
   fontLibrary=loadFontLibrary();
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};}catch{}
