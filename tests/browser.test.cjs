@@ -20,6 +20,16 @@ const results=[];
   const events={images:0,api:0,analysisImages:[],turnLimits:[],speakerEnums:[],promptTexts:[],talks:[],queries:0,voiceTexts:[],voices:[],speeds:[],synths:0,identifies:0,obsRequests:[],overlayUrls:[],overlayTransforms:[],overlayEnabled:[],unexpected:[]};let held=null;
   await page.clock.install();
   await page.route('https://**/*',async r=>{
+   if(r.request().url().startsWith('https://i.ytimg.com/'))return r.fulfill({status:204});
+   if(r.request().url().startsWith('https://www.googleapis.com/youtube/v3/')){
+    events.youtube=(events.youtube||0)+1;assert.equal(r.request().headers()['x-goog-api-key'],'youtube-test-key');
+    const u=new URL(r.request().url());
+    if(config.holdYouTube){held=r;return;}
+    if(config.youtubeError)return r.fulfill({status:403,body:'{}'});
+    const videos=config.youtubeVideos||[];
+    const items=u.pathname.endsWith('/search')?(u.searchParams.get('eventType')==='live'?videos.map(v=>({id:{videoId:v.id}})):[]):videos.filter(v=>u.searchParams.get('id').split(',').includes(v.id));
+    return r.fulfill({contentType:'application/json',body:JSON.stringify({items})});
+   }
    if(!r.request().url().startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent')){events.unexpected.push(r.request().url());return r.abort();}
    events.api++;assert.equal(r.request().headers()['x-goog-api-key'],'fake.test-key');
    const requestBody=JSON.parse(r.request().postData()||'{}');
@@ -116,6 +126,47 @@ const results=[];
  }
  async function test(name,fn){if(process.env.TEST_FILTER&&!new RegExp(process.env.TEST_FILTER).test(name))return;await fn();results.push(name);console.log('PASS:',name);}
  async function chapterRecords(p){return p.evaluate(()=>new Promise((resolve,reject)=>{const open=indexedDB.open('minkome-chapters-v1',1);open.onsuccess=()=>{const db=open.result,tx=db.transaction('sessions'),r=tx.objectStore('sessions').getAll();r.onsuccess=()=>{db.close();resolve(r.result)};r.onerror=reject;};open.onerror=reject;}));}
+
+ const youtubeChannel='UC'+'a'.repeat(22);
+ const youtubeVideo=(id,actualStartTime=null)=>({id,snippet:{title:'テスト配信 '+id,channelId:youtubeChannel,liveBroadcastContent:actualStartTime?'live':'upcoming'},liveStreamingDetails:{scheduledStartTime:'2026-10-04T23:00:00Z',...(actualStartTime?{actualStartTime}:{})}});
+ async function youtubeSettings(p){await openConnect(p);await p.locator('#youtubeApiKey').fill('youtube-test-key');await p.locator('#youtubeChannelId').fill(youtubeChannel);}
+ await test('YouTube empty skips modal; API failure explicitly permits unlinked start',async()=>{
+  for(const error of [false,true]){
+   const x=await setup({youtubeError:error}),p=x.page;await youtubeSettings(p);await p.locator('#start').click();
+   if(error){await p.locator('#youtubeDialog').waitFor({state:'visible'});assert.match(await p.locator('#youtubeMessage').textContent(),/403/);assert.equal(x.events.identifies,0);await p.locator('#youtubeWithout').click();}
+   await idle(p);assert.equal(await p.locator('#youtubeDialog').isVisible(),false);await stop(p);assert.equal((await chapterRecords(p))[0].youtubeSync,null);await x.close();
+  }
+ });
+ await test('YouTube one or two candidates require explicit choice; cancel starts no session',async()=>{
+  for(const count of [1,2]){
+   const config={youtubeVideos:[youtubeVideo('abcdefghijk'),youtubeVideo('lmnopqrstuv')].slice(0,count)},x=await setup(config),p=x.page;
+   await youtubeSettings(p);await p.locator('#start').click();await p.locator('#youtubeDialog').waitFor({state:'visible'});
+   assert.equal(await p.locator('#youtubeCandidates input:checked').count(),0);assert.equal(await p.locator('#youtubeConfirm').isDisabled(),true);assert.equal(x.events.identifies,0);
+   if(count===1){await p.locator('#youtubeCancel').click();await stopped(p);assert.equal((await chapterRecords(p)).length,0);}
+   else{
+    await p.setViewportSize({width:390,height:844});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/youtube-mobile.png')});
+    await p.locator('#youtubeCandidates input').nth(1).check();await p.locator('#youtubeConfirm').click();await idle(p);await stop(p);
+    const record=(await chapterRecords(p))[0];assert.equal(record.youtubeSync.videoId,'lmnopqrstuv');assert.equal(record.youtubeSync.actualStartTimeMs,null);
+   }await x.close();
+  }
+ });
+ await test('YouTube retry cancellation ignores late lookup responses',async()=>{
+  const config={youtubeError:true},x=await setup(config),p=x.page;await youtubeSettings(p);await p.locator('#start').click();await p.locator('#youtubeDialog').waitFor({state:'visible'});
+  config.youtubeError=false;config.holdYouTube=true;await p.locator('#youtubeRetry').click();await p.waitForFunction(()=>document.getElementById('youtubeMessage').textContent.includes('取得しています'));
+  await p.locator('#youtubeWithout').click();await idle(p);await stop(p);assert.equal((await chapterRecords(p))[0].youtubeSync,null);assert.equal(await p.locator('#youtubeDialog').isVisible(),false);await x.close();
+ });
+ await test('YouTube sync preserves absolute chapters and persists selected video on reload',async()=>{
+  const config={youtubeVideos:[youtubeVideo('abcdefghijk')],answer:{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'移動',chapterEvents:[{kind:'scene',summary:'ボス部屋へ入った'}],turns:[{speakerId:'p1',text:'静かだね'}]})}]}}]}},x=await setup(config),p=x.page;
+  await youtubeSettings(p);await p.locator('#start').click();await p.locator('#youtubeCandidates input').check();await p.locator('#youtubeConfirm').click();await idle(p);await p.clock.fastForward(4100);
+  await p.waitForFunction(()=>document.getElementById('chapterEventCount').textContent.includes('1件'));await finish(p);
+  let before=(await chapterRecords(p))[0];assert.equal(before.generations.length,1);assert.match(await p.locator('#chapterCandidates').textContent(),/未同期/);
+  const time=before.events[0].observedAtMs;config.youtubeVideos=[youtubeVideo('abcdefghijk',new Date(time-738000).toISOString())];
+  const api=x.events.api;await p.locator('#youtubeResync').click();await stopped(p);assert.match(await p.locator('#chapterCandidates').textContent(),/12:18/);assert.equal(x.events.api,api);
+  let after=(await chapterRecords(p))[0];assert.deepEqual(after.events,before.events);assert.deepEqual(after.generations,before.generations);
+  config.youtubeError=true;await p.locator('#youtubeResync').click();await stopped(p);assert.match(await p.locator('#youtubeSyncInfo').textContent(),/403/);assert.match(await p.locator('#chapterCandidates').textContent(),/12:18/);
+  await p.reload();await p.locator('#tab-chapters').click();await p.waitForFunction(()=>document.getElementById('chapterCandidates').textContent.includes('12:18'));
+  assert.equal(await p.locator('#youtubeApiKey').inputValue(),'');assert.equal((await chapterRecords(p))[0].youtubeSync.videoId,'abcdefghijk');await x.close();
+ });
  await test('chapters record silent observations, auto-generate, persist and retain history on failure or cancellation',async()=>{
   const config={answer:{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'感想ではない状況',chapterEvents:[{kind:'scene',summary:'新しいエリアに移動した'}],turns:[{speakerId:'p1',text:'静かだね',speechText:'しずかだね'}]})}]}}]}};
   const x=await setup(config),p=x.page;await start(x);
@@ -160,7 +211,7 @@ const results=[];
   await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/mobile.png'),fullPage:true});await x.close();
  });
  await test('settings export and import round-trip friends, libraries and normal settings without secrets',async()=>{
-  const x=await setup();const p=x.page;
+  const x=await setup();const p=x.page;await youtubeSettings(p);
   await p.locator('#tab-friends').click();
   await p.locator('#p4-name').fill('リアクション役');await p.locator('#p4-personality').fill('テンション高めで驚きを素直に出す。');await p.locator('#p4-speedScale').fill('1.25');
   await selectParticipants(p,['p2','p4','p6']);
@@ -171,9 +222,10 @@ const results=[];
   const downloadPromise=p.waitForEvent('download');await p.locator('#exportSettings').click();const download=await downloadPromise;
   const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);const text=Buffer.concat(chunks).toString('utf8'),bundle=JSON.parse(text);
   assert.equal(bundle.format,'minkome-settings');assert.equal(bundle.version,1);assert.equal(bundle.secretsIncluded,false);
-  assert.ok(!text.includes('fake.test-key')&&!text.includes('obs-secret')&&!text.includes('freeTier')&&!text.includes('vault'));
+  assert.ok(!text.includes('fake.test-key')&&!text.includes('obs-secret')&&!text.includes('freeTier')&&!text.includes('vault')&&!text.includes('youtube-test-key'));
   assert.deepEqual(bundle.settings.selectedProfileIds,['p2','p4','p6']);assert.equal(bundle.settings.profiles[3].name,'リアクション役');assert.equal(bundle.settings.profiles[3].personality,'テンション高めで驚きを素直に出す。');assert.equal(bundle.settings.profiles[3].speedScale,1.25);
   assert.deepEqual(bundle.contentLibrary,['ゲーム','ゲーム：Monster Hunter']);assert.deepEqual(bundle.contentKnowledge,{'ゲーム：Monster Hunter':'リオレウスは飛竜種。キャンプでは装備変更ができる。'});assert.deepEqual(bundle.fontLibrary,['Meiryo']);assert.equal(bundle.settings.obsOverlayFont,'Meiryo');
+  assert.equal(bundle.settings.youtubeChannelId,youtubeChannel);delete bundle.settings.youtubeChannelId; // Legacy exports omit the optional YouTube setting.
   bundle.settings.theme='rose';bundle.settings.persona='インポート後の雰囲気';bundle.settings.contentName='配信：新作';bundle.settings.selectedProfileIds=['p1','p5'];bundle.settings.participantCount=2;bundle.settings.obsOverlayFont='BIZ UDPGothic';bundle.settings.profiles[4].name='分析役';bundle.settings.profiles[4].personality='冷静に状況を整理して予想する。';bundle.contentLibrary=['配信','配信：新作'];bundle.contentKnowledge={'配信：新作':'主人公はテスト太郎。固有技はテストブレイク。'};bundle.fontLibrary=['BIZ UDPGothic'];
   p.once('dialog',d=>d.accept());
   await p.locator('#importSettingsFile').setInputFiles({name:'minkome-settings.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(bundle))});
@@ -499,7 +551,7 @@ const results=[];
   await x.close();
  });
  await test('all friend cards stay editable in two columns on desktop and one on mobile',async()=>{
-  const x=await setup();const p=x.page;
+  const x=await setup();const p=x.page;await youtubeSettings(p);
   await p.locator('#tab-friends').click();
   const desktop=await p.locator('#profiles .friend').evaluateAll(cards=>cards.map(c=>{const r=c.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width)};}));
   assert.equal(desktop.length,6);assert.equal(desktop[0].y,desktop[1].y);assert.ok(desktop[1].x>desktop[0].x);assert.equal(desktop[4].y,desktop[5].y);
@@ -961,15 +1013,15 @@ const results=[];
   assert.equal(x.events.api,1);await x.close();
  });
  await test('encrypted credentials survive reload, require passphrase, and lock clears fields',async()=>{
-  const x=await setup();const p=x.page;await openConnect(p);await p.locator('#vaultPass').fill('a sufficiently long phrase');await p.locator('#vaultConfirm').fill('a sufficiently long phrase');await p.locator('#vaultSave').click();
+  const x=await setup();const p=x.page;await youtubeSettings(p);await p.locator('#vaultPass').fill('a sufficiently long phrase');await p.locator('#vaultConfirm').fill('a sufficiently long phrase');await p.locator('#vaultSave').click();
   await p.waitForFunction(()=>document.getElementById('vaultState').textContent.includes('暗号化して保存しました'));
-  const raw=await p.evaluate(()=>JSON.stringify(localStorage));assert.ok(!raw.includes('fake.test-key')&&!raw.includes('obs-secret')&&!raw.includes('sufficiently'));
+  const raw=await p.evaluate(()=>JSON.stringify(localStorage));assert.ok(!raw.includes('fake.test-key')&&!raw.includes('obs-secret')&&!raw.includes('sufficiently')&&!raw.includes('youtube-test-key'));
   await p.reload();assert.equal(await p.locator('#apiKey').inputValue(),'');
-  await p.locator('#vaultPass').fill('wrong passphrase');await p.locator('#vaultUnlock').click();await p.waitForFunction(()=>document.getElementById('vaultState').textContent.includes('解除できません'));
+  await openConnect(p);await p.locator('#vaultPass').fill('wrong passphrase');await p.locator('#vaultUnlock').click();await p.waitForFunction(()=>document.getElementById('vaultState').textContent.includes('解除できません'));
   assert.equal(await p.locator('#apiKey').inputValue(),'');await p.locator('#vaultPass').fill('a sufficiently long phrase');await p.locator('#vaultUnlock').click();
   await p.waitForFunction(()=>document.getElementById('vaultState').textContent.startsWith('解除しました'));
-  assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');assert.equal(await p.locator('#vaultPass').inputValue(),'');
-  await p.locator('#vaultLock').click();assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#obsPassword').inputValue(),'');await x.close();
+  assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');assert.equal(await p.locator('#vaultPass').inputValue(),'');assert.equal(await p.locator('#youtubeApiKey').inputValue(),'youtube-test-key');
+  await p.locator('#vaultLock').click();assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#obsPassword').inputValue(),'');assert.equal(await p.locator('#youtubeApiKey').inputValue(),'');await x.close();
  });
  await test('old settings migrate voice IDs; tabs and mobile stop remain accessible',async()=>{
   const x=await setup();const p=x.page;

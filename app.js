@@ -12,7 +12,7 @@
   const obsOverlaySourceName='みんコメ 吹き出し';
   const legacyObsOverlaySourceName='みんコメ コメント';
   const obsOverlayColors=['#2e7fa3','#a93b6b','#3f7f46','#b47420','#6549a7','#a8443b'];
-  const savedIds = ['theme','obsUrl','sourceName','obsOverlayEnabled','obsOverlayPosition','obsOverlayFont','obsOverlayFontSize','obsOverlayShowName','obsOverlayBold','obsOverlayHold','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
+  const savedIds = ['theme','youtubeChannelId','obsUrl','sourceName','obsOverlayEnabled','obsOverlayPosition','obsOverlayFont','obsOverlayFontSize','obsOverlayShowName','obsOverlayBold','obsOverlayHold','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
   const themes={
     midnight:{scheme:'dark',color:'#0d151c'},
     graphite:{scheme:'dark',color:'#17191c'},
@@ -438,6 +438,7 @@
     const importedKnowledge=normalizeContentKnowledge(value.contentKnowledge,importedContents);
     const importedFonts=normalizeFontLibrary(Array.isArray(value.fontLibrary)?value.fontLibrary:[]);
     for(const id of savedIds){
+      if(id==='youtubeChannelId'&&source[id]===undefined){data[id]='';continue;}
       if(source[id]===undefined)throw new C.AppError('設定ファイルに必要な設定項目が不足しています。');
       const el=$(id),raw=source[id];
       if(el.type==='checkbox'){
@@ -1230,7 +1231,10 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();resetSpeakerStats();$('latency').textContent='—';
     const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,speechEpoch:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],rateLimitStreak:0,quietSceneStreak:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
-    await chapterUI.begin(s.contentName);C.check(signal);
+    const youtubeKey=$('youtubeApiKey').value.trim();
+    let youtubeSync=await LiveYouTubeUI.choose(youtubeKey,s.youtubeChannelId,signal,setStatus);C.check(signal);
+    if(youtubeSync){setStatus('YouTube開始時刻を取得中');try{youtubeSync=await C.deadline(t=>LiveYouTube.synchronize(youtubeSync,youtubeKey,t),15000,signal,'YouTube開始時刻を取得できませんでした。');}catch(e){C.check(signal);youtubeSync.syncError=e.message;log(e.message+' 絶対日時で記録を続けます。','warn');}}
+    await chapterUI.begin(s.contentName,youtubeSync);C.check(signal);
     streaming=true;$('finish').disabled=true;updateObsRefreshButton();
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
@@ -1251,6 +1255,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     if(runtime.s.greetEnd)await greeting('end',runtime,signal,{tolerateFailure:true});
     log('実況を通常終了しました。');
     const chapterSession=await chapterUI.end('finished');
+    if(chapterUI.store.records.get(chapterSession)?.youtubeSync?.actualStartTimeMs==null)await chapterUI.syncYouTube(youtubeKey,signal,chapterSession);
     if($('chapterAuto').checked&&chapterUI.store.records.get(chapterSession)?.events.length){
       streaming=false;await chapterUI.generate(requireKey(),signal,reserve,chapterSession);
     }
@@ -1395,7 +1400,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     return p;
   });}
   const vaultKey='ai-live-commentator-vault-v1';
-  function lockSecrets(){$('apiKey').value='';$('obsPassword').value='';$('vaultPass').value='';$('vaultConfirm').value='';$('freeTier').checked=false;updateSettingSummaries();}
+  function lockSecrets(){$('apiKey').value='';$('obsPassword').value='';$('youtubeApiKey').value='';$('vaultPass').value='';$('vaultConfirm').value='';$('freeTier').checked=false;updateSettingSummaries();}
   function vaultState(){try{$('vaultState').textContent=localStorage.getItem(vaultKey)?'暗号化した情報があります。合言葉を入力して解除できます。':'暗号化した情報はまだありません。';}catch{$('vaultState').textContent='ブラウザが保存を許可していません。';}updateSettingSummaries();}
   async function vaultOperation(fn){
     if(busy||vaultBusy)return;vaultBusy=true;setBusy(false);$('start').disabled=true;
@@ -1406,7 +1411,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     if($('vaultPass').value!==$('vaultConfirm').value)throw new Error('確認用の合言葉が一致しません。');
     const apiKey=C.normalizeKey($('apiKey').value);
     const epoch=pageEpoch;
-    const data=await LiveVault.seal({apiKey,obsPassword:$('obsPassword').value},$('vaultPass').value);
+    const data=await LiveVault.seal({apiKey,obsPassword:$('obsPassword').value,youtubeApiKey:$('youtubeApiKey').value.trim()},$('vaultPass').value);
     if(epoch!==pageEpoch)return;
     localStorage.setItem(vaultKey,JSON.stringify(data));$('vaultState').textContent='暗号化して保存しました。現在は解除中です。';updateSettingSummaries();
   }));
@@ -1416,12 +1421,12 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     const epoch=pageEpoch;
     const credentials=await LiveVault.open(data,$('vaultPass').value);
     if(epoch!==pageEpoch)return;
-    $('apiKey').value=credentials.apiKey;$('obsPassword').value=credentials.obsPassword;$('freeTier').checked=false;
+    $('apiKey').value=credentials.apiKey;$('obsPassword').value=credentials.obsPassword;$('youtubeApiKey').value=credentials.youtubeApiKey||'';$('freeTier').checked=false;
     $('vaultState').textContent='解除しました。Free Tierの確認をしてから開始してください。';updateSettingSummaries();
   }));
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
-  chapterUI=new LiveChapterUI({log,onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);})});
+  chapterUI=new LiveChapterUI({log,onSync:()=>operation(async signal=>{setStatus('YouTube開始時刻を取得中');await chapterUI.syncYouTube($('youtubeApiKey').value.trim(),signal);}),onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);})});
   contentLibrary=loadContentLibrary();contentKnowledge=loadContentKnowledge();renderContentOptions('');
   fontLibrary=loadFontLibrary();
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};}catch{}

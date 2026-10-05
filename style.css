@@ -611,3 +611,5 @@ html[data-theme="sand"]{
 @media(max-width:520px){.tabs{gap:0;padding:4px}.tabs button{font-size:11px;padding:8px 4px;min-width:0}.chapter-pagination button{min-height:40px}}
 
 @media(max-width:520px){.tabs #tab-chapters{flex:1.6;white-space:nowrap}}
+
+.youtube-dialog-body{padding:18px;overflow:auto}.youtube-candidate{display:flex;align-items:center;gap:12px;border:1px solid var(--line);padding:10px;border-radius:8px}.youtube-candidate input{flex:0 0 18px;width:18px}.youtube-candidate img{width:120px;aspect-ratio:16/9;object-fit:cover}.youtube-candidate span{min-width:0;overflow-wrap:anywhere}.youtube-candidate strong,.youtube-candidate small{display:block}.youtube-candidate small{color:var(--muted)}#youtubeDialog{max-height:90dvh;overflow:auto}#youtubeDialog .actions{margin-top:16px}@media(max-width:520px){.youtube-candidate{gap:8px}.youtube-candidate img{width:80px}.youtube-dialog-body{padding:12px}}
