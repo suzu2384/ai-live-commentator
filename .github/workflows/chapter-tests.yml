@@ -1,0 +1,34 @@
+name: Chapter regression tests
+
+on:
+  push:
+    branches: [main, codex/chapter-editor]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  chapters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save --package-lock=false playwright@1.62.1
+      - run: npx playwright install --with-deps chromium
+      - name: Data and API regression tests
+        run: node --test tests/core.test.cjs tests/chapters.test.cjs tests/youtube.test.cjs
+      - name: Chapter and related browser scenarios
+        env:
+          TEST_FILTER: 'chapter editor|YouTube|chapters record|immediate stop keeps|chapter recording preserves|tabs group|stop cancels pending analysis|encrypted credentials|settings export and import'
+        run: node tests/browser.test.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chapter-screenshots
+          path: ../.browser-test/*.png
+          if-no-files-found: ignore
+          retention-days: 7
