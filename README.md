@@ -322,4 +322,4 @@ v4.42.0のイベントログ、AI生成、終了後の任意同期をそのま�
 
 ブラウザテスト: `TEST_FILTER='chapter editor|YouTube|chapters record|immediate stop keeps|chapter recording preserves|tabs group|stop cancels pending analysis|encrypted credentials|settings export and import' node tests/browser.test.cjs`（PlaywrightとChromiumが必要。必要なら `CHROME_PATH` を指定）。`.github/workflows/chapter-tests.yml` でも同じ確認を行います。
 
-編集前のv4.42.0では単体40件・関連ブラウザ12シナリオの通過を確認しました。追加のテストでは元データ不変、履歴別の保存・復元、日付またぎ・1時間超、時刻の重複、範囲外の候補、コピー失敗時の案内を確認します。Gemini・YouTube・OBS・読み上げ通信はモックで、実API・実配信での連携や生成内容の品質は未検証です。
+編集前のv4.42.0では単体40件・関連ブラウザ12シナリオの通過を確認しました。v4.43.0では単体52件・関連ブラウザ17シナリオが通過しています。元データ不変、履歴別の保存・復元、日付またぎ・1時間超、時刻の重複、範囲外の候補、コピー失敗時の案内を確認し、PC・スマホの画面も確認しました。Gemini・YouTube・OBS・読み上げ通信はモックで、実API・実配信での連携や生成内容の品質は未検証です。
