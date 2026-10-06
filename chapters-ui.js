@@ -18,10 +18,11 @@
       $('chapterGenerate').addEventListener('click',()=>onGenerate());
       $('chapterPrev').addEventListener('click',()=>{this.page--;this.renderEvents();});
       $('chapterNext').addEventListener('click',()=>{this.page++;this.renderEvents();});
+      this.editor=new root.LiveChapterEditorUI(this);
     }
     current(){return this.store.records.get(this.selected);}
     setBusy(value){this.busy=value;this.controls();}
-    controls(){const s=this.current();$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.generating;}
+    controls(){const s=this.current();$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;this.editor?.controls();}
     async begin(contentName){
       await this.ready;const s=H.session(contentName);this.active=s.id;this.selected=s.id;this.page=0;this.generationId=null;this.warnedObservation=false;
       await this.store.save(s);$('chapterStatus').textContent='実況の解析と一緒にイベントを記録しています。';this.render();
@@ -90,20 +91,14 @@
       }
       if(!s?.generations.some(g=>g.id===this.generationId))this.generationId=s?.generations.at(-1)?.id||null;
       if(this.generationId)genSelect.value=this.generationId;
-      const generation=s?.generations.find(g=>g.id===this.generationId),list=$('chapterCandidates');list.replaceChildren();
-      $('chapterCandidateEmpty').hidden=!!generation?.chapters.length;
-      $('chapterCandidateEmpty').textContent=generation?'この生成では候補がありませんでした。':'生成されたチャプター候補がここに表示されます。';
-      for(const chapter of generation?.chapters||[]){
-        const item=document.createElement('li'),time=document.createElement('time'),title=document.createElement('strong'),button=document.createElement('button');
-        time.dateTime=new Date(chapter.observedAtMs).toISOString();time.textContent=date(chapter.observedAtMs)+(s.youtubeSync?' → '+(root.LiveYouTube.relative(chapter.observedAtMs,s.youtubeSync)??'未同期'):'');title.textContent=chapter.title;
-        button.type='button';button.className='subtle';button.textContent='元イベントを見る';button.addEventListener('click',()=>{
-          const events=[...s.events].reverse(),index=events.findIndex(e=>e.id===chapter.sourceEventId);if(index<0)return;
-          this.page=Math.floor(index/100);this.renderEvents();$('chapterEventsSection').open=true;
-          const target=document.getElementById(`chapter-event-${chapter.sourceEventId}`);target?.scrollIntoView({block:'nearest'});target?.focus({preventScroll:true});
-        });
-        item.append(time,title,button);list.append(item);
-      }
+      const generation=s?.generations.find(g=>g.id===this.generationId);
+      this.editor.render(s,generation);
       this.renderEvents();this.controls();
+    }
+    showEvent(id){
+      const events=[...this.current()?.events||[]].reverse(),index=events.findIndex(e=>e.id===id);if(index<0)return;
+      this.page=Math.floor(index/100);this.renderEvents();$('chapterEventsSection').open=true;
+      const target=document.getElementById(`chapter-event-${id}`);target?.scrollIntoView({block:'nearest'});target?.focus({preventScroll:true});
     }
     renderEvents(){
       const events=[...this.current()?.events||[]].reverse(),pages=Math.max(1,Math.ceil(events.length/100));this.page=Math.max(0,Math.min(this.page,pages-1));

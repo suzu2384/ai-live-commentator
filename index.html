@@ -14,16 +14,16 @@ try{
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="みんコメAI">
-<link rel="icon" href="assets/favicon.ico?v=4.42.0" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.42.0">
-<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.42.0">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.42.0">
-<link rel="manifest" href="manifest.webmanifest?v=4.42.0">
-<link rel="stylesheet" href="style.css?v=4.42.0">
-<script src="core.js?v=4.42.0" defer></script><script src="vault.js?v=4.42.0" defer></script><script src="youtube.js?v=4.42.0" defer></script><script src="youtube-ui.js?v=4.42.0" defer></script><script src="chapters.js?v=4.42.0" defer></script><script src="chapters-ui.js?v=4.42.0" defer></script><script src="app.js?v=4.42.0" defer></script>
+<link rel="icon" href="assets/favicon.ico?v=4.43.0" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.43.0">
+<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.43.0">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.43.0">
+<link rel="manifest" href="manifest.webmanifest?v=4.43.0">
+<link rel="stylesheet" href="style.css?v=4.43.0">
+<script src="core.js?v=4.43.0" defer></script><script src="vault.js?v=4.43.0" defer></script><script src="youtube.js?v=4.43.0" defer></script><script src="youtube-ui.js?v=4.43.0" defer></script><script src="chapters.js?v=4.43.0" defer></script><script src="chapter-editor.js?v=4.43.0" defer></script><script src="chapter-editor-ui.js?v=4.43.0" defer></script><script src="chapters-ui.js?v=4.43.0" defer></script><script src="app.js?v=4.43.0" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.42.0" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.42.0</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.43.0" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.43.0</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -163,8 +163,22 @@ try{
 <div class="actions wrap"><button id="chapterGenerate" type="button" disabled>生成・再生成</button></div>
 <p id="chapterStatus" class="hint" role="status" aria-live="polite">イベントを蓄積すると生成できます。</p>
 <label>生成履歴<select id="chapterGeneration"></select></label>
+<p class="hint">タイトル・時刻を編集できます。編集内容は生成履歴ごとに保存され、元イベントとAIの生成結果は残ります。</p>
+<div class="actions wrap"><button id="chapterAdd" type="button" disabled>チャプターを追加</button><button id="chapterReset" type="button" class="subtle" disabled>元の生成結果に戻す</button><button id="chapterUndoDelete" type="button" hidden>直前の削除を戻す</button></div>
+<p id="chapterEditStatus" class="hint" role="status"></p>
 <ol id="chapterCandidates" class="chapter-list" aria-label="チャプター候補"></ol>
 <p id="chapterCandidateEmpty" class="hint">生成されたチャプター候補がここに表示されます。</p>
+<section class="chapter-export" aria-labelledby="chapterExportTitle">
+<h3 id="chapterExportTitle">YouTube貼り付け用テキスト</h3>
+<p class="hint">YouTube同期後、編集内容から自動で更新します。動画の説明欄に貼り付けてください。</p>
+<label class="check"><input id="chapterIntro" type="checkbox" checked disabled>先頭が0秒でない場合に「00:00」を補う</label>
+<label>00:00のタイトル<input id="chapterIntroTitle" type="text" value="配信開始" maxlength="80" disabled></label>
+<p id="chapterIntroAdded" class="hint" hidden>出力に00:00を補っています。元のイベント・生成結果への追加はありません。</p>
+<p id="chapterExportStatus" class="hint" role="status"></p><ul id="chapterExportNotes" class="chapter-export-notes"></ul>
+<label for="chapterOutput">説明欄に貼り付ける内容</label><textarea id="chapterOutput" rows="7" readonly spellcheck="false" placeholder="YouTubeと同期すると、ここに表示されます。"></textarea>
+<div class="actions wrap"><button id="chapterCopy" type="button" class="primary" disabled>テキストをコピー</button><button id="chapterSelectText" type="button" disabled>テキストを選択</button></div>
+<p id="chapterCopyStatus" class="hint" role="status" aria-live="polite"></p>
+</section>
 <details id="chapterEventsSection" open><summary id="chapterEventCount">元イベントログ（0件）</summary>
 <div class="chapter-pagination"><button id="chapterPrev" type="button">前へ</button><span id="chapterPage"></span><button id="chapterNext" type="button">次へ</button></div>
 <ol id="chapterEvents" class="chapter-list" aria-label="元イベントログ"></ol></details>
@@ -177,7 +191,16 @@ try{
 </div>
 </div>
 <footer>ローカルで操作 · 画像解析はGemini API · 秘密情報は任意で端末内に暗号化保存</footer>
-</main><dialog id="youtubeDialog" class="content-dialog" aria-labelledby="youtubeDialogTitle">
+</main><dialog id="chapterEditDialog" class="content-dialog" aria-labelledby="chapterEditDialogTitle">
+<div class="content-dialog-head"><h2 id="chapterEditDialogTitle">チャプターを編集</h2></div>
+<form id="chapterEditForm" class="chapter-edit-form">
+<label>タイトル<input id="chapterEditTitle" type="text" maxlength="80" required autocomplete="off"></label>
+<label>時刻の入力方法<select id="chapterTimeMode"><option value="relative">動画内の時刻（YouTube同期後）</option><option value="absolute">絶対日時（端末のタイムゾーン）</option></select></label>
+<label>開始日時・時刻<input id="chapterEditTime" type="text" required autocomplete="off"></label>
+<p id="chapterTimePreview" class="hint"></p><p id="chapterOriginalTime" class="hint"></p>
+<p id="chapterEditError" class="chapter-edit-error" role="alert"></p>
+<div class="actions wrap"><button id="chapterEditSave" type="submit" class="primary">保存</button><button id="chapterEditCancel" type="button">キャンセル</button></div>
+</form></dialog><dialog id="youtubeDialog" class="content-dialog" aria-labelledby="youtubeDialogTitle">
 <div class="content-dialog-head"><h2 id="youtubeDialogTitle">YouTube同期先を選択</h2></div><div class="youtube-dialog-body">
 <p class="hint">終了済み配信の候補から選択するか、URL／動画IDを直接指定してください。確定するまで現在の同期先は変わりません。</p>
 <label>YouTube動画URL／動画ID<input id="youtubeDirect" type="text" maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"></label>
@@ -188,7 +211,7 @@ try{
 <div class="content-dialog-head"><div><h2 id="helpDialogTitle">ヘルプ</h2><p>準備・接続・トラブルシューティング</p></div><button type="button" id="closeHelpDialog" class="content-dialog-close" aria-label="閉じる">×</button></div>
 <div class="help-dialog-body"><section class="help"><div class="card-head"><h2>準備とトラブルシューティング</h2></div>
 <h3>ホーム画面アイコンの背景色</h3><p>上部の「テーマ」で色を選んでから、ブラウザの「ホーム画面に追加」を実行してください。選択中のテーマに合わせた、色の違いが分かりやすいアイコン専用の背景色を使います。追加済みのアイコンは即時に変わるとは限りません。色が変わらない場合は、ブラウザでこのページを開き直してテーマを確認し、ホーム画面に追加し直してください。アプリのアンインストールでは保存設定が消える場合があるため、必要なら先に設定をエクスポートしてください。</p>
-<h3>イベントログとチャプター</h3><p>実況開始ごとに記録を作り、映像解析の応答から客観的なイベントを蓄積します。解析しなかった瞬間や通信・安全フィルターで取得できなかった出来事は記録されません。時刻は画像取得時の端末日時であり、出来事の厳密な開始時刻ではありません。「実況を終了」後に自動生成するか、「チャプター」タブから手動で生成・再生成できます。生成履歴と元イベントは別に保存します。中止・エラー時も前回の候補と記録は残ります。生成中は「即停止」で中止できます。保存はこのブラウザ内のみで、ブラウザデータを消すと失われます。YouTube同期は生成後の「YouTubeと同期」から任意で行います。終了済み配信の候補は50件ずつ取得し、取得した中でチャプター日時に近い順に表示します。候補0件と取得失敗は区別して表示します。URL／動画ID直接指定も利用でき、いずれも確認・選択後に同期します。実際の開始時刻がない場合は相対時間のみ未同期になります。同期先変更・時刻の再取得・同期解除でも、元の絶対日時と生成結果は変わりません。実況開始・終了はYouTube通信に依存しません。編集・コピー・YouTubeへの書き込みは今後の対応です。</p>
+<h3>イベントログとチャプター</h3><p>実況開始ごとに記録を作り、映像解析の応答から客観的なイベントを蓄積します。解析しなかった瞬間や通信・安全フィルターで取得できなかった出来事は記録されません。時刻は画像取得時の端末日時であり、出来事の厳密な開始時刻ではありません。「実況を終了」後に自動生成するか、「チャプター」タブから手動で生成・再生成できます。生成履歴と元イベントは別に保存します。中止・エラー時も前回の候補と記録は残ります。生成中は「即停止」で中止できます。保存はこのブラウザ内のみで、ブラウザデータを消すと失われます。YouTube同期は生成後の「YouTubeと同期」から任意で行います。終了済み配信の候補は50件ずつ取得し、取得した中でチャプター日時に近い順に表示します。候補0件と取得失敗は区別して表示します。URL／動画ID直接指定も利用でき、いずれも確認・選択後に同期します。実際の開始時刻がない場合は相対時間のみ未同期になります。同期先変更・時刻の再取得・同期解除でも、元の絶対日時と生成結果は変わりません。実況開始・終了はYouTube通信に依存しません。生成履歴ごとにタイトル・時刻の編集、追加・削除ができます。編集は元の観測日時と分けて保存します。動画内の時刻で編集した場合も絶対日時で保持し、同期先変更時は再計算します。「元の生成結果に戻す」で選択中の履歴の編集を取り消せます。YouTube同期後に貼り付け用テキストを自動生成します。冒頭の00:00補完・3件以上・各区間10秒以上を確認し、コピーしてYouTubeの説明欄に貼り付けてください。配信範囲外の候補は理由を表示して出力から除外します。時刻の重複がある場合は編集・削除してください。YouTubeへの自動書き込みは行いません。</p>
 <h3>はじめに</h3><p>フォルダ内の index.html を、操作するPCのChrome・Edgeで開きます。専用サーバーは不要です。「映像確認」「音声テスト」を試し、Geminiのキーを設定して開始してください。</p>
 <h3>VOICEVOX：Windows版では鳴るのにブラウザでは失敗する</h3><p>開発者ツールに origin 'null'、CORS、403 Forbidden が出る場合は、VOICEVOXを起動し、<a id="voicevoxSettingsLink" href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>を開きます（設定したVOICEVOX URLの設定画面）。CORS Policy Mode を localapps、Allow Origin に null を追加し、保存してVOICEVOXを再起動してください。ほかの許可設定は必要に応じて残します。その後、音声テストをやり直します。</p><p>null の許可は、このアプリ以外のローカルファイルや一部の隔離されたページにも適用されます。信頼できないHTMLを同時に開かず、使わなくなったら許可を外してください。CORSを all にしたり、ブラウザの保護を無効化したりする必要はありません。</p>
 <h3>読み上げ先に接続できない・音が出ない</h3><p>起動状態、URLとポート、ブラウザのローカルネットワーク許可、OSの音量を確認してください。VOICEVOX直接は操作しているブラウザで再生します。棒読みちゃんは設定のHTTP連携を有効にし、PC側の声・音量を確認します。声が異なる場合は「友達」タブのスタイルID・声IDを、速すぎる・遅すぎる場合はVOICEVOX話速を見直してください。</p>

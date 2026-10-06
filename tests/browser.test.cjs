@@ -137,6 +137,87 @@ const results=[];
  async function openSync(p){await p.locator('#tab-chapters').click();await p.locator('#youtubeSync').click();await p.locator('#youtubeDialog').waitFor({state:'visible'});}
  async function lookup(p,value){await p.locator('#youtubeDirect').fill(value);await p.locator('#youtubeLookup').click();await p.waitForFunction(()=>!document.getElementById('youtubeLookup').disabled);}
  async function selectSync(p,index=0){await p.locator('#youtubeCandidates input').nth(index).check();await p.locator('#youtubeConfirm').click();await stopped(p);}
+ async function editorFixture(){
+  const config={},x=await recorded(config),p=x.page,before=(await chapterRecords(p))[0],time=before.events[0].observedAtMs;
+  config.youtubeVideos=[youtubeVideo('abcdefghijk',new Date(time-738000).toISOString())];
+  config.youtubeVideos[0].liveStreamingDetails.actualEndTime=new Date(time-738000+7200000).toISOString();
+  await openSync(p);await p.waitForFunction(()=>document.querySelectorAll('#youtubeCandidates input').length===1);await selectSync(p);
+  return {...x,config,before};
+ }
+ async function editCandidate(p,index,title,time){
+  await p.locator('#chapterCandidates li').nth(index).getByRole('button',{name:'編集',exact:true}).click();
+  await p.locator('#chapterEditTitle').fill(title);if(time!==undefined)await p.locator('#chapterEditTime').fill(time);
+  await p.locator('#chapterEditSave').click();await p.locator('#chapterEditDialog').waitFor({state:'hidden'});
+ }
+ async function addCandidate(p,title,time){
+  await p.locator('#chapterAdd').click();await p.locator('#chapterEditTitle').fill(title);await p.locator('#chapterEditTime').fill(time);
+  await p.locator('#chapterEditSave').click();await p.locator('#chapterEditDialog').waitFor({state:'hidden'});
+ }
+ await test('chapter editor edits before synchronization without losing milliseconds or changing AI history',async()=>{
+  const x=await recorded(),p=x.page,before=(await chapterRecords(p))[0];
+  assert.equal(await p.locator('#chapterCopy').isDisabled(),true);
+  await p.locator('#chapterCandidates').getByRole('button',{name:'編集',exact:true}).click();
+  assert.equal(await p.locator('#chapterTimeMode').inputValue(),'absolute');assert.equal(await p.locator('#chapterTimeMode option[value=relative]').isDisabled(),true);
+  await p.locator('#chapterEditTitle').fill('   ');await p.locator('#chapterEditSave').click();assert.match(await p.locator('#chapterEditError').textContent(),/タイトル/);
+  await p.locator('#chapterEditTitle').fill('キャンセルする名前');await p.locator('#chapterEditCancel').click();assert.deepEqual((await chapterRecords(p))[0],before);
+  await editCandidate(p,0,'<img src=x> 編集したタイトル');
+  let saved=(await chapterRecords(p))[0];assert.deepEqual(saved.events,before.events);assert.deepEqual(saved.generations,before.generations);
+  assert.equal(saved.chapterEdits[0].chapters[0].atMs,before.events[0].observedAtMs);assert.equal(await p.locator('#chapterCandidates img').count(),0);
+  await p.reload();await p.locator('#tab-chapters').click();await p.waitForFunction(()=>document.getElementById('chapterCandidates').textContent.includes('編集したタイトル'));
+  assert.equal(await p.locator('#chapterCopy').isDisabled(),true);
+  p.once('dialog',d=>d.accept());await p.locator('#chapterReset').click();assert.equal((await p.locator('#chapterCandidates strong').textContent()),before.generations[0].chapters[0].title);
+  await x.close();
+ });
+ await test('chapter editor sorts additions, corrects duplicates, undoes deletion and copies exact output',async()=>{
+  const x=await editorFixture(),p=x.page,api=x.events.api,youtube=x.events.youtube;
+  await editCandidate(p,0,'探索を開始','12:30');await addCandidate(p,'ボス戦','01:02:03');await addCandidate(p,'重複候補','12:30');
+  assert.match(await p.locator('#chapterExportNotes').textContent(),/重複/);assert.equal(await p.locator('#chapterCopy').isDisabled(),true);
+  await editCandidate(p,1,'アイテム整理','13:00');
+  assert.equal(await p.locator('#chapterOutput').inputValue(),'00:00 配信開始\n12:30 探索を開始\n13:00 アイテム整理\n01:02:03 ボス戦');
+  await p.locator('#chapterCandidates li').nth(1).getByRole('button',{name:'削除',exact:true}).click();assert.equal(await p.locator('#chapterCandidates li').count(),2);
+  await p.locator('#chapterUndoDelete').click();assert.equal(await p.locator('#chapterCandidates li').count(),3);
+  await p.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__copiedChapter=text;}}}));
+  await p.locator('#chapterCopy').click();assert.equal(await p.evaluate(()=>window.__copiedChapter),await p.locator('#chapterOutput').inputValue());assert.match(await p.locator('#chapterCopyStatus').textContent(),/コピーしました/);
+  assert.equal(x.events.api,api);assert.equal(x.events.youtube,youtube);
+  const saved=(await chapterRecords(p))[0];assert.deepEqual(saved.events,x.before.events);assert.deepEqual(saved.generations,x.before.generations);
+  const original=saved.chapterEdits[0].chapters.find(c=>c.sourceChapterId);assert.equal(original.originalObservedAtMs,x.before.events[0].observedAtMs);
+  await p.locator('#chapterExportTitle').scrollIntoViewIfNeeded();await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/editor-desktop.png')});
+  await p.setViewportSize({width:390,height:844});await p.locator('#chapterExportTitle').scrollIntoViewIfNeeded();assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/editor-mobile.png')});
+  await p.setViewportSize({width:320,height:720});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await p.locator('#chapterCandidates li').first().getByRole('button',{name:'編集',exact:true}).click();assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/editor-dialog-mobile.png')});await p.locator('#chapterEditCancel').click();await x.close();
+ });
+ await test('chapter editor persists per-generation edits through regeneration, reload, resync and unlink',async()=>{
+  const x=await editorFixture(),p=x.page,oldId=x.before.generations[0].id;
+  await editCandidate(p,0,'編集を保持','12:40');await p.locator('#chapterIntroTitle').fill('配信スタート');
+  await p.locator('#chapterGenerate').click();await stopped(p);assert.equal(await p.locator('#chapterGeneration option').count(),2);
+  assert.equal(await p.locator('#chapterCandidates strong').textContent(),'新しいエリアを探索');await p.locator('#chapterGeneration').selectOption(oldId);
+  assert.equal(await p.locator('#chapterCandidates strong').textContent(),'編集を保持');assert.equal(await p.locator('#chapterIntroTitle').inputValue(),'配信スタート');
+  await p.reload();await p.locator('#tab-chapters').click();await p.waitForFunction(()=>document.getElementById('chapterGeneration').options.length===2);await p.locator('#chapterGeneration').selectOption(oldId);
+  const before=(await chapterRecords(p))[0];assert.equal(await p.locator('#chapterCandidates strong').textContent(),'編集を保持');
+  x.config.youtubeVideos[0].liveStreamingDetails.actualStartTime=new Date(x.before.events[0].observedAtMs-750000).toISOString();
+  await youtubeSettings(p);await p.locator('#tab-chapters').click();await p.locator('#youtubeResync').click();await stopped(p);
+  assert.match(await p.locator('#chapterOutput').inputValue(),/12:52 編集を保持/);assert.deepEqual((await chapterRecords(p))[0].chapterEdits,before.chapterEdits);
+  await p.locator('#youtubeUnlink').click();await stopped(p);assert.equal(await p.locator('#chapterOutput').inputValue(),'');assert.equal(await p.locator('#chapterCopy').isDisabled(),true);
+  const after=(await chapterRecords(p))[0];assert.deepEqual(after.events,before.events);assert.deepEqual(after.generations,before.generations);assert.deepEqual(after.chapterEdits,before.chapterEdits);await x.close();
+ });
+ await test('chapter editor explains excluded ranges and short intervals without deleting candidates',async()=>{
+  const x=await editorFixture(),p=x.page;
+  await addCandidate(p,'配信前の出来事','-00:01');await addCandidate(p,'配信後の出来事','02:00:00');await addCandidate(p,'開始直後','00:05');
+  const notes=await p.locator('#chapterExportNotes').textContent();assert.match(notes,/配信開始前/);assert.match(notes,/配信終了以降/);assert.match(notes,/10秒未満/);
+  const text=await p.locator('#chapterOutput').inputValue();assert.equal(text.includes('配信前の出来事'),false);assert.equal(text.includes('配信後の出来事'),false);assert.equal(await p.locator('#chapterCandidates li').count(),4);
+  await p.locator('#chapterIntro').uncheck();assert.match(await p.locator('#chapterExportNotes').textContent(),/00:00/);await p.locator('#chapterIntro').check();
+  await p.locator('#chapterIntroTitle').fill(' ');assert.equal(await p.locator('#chapterCopy').isDisabled(),true);await p.locator('#chapterIntroTitle').fill('オープニング');assert.equal(await p.locator('#chapterCopy').isEnabled(),true);
+  await x.close();
+ });
+ await test('chapter editor clipboard denial selects text and reports fallback accurately',async()=>{
+  const x=await editorFixture(),p=x.page;
+  await p.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw new Error('denied');}}});document.execCommand=()=>false;});
+  await p.locator('#chapterCopy').click();assert.match(await p.locator('#chapterCopyStatus').textContent(),/自動コピーできませんでした/);
+  assert.equal(await p.evaluate(()=>{const el=document.getElementById('chapterOutput');return el.selectionEnd-el.selectionStart;}),(await p.locator('#chapterOutput').inputValue()).length);
+  await p.evaluate(()=>{document.execCommand=()=>true;});await p.locator('#chapterCopy').click();assert.match(await p.locator('#chapterCopyStatus').textContent(),/コピーしました/);
+  await x.close();
+ });
  await test('YouTube never participates in commentary start/end even with invalid settings',async()=>{
   const x=await recorded({youtubeError:true}),p=x.page;
   assert.equal(await p.locator('#youtubeDialog').isVisible(),false);assert.equal((await chapterRecords(p))[0].youtubeSync,null);assert.equal((await chapterRecords(p))[0].generations.length,1);await x.close();
@@ -182,7 +263,7 @@ const results=[];
   let records=await chapterRecords(p),record=records[0];assert.equal(record.status,'finished');assert.equal(record.events.length,1);assert.equal(record.generations.length,1);
   assert(record.events[0].observedAtMs>1700000000000);assert(record.events[0].recordedAtMs>=record.events[0].observedAtMs);assert.equal(record.generations[0].chapters[0].sourceEventId,record.events[0].id);
   assert.equal(record.generations[0].chapters[0].observedAtMs,record.events[0].observedAtMs);
-  await p.locator('#chapterCandidates button').click();assert.equal(await p.locator('#chapterEvents li').count(),1);
+  await p.locator('#chapterCandidates').getByRole('button',{name:'元イベントを見る'}).click();assert.equal(await p.locator('#chapterEvents li').count(),1);
   await p.locator('#chapterGenerate').click();await stopped(p);assert.equal((await chapterRecords(p))[0].generations.length,2);
   config.chapterStatus=503;await p.locator('#chapterGenerate').click();await stopped(p);assert((await p.locator('#chapterStatus').textContent()).includes('503'));assert.equal((await chapterRecords(p))[0].generations.length,2);
   config.chapterStatus=0;config.holdChapter=true;await p.locator('#chapterGenerate').click();await p.waitForFunction(()=>document.getElementById('chapterStatus').textContent.includes('生成中'));await stop(p);assert.equal((await chapterRecords(p))[0].generations.length,2);

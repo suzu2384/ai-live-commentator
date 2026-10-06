@@ -19,16 +19,28 @@ jobs:
           node-version: '22'
       - run: npm install --no-save --package-lock=false playwright@1.62.1
       - run: npx playwright install --with-deps chromium
+      - run: sudo apt-get install -y fonts-noto-cjk
       - name: Data and API regression tests
-        run: node --test tests/core.test.cjs tests/chapters.test.cjs tests/youtube.test.cjs
+        run: node --test tests/core.test.cjs tests/chapters.test.cjs tests/youtube.test.cjs tests/chapter-editor.test.cjs
       - name: Chapter and related browser scenarios
         env:
           TEST_FILTER: 'chapter editor|YouTube|chapters record|immediate stop keeps|chapter recording preserves|tabs group|stop cancels pending analysis|encrypted credentials|settings export and import'
         run: node tests/browser.test.cjs
+      - name: Collect screenshots
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          target = Path('test-screenshots')
+          target.mkdir(exist_ok=True)
+          for source in Path('../.browser-test').glob('*.png'):
+              shutil.copy2(source, target / source.name)
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: chapter-screenshots
-          path: ../.browser-test/*.png
+          path: test-screenshots/*.png
           if-no-files-found: ignore
           retention-days: 7
