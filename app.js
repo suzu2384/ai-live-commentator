@@ -1231,10 +1231,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
     await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();resetSpeakerStats();$('latency').textContent='—';
     const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,speechEpoch:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],rateLimitStreak:0,quietSceneStreak:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
-    const youtubeKey=$('youtubeApiKey').value.trim();
-    let youtubeSync=await LiveYouTubeUI.choose(youtubeKey,s.youtubeChannelId,signal,setStatus);C.check(signal);
-    if(youtubeSync){setStatus('YouTube開始時刻を取得中');try{youtubeSync=await C.deadline(t=>LiveYouTube.synchronize(youtubeSync,youtubeKey,t),15000,signal,'YouTube開始時刻を取得できませんでした。');}catch(e){C.check(signal);youtubeSync.syncError=e.message;log(e.message+' 絶対日時で記録を続けます。','warn');}}
-    await chapterUI.begin(s.contentName,youtubeSync);C.check(signal);
+    await chapterUI.begin(s.contentName);C.check(signal);
     streaming=true;$('finish').disabled=true;updateObsRefreshButton();
     log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
@@ -1255,7 +1252,6 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     if(runtime.s.greetEnd)await greeting('end',runtime,signal,{tolerateFailure:true});
     log('実況を通常終了しました。');
     const chapterSession=await chapterUI.end('finished');
-    if(chapterUI.store.records.get(chapterSession)?.youtubeSync?.actualStartTimeMs==null)await chapterUI.syncYouTube(youtubeKey,signal,chapterSession);
     if($('chapterAuto').checked&&chapterUI.store.records.get(chapterSession)?.events.length){
       streaming=false;await chapterUI.generate(requireKey(),signal,reserve,chapterSession);
     }
@@ -1426,7 +1422,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   }));
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
-  chapterUI=new LiveChapterUI({log,onSync:()=>operation(async signal=>{setStatus('YouTube開始時刻を取得中');await chapterUI.syncYouTube($('youtubeApiKey').value.trim(),signal);}),onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);})});
+  chapterUI=new LiveChapterUI({log,onSync:()=>operation(async signal=>{await chapterUI.linkYouTube($('youtubeApiKey').value.trim(),$('youtubeChannelId').value.trim(),signal,setStatus);}),onResync:()=>operation(async signal=>{setStatus('YouTube開始時刻を取得中');await chapterUI.syncYouTube($('youtubeApiKey').value.trim(),signal);}),onUnlink:()=>operation(async signal=>{await chapterUI.unlinkYouTube(signal);}),onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);})});
   contentLibrary=loadContentLibrary();contentKnowledge=loadContentKnowledge();renderContentOptions('');
   fontLibrary=loadFontLibrary();
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};}catch{}

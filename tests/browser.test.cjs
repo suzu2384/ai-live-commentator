@@ -20,14 +20,14 @@ const results=[];
   const events={images:0,api:0,analysisImages:[],turnLimits:[],speakerEnums:[],promptTexts:[],talks:[],queries:0,voiceTexts:[],voices:[],speeds:[],synths:0,identifies:0,obsRequests:[],overlayUrls:[],overlayTransforms:[],overlayEnabled:[],unexpected:[]};let held=null;
   await page.clock.install();
   await page.route('https://**/*',async r=>{
-   if(r.request().url().startsWith('https://i.ytimg.com/'))return r.fulfill({status:204});
+   if(r.request().url().startsWith('https://i.ytimg.com/'))return r.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="#346675"/><path d="M65 25L100 45L65 65Z" fill="white"/></svg>'});
    if(r.request().url().startsWith('https://www.googleapis.com/youtube/v3/')){
     events.youtube=(events.youtube||0)+1;assert.equal(r.request().headers()['x-goog-api-key'],'youtube-test-key');
     const u=new URL(r.request().url());
     if(config.holdYouTube){held=r;return;}
     if(config.youtubeError)return r.fulfill({status:403,body:'{}'});
     const videos=config.youtubeVideos||[];
-    const items=u.pathname.endsWith('/search')?(u.searchParams.get('eventType')==='live'?videos.map(v=>({id:{videoId:v.id}})):[]):videos.filter(v=>u.searchParams.get('id').split(',').includes(v.id));
+    const items=u.pathname.endsWith('/search')?(u.searchParams.get('eventType')==='completed'?(config.youtubeSearchEmpty?[]:videos.map(v=>({id:{videoId:v.id}}))):[]):videos.filter(v=>u.searchParams.get('id').split(',').includes(v.id));
     return r.fulfill({contentType:'application/json',body:JSON.stringify({items})});
    }
    if(!r.request().url().startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent')){events.unexpected.push(r.request().url());return r.abort();}
@@ -130,42 +130,47 @@ const results=[];
  const youtubeChannel='UC'+'a'.repeat(22);
  const youtubeVideo=(id,actualStartTime=null)=>({id,snippet:{title:'テスト配信 '+id,channelId:youtubeChannel,liveBroadcastContent:actualStartTime?'live':'upcoming'},liveStreamingDetails:{scheduledStartTime:'2026-10-04T23:00:00Z',...(actualStartTime?{actualStartTime}:{})}});
  async function youtubeSettings(p){await openConnect(p);await p.locator('#youtubeApiKey').fill('youtube-test-key');await p.locator('#youtubeChannelId').fill(youtubeChannel);}
- await test('YouTube empty skips modal; API failure explicitly permits unlinked start',async()=>{
+ const chapterAnswer={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'移動',chapterEvents:[{kind:'scene',summary:'ボス部屋へ入った'}],turns:[{speakerId:'p1',text:'静かだね'}]})}]}}]};
+ async function recorded(config={}){
+  config.answer=chapterAnswer;const x=await setup(config),p=x.page;await youtubeSettings(p);await start(x);await p.waitForFunction(()=>document.getElementById('chapterEventCount').textContent.includes('1件'));await finish(p);assert.equal(x.events.youtube||0,0);return x;
+ }
+ async function openSync(p){await p.locator('#tab-chapters').click();await p.locator('#youtubeSync').click();await p.locator('#youtubeDialog').waitFor({state:'visible'});}
+ async function lookup(p,value){await p.locator('#youtubeDirect').fill(value);await p.locator('#youtubeLookup').click();await p.waitForFunction(()=>!document.getElementById('youtubeLookup').disabled);}
+ async function selectSync(p,index=0){await p.locator('#youtubeCandidates input').nth(index).check();await p.locator('#youtubeConfirm').click();await stopped(p);}
+ await test('YouTube never participates in commentary start/end even with invalid settings',async()=>{
+  const x=await recorded({youtubeError:true}),p=x.page;
+  assert.equal(await p.locator('#youtubeDialog').isVisible(),false);assert.equal((await chapterRecords(p))[0].youtubeSync,null);assert.equal((await chapterRecords(p))[0].generations.length,1);await x.close();
+ });
+ await test('YouTube empty and API errors remain distinct; cancellation preserves chapters',async()=>{
   for(const error of [false,true]){
-   const x=await setup({youtubeError:error}),p=x.page;await youtubeSettings(p);await p.locator('#start').click();
-   if(error){await p.locator('#youtubeDialog').waitFor({state:'visible'});assert.match(await p.locator('#youtubeMessage').textContent(),/403/);assert.equal(x.events.identifies,0);await p.locator('#youtubeWithout').click();}
-   await idle(p);assert.equal(await p.locator('#youtubeDialog').isVisible(),false);await stop(p);assert.equal((await chapterRecords(p))[0].youtubeSync,null);await x.close();
+   const config={youtubeError:error},x=await recorded(config),p=x.page,before=await chapterRecords(p);await openSync(p);
+   await p.waitForFunction(()=>['empty','error'].includes(document.getElementById('youtubeMessage').dataset.state));assert.equal(await p.locator('#youtubeMessage').getAttribute('data-state'),error?'error':'empty');
+   assert.equal(await p.locator('#youtubeConfirm').isDisabled(),true);await p.locator('#youtubeCancel').click();await stopped(p);assert.deepEqual(await chapterRecords(p),before);await x.close();
   }
  });
- await test('YouTube one or two candidates require explicit choice; cancel starts no session',async()=>{
-  for(const count of [1,2]){
-   const config={youtubeVideos:[youtubeVideo('abcdefghijk'),youtubeVideo('lmnopqrstuv')].slice(0,count)},x=await setup(config),p=x.page;
-   await youtubeSettings(p);await p.locator('#start').click();await p.locator('#youtubeDialog').waitFor({state:'visible'});
-   assert.equal(await p.locator('#youtubeCandidates input:checked').count(),0);assert.equal(await p.locator('#youtubeConfirm').isDisabled(),true);assert.equal(x.events.identifies,0);
-   if(count===1){await p.locator('#youtubeCancel').click();await stopped(p);assert.equal((await chapterRecords(p)).length,0);}
-   else{
-    await p.setViewportSize({width:390,height:844});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/youtube-mobile.png')});
-    await p.locator('#youtubeCandidates input').nth(1).check();await p.locator('#youtubeConfirm').click();await idle(p);await stop(p);
-    const record=(await chapterRecords(p))[0];assert.equal(record.youtubeSync.videoId,'lmnopqrstuv');assert.equal(record.youtubeSync.actualStartTimeMs,null);
-   }await x.close();
-  }
+ await test('YouTube explicit selection, replacement, unlink and reload preserve absolute data',async()=>{
+  const config={},x=await recorded(config),p=x.page,before=(await chapterRecords(p))[0],time=before.events[0].observedAtMs;
+  config.youtubeVideos=[youtubeVideo('abcdefghijk',new Date(time-738000).toISOString()),youtubeVideo('lmnopqrstuv',new Date(time-120000).toISOString())];
+  for(const v of config.youtubeVideos)v.liveStreamingDetails.actualEndTime=new Date(time+60000).toISOString();
+  const api=x.events.api;await openSync(p);await p.waitForFunction(()=>document.querySelectorAll('#youtubeCandidates input').length===2);
+  assert.equal(await p.locator('#youtubeCandidates input:checked').count(),0);assert.equal(await p.locator('#youtubeConfirm').isDisabled(),true);assert.equal(await p.locator('#youtubeCandidates input').first().inputValue(),'lmnopqrstuv');
+  await p.setViewportSize({width:390,height:844});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/youtube-mobile.png')});await p.setViewportSize({width:1360,height:768});
+  await selectSync(p,1);assert.match(await p.locator('#chapterCandidates').textContent(),/12:18/);assert.equal(await p.locator('#youtubeSync').textContent(),'同期先を変更');
+  config.youtubeSearchEmpty=true;await openSync(p);await p.waitForFunction(()=>document.getElementById('youtubeMessage').dataset.state==='empty');await lookup(p,'https://youtu.be/lmnopqrstuv?si=test');
+  assert.equal(await p.locator('#youtubeCandidates input:checked').count(),0);await selectSync(p);assert.match(await p.locator('#chapterCandidates').textContent(),/02:00/);
+  const linked=(await chapterRecords(p))[0];assert.equal(linked.youtubeSync.videoId,'lmnopqrstuv');assert(linked.youtubeSync.actualEndTime);assert.deepEqual(linked.events,before.events);assert.deepEqual(linked.generations,before.generations);assert.equal(x.events.api,api);
+  config.youtubeError=true;await openSync(p);await p.waitForFunction(()=>document.getElementById('youtubeMessage').dataset.state==='error');await p.locator('#youtubeCancel').click();await stopped(p);assert.deepEqual(await chapterRecords(p),[linked]);
+  await p.reload();await p.locator('#tab-chapters').click();await p.waitForFunction(()=>document.getElementById('chapterCandidates').textContent.includes('02:00'));
+  await p.locator('#youtubeUnlink').click();await stopped(p);assert.equal((await chapterRecords(p))[0].youtubeSync,null);assert(!((await p.locator('#chapterCandidates').textContent()).includes('→')));assert.deepEqual((await chapterRecords(p))[0].generations,before.generations);await x.close();
  });
- await test('YouTube retry cancellation ignores late lookup responses',async()=>{
-  const config={youtubeError:true},x=await setup(config),p=x.page;await youtubeSettings(p);await p.locator('#start').click();await p.locator('#youtubeDialog').waitFor({state:'visible'});
-  config.youtubeError=false;config.holdYouTube=true;await p.locator('#youtubeRetry').click();await p.waitForFunction(()=>document.getElementById('youtubeMessage').textContent.includes('取得しています'));
-  await p.locator('#youtubeWithout').click();await idle(p);await stop(p);assert.equal((await chapterRecords(p))[0].youtubeSync,null);assert.equal(await p.locator('#youtubeDialog').isVisible(),false);await x.close();
+ await test('YouTube direct lookup without channel supports missing actual time and later resync',async()=>{
+  const config={youtubeVideos:[youtubeVideo('abcdefghijk')]},x=await recorded(config),p=x.page,before=(await chapterRecords(p))[0];
+  await openConnect(p);await p.locator('#youtubeChannelId').fill('');await openSync(p);await lookup(p,'bad url');assert.match(await p.locator('#youtubeMessage').textContent(),/取得失敗/);
+  await lookup(p,'https://www.youtube.com/live/abcdefghijk');await selectSync(p);assert.match(await p.locator('#chapterCandidates').textContent(),/未同期/);
+  config.youtubeVideos=[youtubeVideo('abcdefghijk',new Date(before.events[0].observedAtMs-738000).toISOString())];await p.locator('#youtubeResync').click();await stopped(p);assert.match(await p.locator('#chapterCandidates').textContent(),/12:18/);assert.deepEqual((await chapterRecords(p))[0].events,before.events);await x.close();
  });
- await test('YouTube sync preserves absolute chapters and persists selected video on reload',async()=>{
-  const config={youtubeVideos:[youtubeVideo('abcdefghijk')],answer:{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'移動',chapterEvents:[{kind:'scene',summary:'ボス部屋へ入った'}],turns:[{speakerId:'p1',text:'静かだね'}]})}]}}]}},x=await setup(config),p=x.page;
-  await youtubeSettings(p);await p.locator('#start').click();await p.locator('#youtubeCandidates input').check();await p.locator('#youtubeConfirm').click();await idle(p);await p.clock.fastForward(4100);
-  await p.waitForFunction(()=>document.getElementById('chapterEventCount').textContent.includes('1件'));await finish(p);
-  let before=(await chapterRecords(p))[0];assert.equal(before.generations.length,1);assert.match(await p.locator('#chapterCandidates').textContent(),/未同期/);
-  const time=before.events[0].observedAtMs;config.youtubeVideos=[youtubeVideo('abcdefghijk',new Date(time-738000).toISOString())];
-  const api=x.events.api;await p.locator('#youtubeResync').click();await stopped(p);assert.match(await p.locator('#chapterCandidates').textContent(),/12:18/);assert.equal(x.events.api,api);
-  let after=(await chapterRecords(p))[0];assert.deepEqual(after.events,before.events);assert.deepEqual(after.generations,before.generations);
-  config.youtubeError=true;await p.locator('#youtubeResync').click();await stopped(p);assert.match(await p.locator('#youtubeSyncInfo').textContent(),/403/);assert.match(await p.locator('#chapterCandidates').textContent(),/12:18/);
-  await p.reload();await p.locator('#tab-chapters').click();await p.waitForFunction(()=>document.getElementById('chapterCandidates').textContent.includes('12:18'));
-  assert.equal(await p.locator('#youtubeApiKey').inputValue(),'');assert.equal((await chapterRecords(p))[0].youtubeSync.videoId,'abcdefghijk');await x.close();
+ await test('YouTube cancellation during pending lookup leaves existing data intact',async()=>{
+  const config={holdYouTube:true},x=await recorded(config),p=x.page,before=await chapterRecords(p);await openSync(p);await p.waitForFunction(()=>document.getElementById('youtubeMessage').dataset.state==='loading');await p.locator('#youtubeCancel').click();await stopped(p);assert.deepEqual(await chapterRecords(p),before);await x.close();
  });
  await test('chapters record silent observations, auto-generate, persist and retain history on failure or cancellation',async()=>{
   const config={answer:{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'感想ではない状況',chapterEvents:[{kind:'scene',summary:'新しいエリアに移動した'}],turns:[{speakerId:'p1',text:'静かだね',speechText:'しずかだね'}]})}]}}]}};

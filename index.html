@@ -14,16 +14,16 @@ try{
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="みんコメAI">
-<link rel="icon" href="assets/favicon.ico?v=4.41.0" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.41.0">
-<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.41.0">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.41.0">
-<link rel="manifest" href="manifest.webmanifest?v=4.41.0">
-<link rel="stylesheet" href="style.css?v=4.41.0">
-<script src="core.js?v=4.41.0" defer></script><script src="vault.js?v=4.41.0" defer></script><script src="youtube.js?v=4.41.0" defer></script><script src="youtube-ui.js?v=4.41.0" defer></script><script src="chapters.js?v=4.41.0" defer></script><script src="chapters-ui.js?v=4.41.0" defer></script><script src="app.js?v=4.41.0" defer></script>
+<link rel="icon" href="assets/favicon.ico?v=4.42.0" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.42.0">
+<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.42.0">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.42.0">
+<link rel="manifest" href="manifest.webmanifest?v=4.42.0">
+<link rel="stylesheet" href="style.css?v=4.42.0">
+<script src="core.js?v=4.42.0" defer></script><script src="vault.js?v=4.42.0" defer></script><script src="youtube.js?v=4.42.0" defer></script><script src="youtube-ui.js?v=4.42.0" defer></script><script src="chapters.js?v=4.42.0" defer></script><script src="chapters-ui.js?v=4.42.0" defer></script><script src="app.js?v=4.42.0" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.41.0" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.41.0</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.42.0" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.42.0</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -135,7 +135,7 @@ try{
 <details class="card setting-section" id="settings-youtube"><summary class="setting-summary"><span>YouTube</span><span class="setting-summary-value">配信選択・時刻同期</span></summary><div class="setting-body">
 <label>YouTube Data API v3 APIキー<input id="youtubeApiKey" type="password" autocomplete="new-password" placeholder="任意・既存の合言葉で暗号化保存できます"></label>
 <label>チャンネルID<input id="youtubeChannelId" type="text" placeholder="UCで始まるチャンネルID" maxlength="24"></label>
-<p class="hint">両方を設定すると実況開始時に公開中の配信・開始予定を取得します。候補は必ず手動選択します。APIキーのみでは非公開配信は取得できず、限定公開配信も候補検索に出ないことがあります。検索はYouTube APIの利用枠を使います。</p>
+<p class="hint">チャプター生成後の「YouTubeと同期」で終了済み配信を取得します。実況開始・終了時には通信しません。URL／動画IDの直接指定はチャンネルIDなしでも利用できます。非公開動画は対象外です。検索はYouTube APIの利用枠を使います。</p>
 </div></details>
 <details class="card setting-section" id="settings-voice"><summary class="setting-summary"><span>読み上げ</span><span id="summary-voice" class="setting-summary-value">棒読みちゃん</span></summary><div class="setting-body">
 <label>出力先<select id="output"><option value="bouyomi">棒読みちゃん（PC側で再生）</option><option value="voicevox">VOICEVOX直接（ブラウザで再生）</option></select></label>
@@ -157,7 +157,7 @@ try{
 <p class="hint">映像解析で確認できた出来事を端末内に保存します。元の日時は端末の時計・表示タイムゾーンを使用します。YouTube同期済みの場合は動画内の相対時間も併記します。</p>
 <p id="chapterStorageWarning" class="chapter-warning" role="alert" hidden>端末への保存に失敗しました。この画面では記録を保持しますが、再読み込みすると未保存分が失われます。ブラウザの保存容量・設定を確認してください。</p>
 <label>実況の記録<select id="chapterSession"></select></label>
-<p id="chapterSessionInfo" class="hint"></p><p id="youtubeSyncInfo" class="hint"></p><button id="youtubeResync" type="button" disabled>YouTube時刻を再取得</button>
+<p id="chapterSessionInfo" class="hint"></p><p id="youtubeSyncInfo" class="hint"></p><div class="actions wrap"><button id="youtubeSync" type="button" disabled>YouTubeと同期</button><button id="youtubeResync" type="button" disabled>YouTube時刻を再取得</button><button id="youtubeUnlink" type="button" disabled>同期解除</button></div>
 <label class="check"><input id="chapterAuto" type="checkbox" checked>「実況を終了」後にチャプターを自動生成</label>
 <p class="hint">生成・再生成はGeminiの無料枠を使用します。長い記録は分割整理して統合するため複数回送信します。「即停止」では自動生成せず、記録を残します。</p>
 <div class="actions wrap"><button id="chapterGenerate" type="button" disabled>生成・再生成</button></div>
@@ -178,14 +178,17 @@ try{
 </div>
 <footer>ローカルで操作 · 画像解析はGemini API · 秘密情報は任意で端末内に暗号化保存</footer>
 </main><dialog id="youtubeDialog" class="content-dialog" aria-labelledby="youtubeDialogTitle">
-<div class="content-dialog-head"><h2 id="youtubeDialogTitle">YouTube配信を選択</h2></div><div class="youtube-dialog-body">
-<p id="youtubeMessage" role="status"></p><div id="youtubeCandidates"></div>
-<div class="actions wrap"><button id="youtubeConfirm" type="button" class="primary" disabled>選択した配信で開始</button><button id="youtubeWithout" type="button">YouTube連携なしで開始</button><button id="youtubeRetry" type="button">再取得</button><button id="youtubeCancel" type="button">開始をキャンセル</button></div>
+<div class="content-dialog-head"><h2 id="youtubeDialogTitle">YouTube同期先を選択</h2></div><div class="youtube-dialog-body">
+<p class="hint">終了済み配信の候補から選択するか、URL／動画IDを直接指定してください。確定するまで現在の同期先は変わりません。</p>
+<label>YouTube動画URL／動画ID<input id="youtubeDirect" type="text" maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"></label>
+<div class="actions wrap"><button id="youtubeLookup" type="button">指定した動画を確認</button><button id="youtubeRetry" type="button">候補を再取得</button></div>
+<p id="youtubeMessage" role="status"></p><div id="youtubeCandidates"></div><button id="youtubeMore" type="button" hidden>さらに過去の候補を取得</button>
+<div class="actions wrap"><button id="youtubeConfirm" type="button" class="primary" disabled>この動画と同期</button><button id="youtubeCancel" type="button">キャンセル</button></div>
 </div></dialog><dialog id="helpDialog" class="content-dialog help-dialog" aria-labelledby="helpDialogTitle">
 <div class="content-dialog-head"><div><h2 id="helpDialogTitle">ヘルプ</h2><p>準備・接続・トラブルシューティング</p></div><button type="button" id="closeHelpDialog" class="content-dialog-close" aria-label="閉じる">×</button></div>
 <div class="help-dialog-body"><section class="help"><div class="card-head"><h2>準備とトラブルシューティング</h2></div>
 <h3>ホーム画面アイコンの背景色</h3><p>上部の「テーマ」で色を選んでから、ブラウザの「ホーム画面に追加」を実行してください。選択中のテーマに合わせた、色の違いが分かりやすいアイコン専用の背景色を使います。追加済みのアイコンは即時に変わるとは限りません。色が変わらない場合は、ブラウザでこのページを開き直してテーマを確認し、ホーム画面に追加し直してください。アプリのアンインストールでは保存設定が消える場合があるため、必要なら先に設定をエクスポートしてください。</p>
-<h3>イベントログとチャプター</h3><p>実況開始ごとに記録を作り、映像解析の応答から客観的なイベントを蓄積します。解析しなかった瞬間や通信・安全フィルターで取得できなかった出来事は記録されません。時刻は画像取得時の端末日時であり、出来事の厳密な開始時刻ではありません。「実況を終了」後に自動生成するか、「チャプター」タブから手動で生成・再生成できます。生成履歴と元イベントは別に保存します。中止・エラー時も前回の候補と記録は残ります。生成中は「即停止」で中止できます。保存はこのブラウザ内のみで、ブラウザデータを消すと失われます。YouTubeを接続設定すると開始時に配信を選択できます。候補がない場合・設定がない場合は連携なしで開始します。API取得エラー時は通知を確認し、連携なしでも開始できます。実際の配信開始時刻が未取得なら未同期として絶対日時を保持します。「YouTube時刻を再取得」で生成済み候補も同期でき、予定開始時刻や実況開始時刻で代用しません。編集・コピー・YouTubeへの書き込みは今後の対応です。</p>
+<h3>イベントログとチャプター</h3><p>実況開始ごとに記録を作り、映像解析の応答から客観的なイベントを蓄積します。解析しなかった瞬間や通信・安全フィルターで取得できなかった出来事は記録されません。時刻は画像取得時の端末日時であり、出来事の厳密な開始時刻ではありません。「実況を終了」後に自動生成するか、「チャプター」タブから手動で生成・再生成できます。生成履歴と元イベントは別に保存します。中止・エラー時も前回の候補と記録は残ります。生成中は「即停止」で中止できます。保存はこのブラウザ内のみで、ブラウザデータを消すと失われます。YouTube同期は生成後の「YouTubeと同期」から任意で行います。終了済み配信の候補は50件ずつ取得し、取得した中でチャプター日時に近い順に表示します。候補0件と取得失敗は区別して表示します。URL／動画ID直接指定も利用でき、いずれも確認・選択後に同期します。実際の開始時刻がない場合は相対時間のみ未同期になります。同期先変更・時刻の再取得・同期解除でも、元の絶対日時と生成結果は変わりません。実況開始・終了はYouTube通信に依存しません。編集・コピー・YouTubeへの書き込みは今後の対応です。</p>
 <h3>はじめに</h3><p>フォルダ内の index.html を、操作するPCのChrome・Edgeで開きます。専用サーバーは不要です。「映像確認」「音声テスト」を試し、Geminiのキーを設定して開始してください。</p>
 <h3>VOICEVOX：Windows版では鳴るのにブラウザでは失敗する</h3><p>開発者ツールに origin 'null'、CORS、403 Forbidden が出る場合は、VOICEVOXを起動し、<a id="voicevoxSettingsLink" href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>を開きます（設定したVOICEVOX URLの設定画面）。CORS Policy Mode を localapps、Allow Origin に null を追加し、保存してVOICEVOXを再起動してください。ほかの許可設定は必要に応じて残します。その後、音声テストをやり直します。</p><p>null の許可は、このアプリ以外のローカルファイルや一部の隔離されたページにも適用されます。信頼できないHTMLを同時に開かず、使わなくなったら許可を外してください。CORSを all にしたり、ブラウザの保護を無効化したりする必要はありません。</p>
 <h3>読み上げ先に接続できない・音が出ない</h3><p>起動状態、URLとポート、ブラウザのローカルネットワーク許可、OSの音量を確認してください。VOICEVOX直接は操作しているブラウザで再生します。棒読みちゃんは設定のHTTP連携を有効にし、PC側の声・音量を確認します。声が異なる場合は「友達」タブのスタイルID・声IDを、速すぎる・遅すぎる場合はVOICEVOX話速を見直してください。</p>

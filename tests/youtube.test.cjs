@@ -5,18 +5,24 @@ const Y=require('../youtube.js'),V=require('../vault.js');
 const channel='UC'+'a'.repeat(22),ids=['abcdefghijk','lmnopqrstuv'],signal=()=>new AbortController().signal;
 const body=items=>({ok:true,json:async()=>({items})});
 const item=(id,start='2026-10-04T23:58:00Z')=>({id,snippet:{title:'配信 '+id,channelId:channel,liveBroadcastContent:start?'live':'upcoming'},liveStreamingDetails:{actualStartTime:start,scheduledStartTime:'2026-10-04T23:00:00Z'}});
-test('YouTube search paginates live/upcoming and deduplicates without selecting',async()=>{
+test('completed candidates load one explicit page and expose pagination',async()=>{
  const calls=[];const result=await Y.candidates('test.key',channel,signal(),async(url,options)=>{
   const u=new URL(url);calls.push(u);assert.equal(options.headers['X-Goog-Api-Key'],'test.key');assert.equal(u.searchParams.has('key'),false);
-  assert.equal(options.credentials,'omit');
   if(u.pathname.endsWith('/videos'))return body(ids.map(id=>item(id)));
-  assert.equal(u.searchParams.get('type'),'video');assert.equal(u.searchParams.get('channelId'),channel);
-  if(u.searchParams.get('eventType')==='live'&&!u.searchParams.has('pageToken'))return {ok:true,json:async()=>({items:[{id:{videoId:ids[0]}}],nextPageToken:'page2'})};
-  return body([{id:{videoId:ids[1]}}]);
- });assert.deepEqual(result.map(x=>x.videoId),ids);assert.equal(calls.length,4);assert.equal(result[0].actualStartTimeMs,Date.parse('2026-10-04T23:58:00Z'));
+  assert.equal(u.searchParams.get('eventType'),'completed');assert.equal(u.searchParams.get('channelId'),channel);assert.equal(u.searchParams.get('pageToken'),'page1');assert.equal(u.searchParams.get('order'),'date');
+  return {ok:true,json:async()=>({items:ids.map(id=>({id:{videoId:id}})),nextPageToken:'page2'})};
+ },{pageToken:'page1'});assert.deepEqual(result.items.map(x=>x.videoId),ids);assert.equal(calls.length,2);assert.equal(result.nextPageToken,'page2');
+});
+test('URL parsing accepts known forms and rejects unrelated or misleading hosts',()=>{
+ for(const url of [ids[0],`https://www.youtube.com/watch?v=${ids[0]}&t=30`,`https://youtu.be/${ids[0]}?si=token`,`https://youtube.com/live/${ids[0]}`,`https://m.youtube.com/shorts/${ids[0]}`,`https://www.youtube.com/embed/${ids[0]}`])assert.equal(Y.parseVideoId(url),ids[0]);
+ for(const url of ['bad','https://evil.example/watch?v='+ids[0],'https://youtube.com.evil.example/watch?v='+ids[0],'https://youtube.com/@channel','javascript:alert(1)'])assert.throws(()=>Y.parseVideoId(url));
+});
+test('loaded candidates sort by absolute start proximity without changing input',()=>{
+ const input=[{videoId:ids[0],actualStartTimeMs:1000},{videoId:ids[1],actualStartTimeMs:9500}];
+ assert.deepEqual(Y.sortCandidates(input,10000).map(x=>x.videoId),[ids[1],ids[0]]);assert.equal(input[0].videoId,ids[0]);
 });
 test('empty is distinct from API/network/malformed or partial lookup failure',async()=>{
- assert.deepEqual(await Y.candidates('key',channel,signal(),async()=>body([])),[]);
+ assert.deepEqual(await Y.candidates('key',channel,signal(),async()=>body([])),{items:[],nextPageToken:''});
  await assert.rejects(Y.candidates('key',channel,signal(),async()=>({ok:false,status:403})),/403/);
  await assert.rejects(Y.candidates('key',channel,signal(),async()=>{throw Error('secret');}),/接続できません/);
  await assert.rejects(Y.candidates('key',channel,signal(),async()=>({ok:true,json:async()=>({})})),/候補一覧/);
@@ -39,4 +45,10 @@ test('YouTube secret uses the existing vault and legacy records still decrypt',a
  const pass='a safe test passphrase',old={apiKey:'gemini',obsPassword:'obs'},next={...old,youtubeApiKey:'youtube-secret'};
  assert.deepEqual(await V.open(await V.seal(old,pass),pass),old);
  const sealed=await V.seal(next,pass);assert(!JSON.stringify(sealed).includes(next.youtubeApiKey));assert.deepEqual(await V.open(sealed,pass),next);
+});
+
+test('sync retains actual end and rejects ordinary videos without broadcast data',async()=>{
+ const video=item(ids[0]);video.liveStreamingDetails.actualEndTime='2026-10-05T00:58:00Z';
+ const synced=await Y.synchronize({videoId:ids[0]},'key',signal(),async()=>body([video]));assert.equal(synced.actualEndTime,'2026-10-05T00:58:00Z');assert.equal(synced.actualEndTimeMs,Date.parse(synced.actualEndTime));
+ delete video.liveStreamingDetails;await assert.rejects(Y.synchronize({videoId:ids[0]},'key',signal(),async()=>body([video])),/ライブ配信/);
 });

@@ -4,7 +4,7 @@
   const date=ms=>Number.isFinite(ms)?new Date(ms).toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'—';
   const names={scene:'場面',progress:'進行',battle:'戦闘',result:'結果',menu:'メニュー',other:'その他'};
   class ChapterUI{
-    constructor({log,onGenerate,onSelectTab,onSync}){
+    constructor({log,onGenerate,onSelectTab,onSync,onResync,onUnlink}){
       this.log=log;this.onSelectTab=onSelectTab;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;
       this.store=new H.Store(()=>{$('chapterStorageWarning').hidden=false;});
       this.ready=this.store.ready.then(()=>{this.selected=[...this.store.records.values()].sort((a,b)=>b.startedAtMs-a.startedAtMs)[0]?.id||null;$('chapterStatus').textContent=this.selected?'保存済みの記録を復元しました。生成・再生成できます。':'イベントを蓄積すると生成できます。';this.render();});
@@ -12,17 +12,32 @@
       $('chapterAuto').addEventListener('change',()=>{try{localStorage.setItem('minkome-chapter-auto-v1',String($('chapterAuto').checked));}catch{}});
       $('chapterSession').addEventListener('change',()=>{this.selected=$('chapterSession').value;this.page=0;this.generationId=null;$('chapterStatus').textContent='選択した記録から生成・再生成できます。';this.render();});
       $('chapterGeneration').addEventListener('change',()=>{this.generationId=$('chapterGeneration').value;this.render();});
-      $('youtubeResync').addEventListener('click',()=>onSync());
+      $('youtubeSync').addEventListener('click',()=>onSync());
+      $('youtubeResync').addEventListener('click',()=>onResync());
+      $('youtubeUnlink').addEventListener('click',()=>onUnlink());
       $('chapterGenerate').addEventListener('click',()=>onGenerate());
       $('chapterPrev').addEventListener('click',()=>{this.page--;this.renderEvents();});
       $('chapterNext').addEventListener('click',()=>{this.page++;this.renderEvents();});
     }
     current(){return this.store.records.get(this.selected);}
     setBusy(value){this.busy=value;this.controls();}
-    controls(){const s=this.current();$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.generating;$('chapterGeneration').disabled=this.generating;}
-    async begin(contentName,youtubeSync=null){
-      await this.ready;const s=H.session(contentName);s.youtubeSync=youtubeSync;this.active=s.id;this.selected=s.id;this.page=0;this.generationId=null;this.warnedObservation=false;
+    controls(){const s=this.current();$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.generating;}
+    async begin(contentName){
+      await this.ready;const s=H.session(contentName);this.active=s.id;this.selected=s.id;this.page=0;this.generationId=null;this.warnedObservation=false;
       await this.store.save(s);$('chapterStatus').textContent='実況の解析と一緒にイベントを記録しています。';this.render();
+    }
+    async linkYouTube(key,channelId,signal,setStatus){
+      const s=this.current();if(!s)return;
+      const generation=s.generations.find(g=>g.id===this.generationId)||s.generations.at(-1);
+      const reference=generation?.chapters[0]?.observedAtMs??s.events[0]?.observedAtMs??s.startedAtMs;
+      const sync=await root.LiveYouTubeUI.choose(key,channelId,signal,setStatus,reference);C.check(signal);
+      if(!sync)return;
+      // The only mutable data is synchronization metadata. Absolute event/chapter timestamps stay intact.
+      s.youtubeSync=sync;await this.store.save(s);this.render();
+    }
+    async unlinkYouTube(signal){
+      C.check(signal);const s=this.current();if(!s)return;
+      s.youtubeSync=null;await this.store.save(s);this.render();
     }
     async syncYouTube(key,signal,sessionId=this.selected){
       const s=this.store.records.get(sessionId);if(!s?.youtubeSync)return;
@@ -68,7 +83,7 @@
       const s=this.current(),states={recording:this.active===s?.id?'記録中':'未終了の記録',finished:'終了',interrupted:'中断'};
       $('chapterSessionInfo').textContent=s?`${states[s.status]||'保存済み'} · ${date(s.startedAtMs)} ～ ${date(s.endedAtMs)} · イベント ${s.events.length}件`:'実況を開始すると、ここに記録が蓄積されます。';
       const sync=s?.youtubeSync;
-      $('youtubeSyncInfo').textContent=sync?`YouTube: ${sync.title} (${sync.videoId}) · ${Number.isFinite(sync.actualStartTimeMs)?'同期済み · 実際の開始 '+date(sync.actualStartTimeMs):'未同期 · 実際の開始時刻は未取得'}${sync.syncError?' · '+sync.syncError:''}`:'YouTube連携なし（絶対日時で表示）';
+      $('youtubeSyncInfo').textContent=sync?`YouTube: ${sync.title} (${sync.videoId}) · ${Number.isFinite(sync.actualStartTimeMs)?'同期済み · 実際の開始 '+date(sync.actualStartTimeMs):'未同期 · 実際の開始時刻は未取得'} · 実際の終了 ${date(sync.actualEndTimeMs)}${sync.syncError?' · '+sync.syncError:''}`:'YouTube連携なし（絶対日時で表示）';
       const genSelect=$('chapterGeneration');genSelect.replaceChildren();
       for(const g of [...s?.generations||[]].reverse()){
         const option=document.createElement('option');option.value=g.id;option.textContent=`${date(g.createdAtMs)} · ${g.chapters.length}件`;genSelect.append(option);
