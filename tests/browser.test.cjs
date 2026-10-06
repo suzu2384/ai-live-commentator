@@ -124,7 +124,11 @@ const results=[];
   await p.locator('#tab-live').click();const selected=new Set(ids);
   for(let n=1;n<=6;n++)await p.locator('#participant-p'+n).setChecked(selected.has('p'+n));
  }
- async function test(name,fn){if(process.env.TEST_FILTER&&!new RegExp(process.env.TEST_FILTER).test(name))return;await fn();results.push(name);console.log('PASS:',name);}
+ async function test(name,fn){
+  if(process.env.TEST_FILTER&&!new RegExp(process.env.TEST_FILTER).test(name))return;
+  try{await fn();results.push(name);console.log('PASS:',name);}
+  catch(e){const page=browser.contexts().at(-1)?.pages().at(-1);await page?.screenshot({path:path.resolve(__dirname,'../../.browser-test/failure.png')}).catch(()=>{});throw e;}
+ }
  async function chapterRecords(p){return p.evaluate(()=>new Promise((resolve,reject)=>{const open=indexedDB.open('minkome-chapters-v1',1);open.onsuccess=()=>{const db=open.result,tx=db.transaction('sessions'),r=tx.objectStore('sessions').getAll();r.onsuccess=()=>{db.close();resolve(r.result)};r.onerror=reject;};open.onerror=reject;}));}
 
  const youtubeChannel='UC'+'a'.repeat(22);
@@ -157,7 +161,7 @@ const results=[];
   const x=await recorded(),p=x.page,before=(await chapterRecords(p))[0];
   assert.equal(await p.locator('#chapterCopy').isDisabled(),true);
   await p.locator('#chapterCandidates').getByRole('button',{name:'編集',exact:true}).click();
-  assert.equal(await p.locator('#chapterTimeMode').inputValue(),'absolute');assert.equal(await p.locator('#chapterTimeMode option[value=relative]').isDisabled(),true);
+  assert.equal(await p.locator('#chapterTimeMode').inputValue(),'absolute');assert.equal(await p.locator('#chapterTimeMode option[value=relative]').evaluate(el=>el.disabled),true);
   await p.locator('#chapterEditTitle').fill('   ');await p.locator('#chapterEditSave').click();assert.match(await p.locator('#chapterEditError').textContent(),/タイトル/);
   await p.locator('#chapterEditTitle').fill('キャンセルする名前');await p.locator('#chapterEditCancel').click();assert.deepEqual((await chapterRecords(p))[0],before);
   await editCandidate(p,0,'<img src=x> 編集したタイトル');

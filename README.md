@@ -279,6 +279,47 @@ v4.41.0の実況開始時の配信選択と通常終了時の自動再取得を�
 単体テスト: `node --test tests/core.test.cjs tests/chapters.test.cjs tests/youtube.test.cjs`。
 関連ブラウザテスト: `TEST_FILTER='YouTube|chapters record|immediate stop keeps|chapter recording preserves|tabs group|stop cancels pending analysis|encrypted credentials|settings export and import' CHROME_PATH=... node tests/browser.test.cjs`（Playwrightが必要）。YouTube・Gemini・OBS・読み上げはモックを使用します。実APIでの候補取得・限定公開配信の取得は利用者のキーで上記手順を確認してください。全体の既存ブラウザテストについてはv4.40.0の検証欄を参照してください。
 
-次フェーズのチャプター名編集・追加削除・説明欄形式への変換・クリップボードコピー・YouTube説明欄への書き込み・OAuth 2.0は未実装です。
+v4.42.0時点では、編集・追加削除・説明欄形式への変換・コピーは未実装でした。これらは下記v4.43.0で追加しています。YouTube説明欄への自動書き込み・OAuth 2.0は追加していません。
 
 API仕様: [配信検索](https://developers.google.com/youtube/v3/docs/search/list)、[動画の開始・終了日時](https://developers.google.com/youtube/v3/docs/videos)。
+
+## v4.43.0 チャプター編集・YouTube貼り付け・コピー
+
+v4.42.0のイベントログ、AI生成、終了後の任意同期をそのまま利用します。`chapters.js`・`youtube.js`・`youtube-ui.js`の処理は変更していません。
+
+### 操作
+
+1. 実況終了後、チャプターを生成し、「チャプター」タブで記録と生成履歴を選びます。
+2. 各候補の「編集」でタイトルと開始時刻を調整します。同期前は絶対日時、同期後は動画内の時刻（`12:34` / `1:02:34`）または絶対日時を入力できます。表示・入力する絶対日時のタイムゾーンは操作端末のものです。時刻はミリ秒まで保持し、タイトルだけを編集しても切り捨てません。
+3. 「チャプターを追加」「削除」で候補を整理できます。直前の削除は取り消せます。「元イベントを見る」は引き続き観測ログを表示します。
+4. 「YouTubeと同期」で対象の配信を選びます。編集と同期のどちらを先に行っても構いません。
+5. 「YouTube貼り付け用テキスト」を確認し、「テキストをコピー」でコピーして動画の説明欄に貼り付けます。更新はローカルで行い、編集・出力・コピーのたびにAIやYouTube APIを呼びません。
+
+先頭が0秒でなければ、初期設定では出力に `00:00 配信開始` を補います。タイトルは変更でき、補完自体を解除することもできます。既に0秒の候補がある場合はその候補を使用し、重ねて追加しません。補完は出力だけに適用され、イベントや生成履歴には挿入しません。
+
+### 出力の確認事項
+
+- 実際のYouTube配信開始時刻が取得できるまではテキストを出力しません。実況開始時刻や配信予定時刻で代用しません。同期解除時は古い出力も消去します。
+- 編集後の絶対日時と `actualStartTimeMs` の差から秒単位に切り捨て、時刻順に出力します。1時間以上は `01:02:34` 形式です。元データ・編集データのミリ秒は変更しません。
+- 配信開始前・取得済み配信終了時刻以降の候補は、理由とタイトルを表示して出力から除外します。候補・編集・元イベントは保存したままです。
+- 秒単位で同じ時刻になる候補は重複として表示し、コピーを無効にします。時刻変更または削除で解消できます。
+- 先頭が00:00でない、3件未満、区間が10秒未満の場合は注意を表示します。時刻リストとしてのコピーは可能ですが、YouTubeのチャプター表示条件を満たしません。終了時刻が取得済みなら最後の区間も確認し、未取得なら確認できない旨を表示します。
+- 自動コピーできない環境ではテキストを選択し、Ctrl+Cや長押しでの手動コピーを案内します。「コピーしました」はクリップボードAPIまたは代替コピー処理が成功した場合だけ表示します。
+
+[YouTube公式のチャプター条件](https://support.google.com/youtube/answer/9884579?hl=ja): 00:00開始、時刻の昇順、3件以上、各区間10秒以上。これらを満たしても、チャンネルの利用資格等によってはチャプターが表示されない場合があります。
+
+### 元の記録を保持する保存方法
+
+既存のIndexedDBセッションに任意の `chapterEdits` 配列を追加します。DB名・バージョン・`schemaVersion` は変えず、旧記録は編集時に初めて編集用データを作ります。元の `events` / `generations` は書き換えません。
+
+各編集データは `generationId`、`updatedAtMs`、冒頭補完の設定、編集済み候補を持ちます。候補は元候補・イベントのIDと元観測日時 (`originalObservedAtMs`) を保持し、編集日時を `atMs` として別に保存します。手動追加は元候補・イベントのIDを持ちません。空に編集した場合も空のまま復元します。
+
+動画内の時刻で入力した値も保存時に絶対日時へ戻します。同期先変更・時刻再取得・解除では編集済みの絶対日時も変えず、出力を再計算します。再生成は新しい生成履歴を追加し、それまでの編集を保持します。生成履歴を切り替えれば以前の編集を利用でき、「元の生成結果に戻す」は選択中の履歴の編集だけを取り消します。
+
+### 検証
+
+単体テスト: `node --test tests/core.test.cjs tests/chapters.test.cjs tests/youtube.test.cjs tests/chapter-editor.test.cjs`。
+
+ブラウザテスト: `TEST_FILTER='chapter editor|YouTube|chapters record|immediate stop keeps|chapter recording preserves|tabs group|stop cancels pending analysis|encrypted credentials|settings export and import' node tests/browser.test.cjs`（PlaywrightとChromiumが必要。必要なら `CHROME_PATH` を指定）。`.github/workflows/chapter-tests.yml` でも同じ確認を行います。
+
+編集前のv4.42.0では単体40件・関連ブラウザ12シナリオの通過を確認しました。追加のテストでは元データ不変、履歴別の保存・復元、日付またぎ・1時間超、時刻の重複、範囲外の候補、コピー失敗時の案内を確認します。Gemini・YouTube・OBS・読み上げ通信はモックで、実API・実配信での連携や生成内容の品質は未検証です。
