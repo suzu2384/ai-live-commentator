@@ -25,6 +25,26 @@
       $('chapterImageDialog')?.addEventListener('cancel',e=>{e.preventDefault();this.closeRepresentativeImage();});
     }
     current(){return this.store.records.get(this.selected);}
+    imageRetentionCount(){
+      const value=Math.max(1,Math.min(100,Math.trunc(Number($('chapterImageRetention').value)||10)));
+      $('chapterImageRetention').value=String(value);return value;
+    }
+    async changeImageRetention(){
+      const value=this.imageRetentionCount();this.imageRetentionSessions=value;
+      try{localStorage.setItem('minkome-image-retention-sessions-v1',String(value));}catch{}
+      const result=await this.store.pruneRepresentativeImages(value);
+      $('chapterImageStorageStatus').textContent=result.imagesDeleted
+        ?`古い${result.sessionsDeleted}配信から代表画像${result.imagesDeleted}枚を削除しました。`
+        :`直近${value}配信分の代表画像を保持します。`;
+      this.render();
+    }
+    async deleteCurrentRepresentativeImages(){
+      const s=this.current();if(!s?.representativeImageIds?.length||this.active===s.id)return;
+      if(!confirm('この配信の代表画像をすべて削除しますか？\nチャプター・イベントログ・生成履歴は残ります。'))return;
+      const count=await this.store.deleteRepresentativeImages(s.id);
+      $('chapterImageStorageStatus').textContent=count?`この配信の代表画像${count}枚を削除しました。`:'削除する代表画像はありません。';
+      this.render();
+    }
     setBusy(value){this.busy=value;this.controls();}
     controls(){const s=this.current();$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;this.editor?.controls();}
     async begin(contentName){
