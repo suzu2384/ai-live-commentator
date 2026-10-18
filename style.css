@@ -621,7 +621,7 @@ html[data-theme="sand"]{
 #youtubeDialog .actions{margin-top:10px}
 #youtubeMessage{margin:8px 0 6px;font-size:11px;line-height:1.4}
 #youtubeMessage[data-state="error"]{color:var(--warn)}
-#youtubeCandidates{display:grid;flex:1 1 auto;min-height:96px;gap:6px;margin:2px 0;overflow-y:auto;overscroll-behavior:contain;padding:2px 4px 2px 0}
+#youtubeCandidates{display:flex;flex:1 1 auto;min-height:96px;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:6px;margin:2px 0;overflow-y:auto;overscroll-behavior:contain;padding:2px 4px 2px 0}
 #youtubeMore{margin-top:8px}
 .youtube-candidate{display:grid;grid-template-columns:16px 88px minmax(0,1fr);align-items:center;gap:8px;border:1px solid var(--line);padding:6px 8px;border-radius:7px;min-height:0}
 .youtube-candidate.thumbnail-missing{grid-template-columns:16px minmax(0,1fr)}
