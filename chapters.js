@@ -1,14 +1,23 @@
 /* Chapter data and generation: independent of speech, OBS and YouTube. */
 (function(root){
   'use strict';
-  const VERSION=1, BATCH_SIZE=200, MAX_CANDIDATES=40;
+  const VERSION=1, DB_VERSION=2, BATCH_SIZE=200, MAX_CANDIDATES=40, MAX_REPRESENTATIVE_IMAGES=30;
   const kinds=['scene','progress','battle','result','menu','other'];
+  const imagePriorities={result:5,battle:5,scene:4,progress:4,other:2,menu:1};
   const uid=()=>root.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const imagePriority=events=>Math.max(0,...events.map(e=>imagePriorities[e?.kind]||0));
+  function dataUrlBlob(data){
+    const match=/^data:(image\/(?:jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(data||''));
+    if(!match)throw new Error('代表画像の形式が不正です。');
+    const binary=root.atob(match[2]),bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    return new Blob([bytes],{type:match[1]});
+  }
   const copy=value=>JSON.parse(JSON.stringify(value));
   function session(contentName='',now=Date.now()){
     return {schemaVersion:VERSION,id:uid(),startedAtMs:now,endedAtMs:null,status:'recording',contentName,
       clockSource:'device-wall-clock',timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,
-      youtubeSync:null,events:[],generations:[]};
+      youtubeSync:null,representativeImageIds:[],events:[],generations:[]};
   }
   function observation(body,frames,contentName='',now=Date.now()){
     const C=root.LiveCore;const raw=C.candidateText(body);if(raw===null)return [];
@@ -66,16 +75,23 @@
   }
   class Store{
     constructor(onWarning=()=>{},indexedDB=root.indexedDB){
-      this.records=new Map();this.onWarning=onWarning;this.db=null;this.queue=Promise.resolve();
+      this.records=new Map();this.imageCache=new Map();this.onWarning=onWarning;this.db=null;this.queue=Promise.resolve();
       this.ready=this.open(indexedDB);
     }
     async open(indexedDB){
       try{
         this.db=await new Promise((resolve,reject)=>{
           if(!indexedDB)return reject(new Error('IndexedDB unavailable'));
-          const req=indexedDB.open('minkome-chapters-v1',1);
+          const req=indexedDB.open('minkome-chapters-v1',DB_VERSION);
           let settled=false;const timer=setTimeout(()=>{settled=true;reject(new Error('open timeout'));},5000);
-          req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('sessions'))req.result.createObjectStore('sessions',{keyPath:'id'});};
+          req.onupgradeneeded=()=>{
+            const db=req.result;
+            if(!db.objectStoreNames.contains('sessions'))db.createObjectStore('sessions',{keyPath:'id'});
+            if(!db.objectStoreNames.contains('images')){
+              const images=db.createObjectStore('images',{keyPath:'id'});
+              images.createIndex('sessionId','sessionId',{unique:false});
+            }
+          };
           req.onerror=()=>{clearTimeout(timer);settled=true;reject(req.error);};
           req.onsuccess=()=>{clearTimeout(timer);if(settled){req.result.close();return;}settled=true;resolve(req.result);};
           req.onblocked=()=>{clearTimeout(timer);settled=true;reject(new Error('blocked'));};
@@ -85,7 +101,10 @@
           const tx=this.db.transaction('sessions','readonly'),req=tx.objectStore('sessions').getAll();
           req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
         });
-        for(const s of values)if(s?.schemaVersion===VERSION&&typeof s.id==='string'&&Array.isArray(s.events)&&Array.isArray(s.generations))this.records.set(s.id,s);
+        for(const s of values)if(s?.schemaVersion===VERSION&&typeof s.id==='string'&&Array.isArray(s.events)&&Array.isArray(s.generations)){
+          if(!Array.isArray(s.representativeImageIds))s.representativeImageIds=[];
+          this.records.set(s.id,s);
+        }
       }catch{this.db?.close();this.db=null;this.onWarning();}
     }
     save(s){
@@ -100,8 +119,60 @@
       });
       return this.queue;
     }
+    async image(id){
+      if(!id)return null;
+      if(this.imageCache.has(id))return this.imageCache.get(id);
+      if(!this.db)return null;
+      try{
+        const value=await new Promise((resolve,reject)=>{
+          const tx=this.db.transaction('images','readonly'),req=tx.objectStore('images').get(id);
+          req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
+        });
+        if(value)this.imageCache.set(id,value);return value;
+      }catch{this.onWarning();return null;}
+    }
+    async imagesForSession(sessionId){
+      const s=this.records.get(sessionId);if(!s)return [];
+      const values=await Promise.all((s.representativeImageIds||[]).map(id=>this.image(id)));
+      return values.filter(Boolean).sort((a,b)=>a.capturedAtMs-b.capturedAtMs);
+    }
+    async saveRepresentativeImage(s,events,frame){
+      if(!s||!events?.length||!frame?.data)return null;
+      let blob;try{blob=dataUrlBlob(frame.data);}catch{return null;}
+      const priority=imagePriority(events),ids=Array.isArray(s.representativeImageIds)?[...s.representativeImageIds]:[];
+      let evictId=null;
+      if(ids.length>=MAX_REPRESENTATIVE_IMAGES){
+        const existing=(await Promise.all(ids.map(id=>this.image(id)))).filter(Boolean);
+        if(existing.length>=MAX_REPRESENTATIVE_IMAGES){
+          existing.sort((a,b)=>(a.priority||0)-(b.priority||0)||a.capturedAtMs-b.capturedAtMs);
+          const lowest=existing[0];
+          if(priority<(lowest.priority||0))return null;
+          evictId=lowest.id;
+        }else{
+          const existingIds=new Set(existing.map(x=>x.id));
+          s.representativeImageIds=ids.filter(id=>existingIds.has(id));
+        }
+      }
+      const id=uid(),record={id,sessionId:s.id,capturedAtMs:frame.capturedAtMs,createdAtMs:Date.now(),priority,
+        mimeType:blob.type,width:Number.isFinite(frame.width)?frame.width:null,height:Number.isFinite(frame.height)?frame.height:null,blob};
+      if(this.db){
+        try{await new Promise((resolve,reject)=>{
+          const tx=this.db.transaction('images','readwrite'),store=tx.objectStore('images');
+          if(evictId)store.delete(evictId);store.put(record);
+          tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+        });}catch{this.onWarning();return null;}
+      }else this.onWarning();
+      this.imageCache.set(id,record);if(evictId)this.imageCache.delete(evictId);
+      if(evictId){
+        s.representativeImageIds=(s.representativeImageIds||[]).filter(x=>x!==evictId);
+        for(const e of s.events)if(e.imageId===evictId)delete e.imageId;
+      }
+      s.representativeImageIds=[...(s.representativeImageIds||[]).filter(x=>x!==id),id];
+      for(const e of events)e.imageId=id;
+      await this.save(s);return id;
+    }
     flush(){return this.queue;}
   }
-  const api={VERSION,BATCH_SIZE,kinds,session,observation,payload,parse,generate,Store};
+  const api={VERSION,DB_VERSION,BATCH_SIZE,MAX_REPRESENTATIVE_IMAGES,kinds,imagePriority,dataUrlBlob,session,observation,payload,parse,generate,Store};
   root.LiveChapters=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(globalThis);
