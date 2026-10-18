@@ -30,7 +30,15 @@
       $('chapterImageRetention').value=String(value);return value;
     }
     async changeImageRetention(){
-      const value=this.imageRetentionCount();this.imageRetentionSessions=value;
+      const value=this.imageRetentionCount(),previous=this.imageRetentionSessions;
+      if(value<previous){
+        const affected=[...this.store.records.values()].filter(s=>(s.representativeImageIds?.length||0)>0).sort((a,b)=>b.startedAtMs-a.startedAtMs).slice(value);
+        const images=affected.reduce((sum,s)=>sum+(s.representativeImageIds?.length||0),0);
+        if(affected.length&&!confirm(`保持数を${value}配信に減らすと、古い${affected.length}配信の代表画像${images}枚を削除します。\nチャプター・イベントログは残ります。続けますか？`)){
+          $('chapterImageRetention').value=String(previous);return;
+        }
+      }
+      this.imageRetentionSessions=value;
       try{localStorage.setItem('minkome-image-retention-sessions-v1',String(value));}catch{}
       const result=await this.store.pruneRepresentativeImages(value);
       $('chapterImageStorageStatus').textContent=result.imagesDeleted
