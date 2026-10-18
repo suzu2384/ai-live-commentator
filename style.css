@@ -661,4 +661,16 @@ html[data-theme="sand"]{
   .chapter-image-dialog-body{padding:12px}
 }
 
+.chapter-thumbnail{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:10px;min-width:0}
+.chapter-thumbnail h3{margin:0 0 8px}
+.thumbnail-references{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px}
+.thumbnail-references img{flex:0 0 112px;width:112px;aspect-ratio:16/9;object-fit:cover;border-radius:7px;border:1px solid var(--line);background:var(--preview-bg)}
+.thumbnail-preview{margin:12px 0;overflow:hidden;border-radius:10px;border:1px solid var(--line);background:var(--preview-bg)}
+.thumbnail-preview img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain}
+#thumbnailText{width:100%}
+@media(max-width:520px){
+  .chapter-thumbnail{padding:12px}
+  .thumbnail-references img{flex-basis:88px;width:88px}
+  #thumbnailText{font-size:16px}
+}
 .chapter-export{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:10px;min-width:0}.chapter-export h3{margin:0 0 8px}.chapter-export .actions{margin-top:10px}.chapter-export-notes{padding-left:20px;font-size:12px;overflow-wrap:anywhere}.chapter-export-notes li{margin:6px 0;color:var(--warn)}#chapterOutput{width:100%;min-height:160px;resize:vertical;font-family:inherit;font-variant-numeric:tabular-nums;line-height:1.8}.chapter-edit-form{padding:18px;overflow:auto}.chapter-edit-form label{margin-bottom:12px}.chapter-edit-error{color:var(--warn)}#chapterEditDialog{max-height:90dvh;overflow:auto}.chapter-list .actions{gap:8px}.chapter-panel button{white-space:normal}.chapter-panel .hint{overflow-wrap:anywhere}@media(max-width:520px){.chapter-export{padding:12px}.chapter-edit-form{padding:12px}.chapter-edit-form input,.chapter-edit-form select,#chapterIntroTitle,#chapterOutput{font-size:16px}}
