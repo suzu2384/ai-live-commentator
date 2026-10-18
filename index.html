@@ -200,7 +200,10 @@ try{
 <p id="chapterTimePreview" class="hint"></p><p id="chapterOriginalTime" class="hint"></p>
 <p id="chapterEditError" class="chapter-edit-error" role="alert"></p>
 <div class="actions wrap"><button id="chapterEditSave" type="submit" class="primary">保存</button><button id="chapterEditCancel" type="button">キャンセル</button></div>
-</form></dialog><dialog id="youtubeDialog" class="content-dialog" aria-labelledby="youtubeDialogTitle">
+</form></dialog><dialog id="chapterImageDialog" class="content-dialog chapter-image-dialog" aria-labelledby="chapterImageDialogTitle">
+<div class="content-dialog-head"><h2 id="chapterImageDialogTitle">代表画像</h2><button type="button" id="chapterImageClose" class="content-dialog-close" aria-label="閉じる">×</button></div>
+<div class="chapter-image-dialog-body"><img id="chapterImagePreview" alt="イベントの代表画像"><p id="chapterImageInfo" class="hint"></p></div>
+</dialog><dialog id="youtubeDialog" class="content-dialog" aria-labelledby="youtubeDialogTitle">
 <div class="content-dialog-head"><h2 id="youtubeDialogTitle">YouTube同期先を選択</h2></div><div class="youtube-dialog-body">
 <p class="hint">終了済み配信の候補から選択するか、URL／動画IDを直接指定してください。確定するまで現在の同期先は変わりません。</p>
 <label>YouTube動画URL／動画ID<input id="youtubeDirect" type="text" maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"></label>
