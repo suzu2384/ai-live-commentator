@@ -129,7 +129,7 @@ const results=[];
   try{await fn();results.push(name);console.log('PASS:',name);}
   catch(e){const page=browser.contexts().at(-1)?.pages().at(-1);await page?.screenshot({path:path.resolve(__dirname,'../../.browser-test/failure.png')}).catch(()=>{});throw e;}
  }
- async function chapterRecords(p){return p.evaluate(()=>new Promise((resolve,reject)=>{const open=indexedDB.open('minkome-chapters-v1',1);open.onsuccess=()=>{const db=open.result,tx=db.transaction('sessions'),r=tx.objectStore('sessions').getAll();r.onsuccess=()=>{db.close();resolve(r.result)};r.onerror=reject;};open.onerror=reject;}));}
+ async function chapterRecords(p){return p.evaluate(()=>new Promise((resolve,reject)=>{const open=indexedDB.open('minkome-chapters-v1');open.onsuccess=()=>{const db=open.result,tx=db.transaction('sessions'),r=tx.objectStore('sessions').getAll();r.onsuccess=()=>{db.close();resolve(r.result)};r.onerror=reject;};open.onerror=reject;}));}
 
  const youtubeChannel='UC'+'a'.repeat(22);
  const youtubeVideo=(id,actualStartTime=null)=>({id,snippet:{title:'テスト配信 '+id,channelId:youtubeChannel,liveBroadcastContent:actualStartTime?'live':'upcoming'},liveStreamingDetails:{scheduledStartTime:'2026-10-04T23:00:00Z',...(actualStartTime?{actualStartTime}:{})}});
