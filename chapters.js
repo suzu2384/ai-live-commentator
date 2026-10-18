@@ -1,11 +1,9 @@
 /* Chapter data and generation: independent of speech, OBS and YouTube. */
 (function(root){
   'use strict';
-  const VERSION=1, DB_VERSION=2, BATCH_SIZE=200, MAX_CANDIDATES=40, MAX_REPRESENTATIVE_IMAGES=30;
+  const VERSION=1, DB_VERSION=2, BATCH_SIZE=200, MAX_CANDIDATES=40;
   const kinds=['scene','progress','battle','result','menu','other'];
-  const imagePriorities={result:5,battle:5,scene:4,progress:4,other:2,menu:1};
   const uid=()=>root.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const imagePriority=events=>Math.max(0,...events.map(e=>imagePriorities[e?.kind]||0));
   function dataUrlBlob(data){
     const match=/^data:(image\/(?:jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(data||''));
     if(!match)throw new Error('代表画像の形式が不正です。');
@@ -139,40 +137,46 @@
     async saveRepresentativeImage(s,events,frame){
       if(!s||!events?.length||!frame?.data)return null;
       let blob;try{blob=dataUrlBlob(frame.data);}catch{return null;}
-      const priority=imagePriority(events),ids=Array.isArray(s.representativeImageIds)?[...s.representativeImageIds]:[];
-      let evictId=null;
-      if(ids.length>=MAX_REPRESENTATIVE_IMAGES){
-        const existing=(await Promise.all(ids.map(id=>this.image(id)))).filter(Boolean);
-        if(existing.length>=MAX_REPRESENTATIVE_IMAGES){
-          existing.sort((a,b)=>(a.priority||0)-(b.priority||0)||a.capturedAtMs-b.capturedAtMs);
-          const lowest=existing[0];
-          if(priority<(lowest.priority||0))return null;
-          evictId=lowest.id;
-        }else{
-          const existingIds=new Set(existing.map(x=>x.id));
-          s.representativeImageIds=ids.filter(id=>existingIds.has(id));
-        }
-      }
-      const id=uid(),record={id,sessionId:s.id,capturedAtMs:frame.capturedAtMs,createdAtMs:Date.now(),priority,
+      const id=uid(),record={id,sessionId:s.id,capturedAtMs:frame.capturedAtMs,createdAtMs:Date.now(),
         mimeType:blob.type,width:Number.isFinite(frame.width)?frame.width:null,height:Number.isFinite(frame.height)?frame.height:null,blob};
       if(this.db){
         try{await new Promise((resolve,reject)=>{
-          const tx=this.db.transaction('images','readwrite'),store=tx.objectStore('images');
-          if(evictId)store.delete(evictId);store.put(record);
+          const tx=this.db.transaction('images','readwrite');tx.objectStore('images').put(record);
           tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
         });}catch{this.onWarning();return null;}
       }else this.onWarning();
-      this.imageCache.set(id,record);if(evictId)this.imageCache.delete(evictId);
-      if(evictId){
-        s.representativeImageIds=(s.representativeImageIds||[]).filter(x=>x!==evictId);
-        for(const e of s.events)if(e.imageId===evictId)delete e.imageId;
-      }
-      s.representativeImageIds=[...(s.representativeImageIds||[]).filter(x=>x!==id),id];
+      this.imageCache.set(id,record);
+      s.representativeImageIds=[...(s.representativeImageIds||[]),id];
       for(const e of events)e.imageId=id;
       await this.save(s);return id;
     }
+    async deleteRepresentativeImages(sessionId){
+      const s=this.records.get(sessionId);if(!s)return 0;
+      const ids=[...new Set(s.representativeImageIds||[])];
+      if(this.db&&ids.length){
+        try{await new Promise((resolve,reject)=>{
+          const tx=this.db.transaction('images','readwrite'),store=tx.objectStore('images');
+          for(const id of ids)store.delete(id);
+          tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+        });}catch{this.onWarning();return 0;}
+      }
+      for(const id of ids)this.imageCache.delete(id);
+      s.representativeImageIds=[];
+      for(const e of s.events)if(e.imageId&&ids.includes(e.imageId))delete e.imageId;
+      await this.save(s);return ids.length;
+    }
+    async pruneRepresentativeImages(keepSessions){
+      const keep=Math.max(1,Math.min(100,Math.trunc(Number(keepSessions)||10)));
+      const sessions=[...this.records.values()].filter(s=>(s.representativeImageIds?.length||0)>0).sort((a,b)=>b.startedAtMs-a.startedAtMs);
+      let sessionsDeleted=0,imagesDeleted=0;
+      for(const s of sessions.slice(keep)){
+        const count=await this.deleteRepresentativeImages(s.id);
+        if(count){sessionsDeleted++;imagesDeleted+=count;}
+      }
+      return {keep,sessionsDeleted,imagesDeleted};
+    }
     flush(){return this.queue;}
   }
-  const api={VERSION,DB_VERSION,BATCH_SIZE,MAX_REPRESENTATIVE_IMAGES,kinds,imagePriority,dataUrlBlob,session,observation,payload,parse,generate,Store};
+  const api={VERSION,DB_VERSION,BATCH_SIZE,kinds,dataUrlBlob,session,observation,payload,parse,generate,Store};
   root.LiveChapters=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(globalThis);
