@@ -4,14 +4,14 @@
   const date=ms=>Number.isFinite(ms)?new Date(ms).toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'—';
   const names={scene:'場面',progress:'進行',battle:'戦闘',result:'結果',menu:'メニュー',other:'その他'};
   class ChapterUI{
-    constructor({log,onGenerate,onSelectTab,onSync,onResync,onUnlink}){
-      this.log=log;this.onSelectTab=onSelectTab;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;this.imageDialogUrl=null;this.imageRetentionSessions=10;this.pendingImageSaves=new Set();
+    constructor({log,onGenerate,onThumbnailGenerate,onSelectTab,onSync,onResync,onUnlink}){
+      this.log=log;this.onSelectTab=onSelectTab;this.onThumbnailGenerate=onThumbnailGenerate;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;this.imageDialogUrl=null;this.imageRetentionSessions=10;this.pendingImageSaves=new Set();this.thumbnailUrl=null;this.thumbnailReferenceUrls=[];this.thumbnailRenderToken=0;this.thumbnailTextTouched=false;
       try{const stored=Number(localStorage.getItem('minkome-image-retention-sessions-v1'));if(Number.isInteger(stored)&&stored>=1&&stored<=100)this.imageRetentionSessions=stored;}catch{} $('chapterImageRetention').value=String(this.imageRetentionSessions);this.store=new H.Store(()=>{$('chapterStorageWarning').hidden=false;});
       this.ready=this.store.ready.then(async()=>{await this.store.pruneRepresentativeImages(this.imageRetentionSessions);this.selected=[...this.store.records.values()].sort((a,b)=>b.startedAtMs-a.startedAtMs)[0]?.id||null;$('chapterStatus').textContent=this.selected?'保存済みの記録を復元しました。生成・再生成できます。':'イベントを蓄積すると生成できます。';this.render();});
       try{$('chapterAuto').checked=localStorage.getItem('minkome-chapter-auto-v1')!=='false';}catch{}
       $('chapterAuto').addEventListener('change',()=>{try{localStorage.setItem('minkome-chapter-auto-v1',String($('chapterAuto').checked));}catch{}});
-      $('chapterSession').addEventListener('change',()=>{this.selected=$('chapterSession').value;this.page=0;this.generationId=null;$('chapterStatus').textContent='選択した記録から生成・再生成できます。';this.render();});
-      $('chapterGeneration').addEventListener('change',()=>{this.generationId=$('chapterGeneration').value;this.render();});
+      $('chapterSession').addEventListener('change',()=>{this.selected=$('chapterSession').value;this.page=0;this.generationId=null;this.thumbnailTextTouched=false;$('chapterStatus').textContent='選択した記録から生成・再生成できます。';this.render();});
+      $('chapterGeneration').addEventListener('change',()=>{this.generationId=$('chapterGeneration').value;this.thumbnailTextTouched=false;this.render();});
       $('youtubeSync').addEventListener('click',()=>onSync());
       $('youtubeResync').addEventListener('click',()=>onResync());
       $('youtubeUnlink').addEventListener('click',()=>onUnlink());
@@ -20,6 +20,11 @@
       $('chapterNext').addEventListener('click',()=>{this.page++;this.renderEvents();});
       $('chapterImageRetention').addEventListener('change',()=>void this.changeImageRetention());
       $('chapterImagesDelete').addEventListener('click',()=>void this.deleteCurrentRepresentativeImages());
+      $('thumbnailGenerate').addEventListener('click',()=>this.onThumbnailGenerate?.());
+      $('thumbnailHistory').addEventListener('change',()=>void this.selectThumbnailHistory());
+      $('thumbnailText').addEventListener('input',()=>{this.thumbnailTextTouched=true;});
+      $('thumbnailTextEnabled').addEventListener('change',()=>this.controls());
+      $('thumbnailDownload').addEventListener('click',()=>void this.downloadCurrentThumbnail());
       this.editor=new root.LiveChapterEditorUI(this);
       $('chapterImageClose')?.addEventListener('click',()=>this.closeRepresentativeImage());
       $('chapterImageDialog')?.addEventListener('cancel',e=>{e.preventDefault();this.closeRepresentativeImage();});
