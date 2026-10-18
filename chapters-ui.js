@@ -58,8 +58,59 @@
       $('chapterImageStorageStatus').textContent=count?`この配信の代表画像${count}枚を削除しました。`:'削除する代表画像はありません。';
       this.render();
     }
+    clearThumbnailUrls(){
+      if(this.thumbnailUrl){URL.revokeObjectURL(this.thumbnailUrl);this.thumbnailUrl=null;}
+      for(const url of this.thumbnailReferenceUrls)URL.revokeObjectURL(url);
+      this.thumbnailReferenceUrls=[];
+    }
+    async selectThumbnailHistory(){
+      const s=this.current();if(!s)return;
+      const id=$('thumbnailHistory').value||null;await this.store.selectGeneratedThumbnail(s,id);await this.renderThumbnailPanel();
+    }
+    async generateThumbnail(key,signal){
+      const s=this.current(),T=root.LiveThumbnails;if(!s)return;
+      if(this.active===s.id)throw new Error('実況終了後にサムネを生成してください。');
+      const referenceImageIds=T.selectReferenceIds(s,this.generationId);
+      if(!referenceImageIds.length)throw new Error('サムネ生成に使える代表画像がありません。');
+      const images=(await Promise.all(referenceImageIds.map(id=>this.store.image(id)))).filter(Boolean);
+      if(!images.length)throw new Error('代表画像を読み込めませんでした。');
+      const includeText=$('thumbnailTextEnabled').checked,caption=$('thumbnailText').value.trim();
+      if(includeText&&!caption)throw new Error('サムネイルに入れる文字を入力してください。');
+      const prompt=T.buildPrompt(s,{generationId:this.generationId,referenceImageIds,includeText,caption});
+      $('thumbnailStatus').textContent=`${images.length}枚の代表画像からAIサムネを生成しています…`;
+      const result=await C.deadline(t=>T.generate(key,{prompt,images,signal:t}),180000,signal,'サムネ生成がタイムアウトしました。再生成できます。');
+      C.check(signal);const id=await this.store.saveGeneratedThumbnail(s,{blob:result.blob,model:result.model,prompt,caption,includeText,referenceImageIds});
+      if(!id)throw new Error('生成したサムネイルを端末内に保存できませんでした。');
+      $('thumbnailStatus').textContent='サムネイルを生成して履歴に保存しました。';this.log(`AIサムネイルを生成（${images.length}枚参照・${result.model}）。`);
+      await this.renderThumbnailPanel();
+    }
+    async downloadCurrentThumbnail(){
+      const s=this.current();if(!s)return;const id=s.selectedThumbnailId||$('thumbnailHistory').value;if(!id)return;
+      const record=await this.store.thumbnail(id);if(!record?.blob)return;
+      const ext=record.mimeType==='image/jpeg'?'jpg':record.mimeType==='image/webp'?'webp':'png',stamp=new Date(record.createdAtMs).toISOString().replace(/[:.]/g,'-');
+      const url=URL.createObjectURL(record.blob),a=document.createElement('a');a.href=url;a.download=`minkome-thumbnail-${stamp}.${ext}`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),0);
+      $('thumbnailStatus').textContent='選択中のサムネイルを保存しました。';
+    }
+    async renderThumbnailPanel(){
+      const token=++this.thumbnailRenderToken,s=this.current(),T=root.LiveThumbnails,refs=$('thumbnailReferences'),history=$('thumbnailHistory');
+      this.clearThumbnailUrls();refs.replaceChildren();history.replaceChildren();$('thumbnailPreview').removeAttribute('src');$('thumbnailPreviewWrap').hidden=true;
+      if(!s){$('thumbnailReferenceInfo').textContent='代表画像がある終了済み配信を選択してください。';$('thumbnailHistoryInfo').textContent='';this.controls();return;}
+      if(!this.thumbnailTextTouched)$('thumbnailText').value=T.suggestedCaption(s,this.generationId);
+      const referenceIds=T.selectReferenceIds(s,this.generationId);
+      $('thumbnailReferenceInfo').textContent=referenceIds.length?`${referenceIds.length}枚を生成素材として自動選定しています。`:'サムネ生成に使える代表画像がありません。';
+      for(const id of referenceIds){
+        const record=await this.store.image(id);if(token!==this.thumbnailRenderToken)return;if(!record?.blob)continue;
+        const img=document.createElement('img'),url=URL.createObjectURL(record.blob);this.thumbnailReferenceUrls.push(url);img.src=url;img.alt='サムネ生成に使う代表画像';refs.append(img);
+      }
+      const records=await this.store.thumbnailsForSession(s.id);if(token!==this.thumbnailRenderToken)return;
+      for(const record of records){const option=document.createElement('option');option.value=record.id;option.textContent=`${date(record.createdAtMs)} · ${record.caption||'文字なし'}`;history.append(option);}
+      const selected=records.find(x=>x.id===s.selectedThumbnailId)||records[0]||null;
+      if(selected){history.value=selected.id;this.thumbnailUrl=URL.createObjectURL(selected.blob);$('thumbnailPreview').src=this.thumbnailUrl;$('thumbnailPreviewWrap').hidden=false;$('thumbnailHistoryInfo').textContent=`${selected.model} · 参照${selected.referenceImageIds?.length||0}枚 · ${selected.includeText?'文字あり':'文字なし'}`;}
+      else $('thumbnailHistoryInfo').textContent='まだ生成履歴はありません。';
+      this.controls();
+    }
     setBusy(value){this.busy=value;this.controls();}
-    controls(){const s=this.current();$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;$('chapterImageRetention').disabled=this.busy;$('chapterImagesDelete').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;this.editor?.controls();}
+    controls(){const s=this.current(),hasThumb=!!s?.selectedThumbnailId||$('thumbnailHistory').options.length>0;$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;$('chapterImageRetention').disabled=this.busy;$('chapterImagesDelete').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailGenerate').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailHistory').disabled=this.busy||!hasThumb;$('thumbnailDownload').disabled=this.busy||!hasThumb;$('thumbnailTextEnabled').disabled=this.busy;$('thumbnailText').disabled=this.busy||!$('thumbnailTextEnabled').checked;this.editor?.controls();}
     async begin(contentName){
       await this.ready;const s=H.session(contentName);this.active=s.id;this.selected=s.id;this.page=0;this.generationId=null;this.warnedObservation=false;
       await this.store.save(s);$('chapterStatus').textContent='実況の解析と一緒にイベントを記録しています。';this.render();
@@ -140,7 +191,7 @@
       if(this.generationId)genSelect.value=this.generationId;
       const generation=s?.generations.find(g=>g.id===this.generationId);
       this.editor.render(s,generation);
-      this.renderEvents();this.controls();
+      this.renderEvents();void this.renderThumbnailPanel();this.controls();
     }
     showEvent(id){
       const events=[...this.current()?.events||[]].reverse(),index=events.findIndex(e=>e.id===id);if(index<0)return;
