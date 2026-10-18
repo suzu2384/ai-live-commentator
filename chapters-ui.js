@@ -5,9 +5,9 @@
   const names={scene:'場面',progress:'進行',battle:'戦闘',result:'結果',menu:'メニュー',other:'その他'};
   class ChapterUI{
     constructor({log,onGenerate,onSelectTab,onSync,onResync,onUnlink}){
-      this.log=log;this.onSelectTab=onSelectTab;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;this.imageDialogUrl=null;
-      this.store=new H.Store(()=>{$('chapterStorageWarning').hidden=false;});
-      this.ready=this.store.ready.then(()=>{this.selected=[...this.store.records.values()].sort((a,b)=>b.startedAtMs-a.startedAtMs)[0]?.id||null;$('chapterStatus').textContent=this.selected?'保存済みの記録を復元しました。生成・再生成できます。':'イベントを蓄積すると生成できます。';this.render();});
+      this.log=log;this.onSelectTab=onSelectTab;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;this.imageDialogUrl=null;this.imageRetentionSessions=10;
+      try{const stored=Number(localStorage.getItem('minkome-image-retention-sessions-v1'));if(Number.isInteger(stored)&&stored>=1&&stored<=100)this.imageRetentionSessions=stored;}catch{} $('chapterImageRetention').value=String(this.imageRetentionSessions);this.store=new H.Store(()=>{$('chapterStorageWarning').hidden=false;});
+      this.ready=this.store.ready.then(async()=>{await this.store.pruneRepresentativeImages(this.imageRetentionSessions);this.selected=[...this.store.records.values()].sort((a,b)=>b.startedAtMs-a.startedAtMs)[0]?.id||null;$('chapterStatus').textContent=this.selected?'保存済みの記録を復元しました。生成・再生成できます。':'イベントを蓄積すると生成できます。';this.render();});
       try{$('chapterAuto').checked=localStorage.getItem('minkome-chapter-auto-v1')!=='false';}catch{}
       $('chapterAuto').addEventListener('change',()=>{try{localStorage.setItem('minkome-chapter-auto-v1',String($('chapterAuto').checked));}catch{}});
       $('chapterSession').addEventListener('change',()=>{this.selected=$('chapterSession').value;this.page=0;this.generationId=null;$('chapterStatus').textContent='選択した記録から生成・再生成できます。';this.render();});
