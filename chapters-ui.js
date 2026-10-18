@@ -5,7 +5,7 @@
   const names={scene:'場面',progress:'進行',battle:'戦闘',result:'結果',menu:'メニュー',other:'その他'};
   class ChapterUI{
     constructor({log,onGenerate,onSelectTab,onSync,onResync,onUnlink}){
-      this.log=log;this.onSelectTab=onSelectTab;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;
+      this.log=log;this.onSelectTab=onSelectTab;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;this.imageDialogUrl=null;
       this.store=new H.Store(()=>{$('chapterStorageWarning').hidden=false;});
       this.ready=this.store.ready.then(()=>{this.selected=[...this.store.records.values()].sort((a,b)=>b.startedAtMs-a.startedAtMs)[0]?.id||null;$('chapterStatus').textContent=this.selected?'保存済みの記録を復元しました。生成・再生成できます。':'イベントを蓄積すると生成できます。';this.render();});
       try{$('chapterAuto').checked=localStorage.getItem('minkome-chapter-auto-v1')!=='false';}catch{}
@@ -19,6 +19,8 @@
       $('chapterPrev').addEventListener('click',()=>{this.page--;this.renderEvents();});
       $('chapterNext').addEventListener('click',()=>{this.page++;this.renderEvents();});
       this.editor=new root.LiveChapterEditorUI(this);
+      $('chapterImageClose')?.addEventListener('click',()=>this.closeRepresentativeImage());
+      $('chapterImageDialog')?.addEventListener('cancel',e=>{e.preventDefault();this.closeRepresentativeImage();});
     }
     current(){return this.store.records.get(this.selected);}
     setBusy(value){this.busy=value;this.controls();}
@@ -53,7 +55,12 @@
       try{
         const events=H.observation(body,frames,contentName);
         for(const e of events)s.events.push({...e,sessionId:s.id,sequence:s.events.length+1});
-        if(events.length){void this.store.save(s);if(this.selected===s.id)this.render();}
+        if(events.length){
+          void this.store.save(s);
+          if(this.selected===s.id)this.render();
+          const frame=frames.at(-1);
+          void this.store.saveRepresentativeImage(s,events,frame).then(id=>{if(id&&this.selected===s.id)this.render();});
+        }
       }catch(e){if(!this.warnedObservation){this.warnedObservation=true;this.log('チャプター用イベントを記録できない応答がありました。実況は続行します。','warn');$('chapterStatus').textContent='一部の応答にイベント要約がなく、記録を見送りました。以降の解析では記録を続けます。';}}
     }
     async end(reason){
@@ -82,7 +89,7 @@
       }
       if(this.selected)select.value=this.selected;
       const s=this.current(),states={recording:this.active===s?.id?'記録中':'未終了の記録',finished:'終了',interrupted:'中断'};
-      $('chapterSessionInfo').textContent=s?`${states[s.status]||'保存済み'} · ${date(s.startedAtMs)} ～ ${date(s.endedAtMs)} · イベント ${s.events.length}件`:'実況を開始すると、ここに記録が蓄積されます。';
+      $('chapterSessionInfo').textContent=s?`${states[s.status]||'保存済み'} · ${date(s.startedAtMs)} ～ ${date(s.endedAtMs)} · イベント ${s.events.length}件 · 代表画像 ${s.representativeImageIds?.length||0}枚`:'実況を開始すると、ここに記録が蓄積されます。';
       const sync=s?.youtubeSync;
       $('youtubeSyncInfo').textContent=sync?`YouTube: ${sync.title} (${sync.videoId}) · ${Number.isFinite(sync.actualStartTimeMs)?'同期済み · 実際の開始 '+date(sync.actualStartTimeMs):'未同期 · 実際の開始時刻は未取得'} · 実際の終了 ${date(sync.actualEndTimeMs)}${sync.syncError?' · '+sync.syncError:''}`:'YouTube連携なし（絶対日時で表示）';
       const genSelect=$('chapterGeneration');genSelect.replaceChildren();
@@ -106,10 +113,35 @@
       $('chapterPage').textContent=`${this.page+1} / ${pages} ページ（新しい順）`;$('chapterPrev').disabled=this.page===0;$('chapterNext').disabled=this.page+1>=pages;
       const list=$('chapterEvents');list.replaceChildren();
       for(const event of events.slice(this.page*100,(this.page+1)*100)){
-        const item=document.createElement('li'),time=document.createElement('time'),text=document.createElement('p'),kind=document.createElement('small');
-        item.id=`chapter-event-${event.id}`;item.tabIndex=-1;time.dateTime=new Date(event.observedAtMs).toISOString();time.textContent=date(event.observedAtMs)+(this.current()?.youtubeSync?' → '+(root.LiveYouTube.relative(event.observedAtMs,this.current().youtubeSync)??'未同期'):'');
-        kind.textContent=`${names[event.kind]||event.kind} · ${event.contentName||'対象なし'}`;text.textContent=event.summary;item.append(time,kind,text);list.append(item);
+        const item=document.createElement('li'),copy=document.createElement('div'),time=document.createElement('time'),text=document.createElement('p'),kind=document.createElement('small');
+        item.id=`chapter-event-${event.id}`;item.tabIndex=-1;item.className='chapter-event-item';copy.className='chapter-event-copy';
+        time.dateTime=new Date(event.observedAtMs).toISOString();time.textContent=date(event.observedAtMs)+(this.current()?.youtubeSync?' → '+(root.LiveYouTube.relative(event.observedAtMs,this.current().youtubeSync)??'未同期'):'');
+        kind.textContent=`${names[event.kind]||event.kind} · ${event.contentName||'対象なし'}`;text.textContent=event.summary;copy.append(time,kind,text);item.append(copy);
+        if(event.imageId){
+          item.classList.add('has-image');
+          const button=document.createElement('button');button.type='button';button.className='chapter-event-thumb';button.textContent='画像';button.setAttribute('aria-label','代表画像を表示');
+          button.addEventListener('click',()=>void this.showRepresentativeImage(event));item.append(button);void this.loadRepresentativeThumbnail(event.imageId,button);
+        }
+        list.append(item);
       }
+    }
+    async loadRepresentativeThumbnail(imageId,button){
+      const record=await this.store.image(imageId);if(!record?.blob||!button.isConnected)return;
+      const img=document.createElement('img'),url=URL.createObjectURL(record.blob);img.alt='';
+      img.onload=()=>URL.revokeObjectURL(url);img.onerror=()=>{URL.revokeObjectURL(url);};
+      img.src=url;button.replaceChildren(img);
+    }
+    async showRepresentativeImage(event){
+      const record=await this.store.image(event.imageId),dialog=$('chapterImageDialog');if(!record?.blob||!dialog)return;
+      if(this.imageDialogUrl)URL.revokeObjectURL(this.imageDialogUrl);
+      this.imageDialogUrl=URL.createObjectURL(record.blob);$('chapterImagePreview').src=this.imageDialogUrl;
+      $('chapterImageInfo').textContent=`${date(event.observedAtMs)} · ${names[event.kind]||event.kind} · ${event.summary}`;
+      if(!dialog.open)dialog.showModal();
+    }
+    closeRepresentativeImage(){
+      const dialog=$('chapterImageDialog');if(dialog?.open)dialog.close();
+      $('chapterImagePreview')?.removeAttribute('src');
+      if(this.imageDialogUrl){URL.revokeObjectURL(this.imageDialogUrl);this.imageDialogUrl=null;}
     }
   }
   root.LiveChapterUI=ChapterUI;
