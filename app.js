@@ -544,7 +544,7 @@
     $('preview').src = data; $('preview').hidden = false; $('placeholder').hidden = true;
     $('imageInfo').textContent = `${im.naturalWidth} × ${im.naturalHeight} · ${new Date().toLocaleTimeString('ja-JP')}`;
     lastCaptureAt=performance.now();
-    return { data, capturedAt, capturedAtMs, pixels };
+    return { data, capturedAt, capturedAtMs, pixels, width:im.naturalWidth, height:im.naturalHeight };
   }
   function motion(a,b) { let changed=0; for(let i=0;i<a.length;i+=4) if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>85) changed++; return changed/(a.length/4); }
   async function fetchLocal(url, options, signal) {
