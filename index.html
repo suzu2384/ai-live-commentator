@@ -157,7 +157,14 @@ try{
 <p class="hint">映像解析で確認できた出来事を端末内に保存します。元の日時は端末の時計・表示タイムゾーンを使用します。YouTube同期済みの場合は動画内の相対時間も併記します。</p>
 <p id="chapterStorageWarning" class="chapter-warning" role="alert" hidden>端末への保存に失敗しました。この画面では記録を保持しますが、再読み込みすると未保存分が失われます。ブラウザの保存容量・設定を確認してください。</p>
 <label>実況の記録<select id="chapterSession"></select></label>
-<p id="chapterSessionInfo" class="hint"></p><p id="youtubeSyncInfo" class="hint"></p><div class="actions wrap"><button id="youtubeSync" type="button" disabled>YouTubeと同期</button><button id="youtubeResync" type="button" disabled>YouTube時刻を再取得</button><button id="youtubeUnlink" type="button" disabled>同期解除</button></div>
+<p id="chapterSessionInfo" class="hint"></p>
+<div class="chapter-image-storage">
+<label>代表画像を保持する配信数<input id="chapterImageRetention" type="number" min="1" max="100" step="1" value="10" inputmode="numeric"></label>
+<button id="chapterImagesDelete" type="button" disabled>この配信の代表画像を削除</button>
+</div>
+<p class="hint">代表画像は直近の指定配信数だけ保持します。古い配信は画像だけ自動削除し、チャプター・イベントログは残します。1配信あたりの画像枚数は制限しません。</p>
+<p id="chapterImageStorageStatus" class="hint" role="status" aria-live="polite"></p>
+<p id="youtubeSyncInfo" class="hint"></p><div class="actions wrap"><button id="youtubeSync" type="button" disabled>YouTubeと同期</button><button id="youtubeResync" type="button" disabled>YouTube時刻を再取得</button><button id="youtubeUnlink" type="button" disabled>同期解除</button></div>
 <label class="check"><input id="chapterAuto" type="checkbox" checked>「実況を終了」後にチャプターを自動生成</label>
 <p class="hint">生成・再生成はGeminiの無料枠を使用します。長い記録は分割整理して統合するため複数回送信します。「即停止」では自動生成せず、記録を残します。</p>
 <div class="actions wrap"><button id="chapterGenerate" type="button" disabled>生成・再生成</button></div>
