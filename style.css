@@ -623,10 +623,14 @@ html[data-theme="sand"]{
 #youtubeMessage[data-state="error"]{color:var(--warn)}
 #youtubeCandidates{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:4px;margin:2px 0;overflow-y:auto;overscroll-behavior:contain;padding:2px 4px 2px 0}
 #youtubeMore{margin-top:8px}
-.youtube-candidate{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:center;gap:8px;flex:0 0 auto;box-sizing:border-box;margin:0;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);cursor:pointer}
+.youtube-candidate{display:grid;grid-template-columns:18px 88px minmax(0,1fr);align-items:center;gap:8px;flex:0 0 auto;box-sizing:border-box;min-height:58px;margin:0;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);cursor:pointer}
 .youtube-candidate:hover{background:var(--surface-open)}
 .youtube-candidate input[type="radio"]{-webkit-appearance:radio;appearance:auto;display:block;box-sizing:border-box;width:16px;height:16px;min-width:16px;margin:0;padding:0;border:0;background:transparent;box-shadow:none;accent-color:var(--accent)}
-.youtube-candidate>span{min-width:0;overflow:hidden}
+.youtube-candidate-thumb{display:grid;place-items:center;width:88px;height:50px;min-width:88px;overflow:hidden;border-radius:5px;background:var(--preview-bg);border:1px solid var(--line)}
+.youtube-candidate-thumb::before{content:"NO IMAGE";grid-area:1/1;font-size:8px;letter-spacing:.04em;color:var(--muted)}
+.youtube-candidate-thumb img{grid-area:1/1;display:block;width:100%;height:100%;object-fit:cover;background:var(--preview-bg)}
+.youtube-candidate-thumb img[hidden]{display:none}
+.youtube-candidate>span:last-child{min-width:0;overflow:hidden}
 .youtube-candidate strong,.youtube-candidate small{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .youtube-candidate strong{font-size:12px;line-height:1.25}
 .youtube-candidate small{margin-top:2px;color:var(--muted);font-size:10px;line-height:1.25}
@@ -635,7 +639,8 @@ html[data-theme="sand"]{
   .youtube-dialog-body{padding:10px 12px 12px}
   #youtubeDialog .actions{margin-top:8px}
   #youtubeCandidates{gap:3px}
-  .youtube-candidate{grid-template-columns:18px minmax(0,1fr);gap:6px;padding:5px 6px}
+  .youtube-candidate{grid-template-columns:18px 72px minmax(0,1fr);gap:6px;padding:4px 6px;min-height:49px}
+  .youtube-candidate-thumb{width:72px;height:41px;min-width:72px}
   .youtube-candidate strong{font-size:11px}
   .youtube-candidate small{font-size:9px}
 }
