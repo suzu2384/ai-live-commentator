@@ -152,7 +152,7 @@
     }
     async deleteRepresentativeImages(sessionId){
       const s=this.records.get(sessionId);if(!s)return 0;
-      const ids=[...new Set(s.representativeImageIds||[])];
+      const ids=[...new Set(s.representativeImageIds||[])],idSet=new Set(ids);
       if(this.db&&ids.length){
         try{await new Promise((resolve,reject)=>{
           const tx=this.db.transaction('images','readwrite'),store=tx.objectStore('images');
@@ -162,7 +162,7 @@
       }
       for(const id of ids)this.imageCache.delete(id);
       s.representativeImageIds=[];
-      for(const e of s.events)if(e.imageId&&ids.includes(e.imageId))delete e.imageId;
+      for(const e of s.events)if(e.imageId&&idSet.has(e.imageId))delete e.imageId;
       await this.save(s);return ids.length;
     }
     async pruneRepresentativeImages(keepSessions){
