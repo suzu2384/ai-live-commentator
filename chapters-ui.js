@@ -83,13 +83,13 @@
     observe(body,frames,contentName){
       const s=this.store.records.get(this.active);if(!s)return;
       try{
-        const events=H.observation(body,frames,contentName);
-        for(const e of events)s.events.push({...e,sessionId:s.id,sequence:s.events.length+1});
-        if(events.length){
+        const events=H.observation(body,frames,contentName),storedEvents=[];
+        for(const e of events){const stored={...e,sessionId:s.id,sequence:s.events.length+1};s.events.push(stored);storedEvents.push(stored);}
+        if(storedEvents.length){
           void this.store.save(s);
           if(this.selected===s.id)this.render();
           const frame=frames.at(-1);
-          const task=this.store.saveRepresentativeImage(s,events,frame).then(id=>{if(id&&this.selected===s.id)this.render();}).finally(()=>this.pendingImageSaves.delete(task));
+          const task=this.store.saveRepresentativeImage(s,storedEvents,frame).then(id=>{if(id&&this.selected===s.id)this.render();}).finally(()=>this.pendingImageSaves.delete(task));
           this.pendingImageSaves.add(task);
         }
       }catch(e){if(!this.warnedObservation){this.warnedObservation=true;this.log('チャプター用イベントを記録できない応答がありました。実況は続行します。','warn');$('chapterStatus').textContent='一部の応答にイベント要約がなく、記録を見送りました。以降の解析では記録を続けます。';}}
