@@ -264,7 +264,7 @@ const results=[];
   assert.equal(x.events.talks.length,0);
   await finish(p);
   assert.equal(await p.locator('#chapterCandidates li').count(),1);
-  let records=await chapterRecords(p),record=records[0];assert.equal(record.status,'finished');assert.equal(record.events.length,1);assert.equal(record.generations.length,1);
+  let records=await chapterRecords(p),record=records[0];assert.equal(record.status,'finished');assert.equal(record.events.length,1);assert.equal(record.generations.length,1);assert.equal(record.representativeImageIds.length,1);assert(record.events[0].imageId);assert.equal(await p.locator('#chapterImageRetention').inputValue(),'10');assert.match(await p.locator('#chapterSessionInfo').textContent(),/代表画像 1枚/);
   assert(record.events[0].observedAtMs>1700000000000);assert(record.events[0].recordedAtMs>=record.events[0].observedAtMs);assert.equal(record.generations[0].chapters[0].sourceEventId,record.events[0].id);
   assert.equal(record.generations[0].chapters[0].observedAtMs,record.events[0].observedAtMs);
   await p.locator('#chapterCandidates').getByRole('button',{name:'元イベントを見る'}).click();assert.equal(await p.locator('#chapterEvents li').count(),1);
@@ -276,6 +276,7 @@ const results=[];
   assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#freeTier').isChecked(),false);
   await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/chapters-desktop.png')});
   await p.setViewportSize({width:390,height:844});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.locator('#chapterSession').scrollIntoViewIfNeeded();await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/chapters-mobile.png')});
+  p.once('dialog',d=>d.accept());await p.locator('#chapterImagesDelete').click();await p.waitForFunction(()=>document.getElementById('chapterSessionInfo').textContent.includes('代表画像 0枚'));records=await chapterRecords(p);record=records[0];assert.equal(record.events.length,1);assert.equal(record.generations.length,2);assert.equal(record.representativeImageIds.length,0);assert.equal(record.events[0].imageId,undefined);
   await x.close();
  });
  await test('immediate stop keeps events without automatic chapter requests',async()=>{
