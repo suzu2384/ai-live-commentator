@@ -5,7 +5,7 @@
   const names={scene:'場面',progress:'進行',battle:'戦闘',result:'結果',menu:'メニュー',other:'その他'};
   class ChapterUI{
     constructor({log,onGenerate,onSelectTab,onSync,onResync,onUnlink}){
-      this.log=log;this.onSelectTab=onSelectTab;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;this.imageDialogUrl=null;this.imageRetentionSessions=10;
+      this.log=log;this.onSelectTab=onSelectTab;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;this.imageDialogUrl=null;this.imageRetentionSessions=10;this.pendingImageSaves=new Set();
       try{const stored=Number(localStorage.getItem('minkome-image-retention-sessions-v1'));if(Number.isInteger(stored)&&stored>=1&&stored<=100)this.imageRetentionSessions=stored;}catch{} $('chapterImageRetention').value=String(this.imageRetentionSessions);this.store=new H.Store(()=>{$('chapterStorageWarning').hidden=false;});
       this.ready=this.store.ready.then(async()=>{await this.store.pruneRepresentativeImages(this.imageRetentionSessions);this.selected=[...this.store.records.values()].sort((a,b)=>b.startedAtMs-a.startedAtMs)[0]?.id||null;$('chapterStatus').textContent=this.selected?'保存済みの記録を復元しました。生成・再生成できます。':'イベントを蓄積すると生成できます。';this.render();});
       try{$('chapterAuto').checked=localStorage.getItem('minkome-chapter-auto-v1')!=='false';}catch{}
@@ -89,12 +89,14 @@
           void this.store.save(s);
           if(this.selected===s.id)this.render();
           const frame=frames.at(-1);
-          void this.store.saveRepresentativeImage(s,events,frame).then(id=>{if(id&&this.selected===s.id)this.render();});
+          const task=this.store.saveRepresentativeImage(s,events,frame).then(id=>{if(id&&this.selected===s.id)this.render();}).finally(()=>this.pendingImageSaves.delete(task));
+          this.pendingImageSaves.add(task);
         }
       }catch(e){if(!this.warnedObservation){this.warnedObservation=true;this.log('チャプター用イベントを記録できない応答がありました。実況は続行します。','warn');$('chapterStatus').textContent='一部の応答にイベント要約がなく、記録を見送りました。以降の解析では記録を続けます。';}}
     }
     async end(reason){
       const s=this.store.records.get(this.active);if(!s)return null;
+      if(this.pendingImageSaves.size)await Promise.allSettled([...this.pendingImageSaves]);
       this.active=null;s.endedAtMs=Date.now();s.status=reason;await this.store.save(s);
       const pruned=await this.store.pruneRepresentativeImages(this.imageRetentionSessions);
       if(pruned.imagesDeleted)$('chapterImageStorageStatus').textContent=`保存配信数を超えたため、古い${pruned.sessionsDeleted}配信から代表画像${pruned.imagesDeleted}枚を削除しました。`;
