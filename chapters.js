@@ -1,7 +1,7 @@
 /* Chapter data and generation: independent of speech, OBS and YouTube. */
 (function(root){
   'use strict';
-  const VERSION=1, DB_VERSION=2, BATCH_SIZE=200, MAX_CANDIDATES=40;
+  const VERSION=1, DB_VERSION=3, BATCH_SIZE=200, MAX_CANDIDATES=40;
   const kinds=['scene','progress','battle','result','menu','other'];
   const uid=()=>root.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}`;
   function dataUrlBlob(data){
@@ -15,7 +15,7 @@
   function session(contentName='',now=Date.now()){
     return {schemaVersion:VERSION,id:uid(),startedAtMs:now,endedAtMs:null,status:'recording',contentName,
       clockSource:'device-wall-clock',timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,
-      youtubeSync:null,representativeImageIds:[],events:[],generations:[]};
+      youtubeSync:null,representativeImageIds:[],thumbnailIds:[],selectedThumbnailId:null,events:[],generations:[]};
   }
   function observation(body,frames,contentName='',now=Date.now()){
     const C=root.LiveCore;const raw=C.candidateText(body);if(raw===null)return [];
@@ -89,6 +89,10 @@
               const images=db.createObjectStore('images',{keyPath:'id'});
               images.createIndex('sessionId','sessionId',{unique:false});
             }
+            if(!db.objectStoreNames.contains('thumbnails')){
+              const thumbs=db.createObjectStore('thumbnails',{keyPath:'id'});
+              thumbs.createIndex('sessionId','sessionId',{unique:false});
+            }
           };
           req.onerror=()=>{clearTimeout(timer);settled=true;reject(req.error);};
           req.onsuccess=()=>{clearTimeout(timer);if(settled){req.result.close();return;}settled=true;resolve(req.result);};
@@ -101,6 +105,8 @@
         });
         for(const s of values)if(s?.schemaVersion===VERSION&&typeof s.id==='string'&&Array.isArray(s.events)&&Array.isArray(s.generations)){
           if(!Array.isArray(s.representativeImageIds))s.representativeImageIds=[];
+          if(!Array.isArray(s.thumbnailIds))s.thumbnailIds=[];
+          if(typeof s.selectedThumbnailId!=='string')s.selectedThumbnailId=null;
           this.records.set(s.id,s);
         }
       }catch{this.db?.close();this.db=null;this.onWarning();}
@@ -133,6 +139,36 @@
       const s=this.records.get(sessionId);if(!s)return [];
       const values=await Promise.all((s.representativeImageIds||[]).map(id=>this.image(id)));
       return values.filter(Boolean).sort((a,b)=>a.capturedAtMs-b.capturedAtMs);
+    }
+    async thumbnail(id){
+      if(!id||!this.db)return null;
+      try{return await new Promise((resolve,reject)=>{
+        const tx=this.db.transaction('thumbnails','readonly'),req=tx.objectStore('thumbnails').get(id);
+        req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
+      });}catch{this.onWarning();return null;}
+    }
+    async thumbnailsForSession(sessionId){
+      const s=this.records.get(sessionId);if(!s)return [];
+      const values=await Promise.all((s.thumbnailIds||[]).map(id=>this.thumbnail(id)));
+      return values.filter(Boolean).sort((a,b)=>b.createdAtMs-a.createdAtMs);
+    }
+    async saveGeneratedThumbnail(s,{blob,model,prompt,caption,includeText,referenceImageIds}){
+      if(!s||!blob)return null;
+      const id=uid(),record={id,sessionId:s.id,createdAtMs:Date.now(),model:String(model||''),prompt:String(prompt||''),
+        caption:String(caption||''),includeText:!!includeText,referenceImageIds:[...new Set(referenceImageIds||[])],
+        mimeType:blob.type||'image/png',blob};
+      if(this.db){
+        try{await new Promise((resolve,reject)=>{
+          const tx=this.db.transaction('thumbnails','readwrite');tx.objectStore('thumbnails').put(record);
+          tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+        });}catch{this.onWarning();return null;}
+      }else{this.onWarning();return null;}
+      s.thumbnailIds=[id,...(s.thumbnailIds||[]).filter(x=>x!==id)];s.selectedThumbnailId=id;await this.save(s);return id;
+    }
+    async selectGeneratedThumbnail(s,id){
+      if(!s)return false;
+      if(id&&!s.thumbnailIds?.includes(id))return false;
+      s.selectedThumbnailId=id||null;await this.save(s);return true;
     }
     async saveRepresentativeImage(s,events,frame){
       if(!s||!events?.length||!frame?.data)return null;
