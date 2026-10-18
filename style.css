@@ -612,8 +612,33 @@ html[data-theme="sand"]{
 
 @media(max-width:520px){.tabs #tab-chapters{flex:1.6;white-space:nowrap}}
 
-.youtube-dialog-body{padding:18px;overflow:auto}.youtube-candidate{display:flex;align-items:center;gap:12px;border:1px solid var(--line);padding:10px;border-radius:8px}.youtube-candidate input{flex:0 0 18px;width:18px}.youtube-candidate img{width:120px;aspect-ratio:16/9;object-fit:cover}.youtube-candidate span{min-width:0;overflow-wrap:anywhere}.youtube-candidate strong,.youtube-candidate small{display:block}.youtube-candidate small{color:var(--muted)}#youtubeDialog{max-height:90dvh;overflow:auto}#youtubeDialog .actions{margin-top:16px}@media(max-width:520px){.youtube-candidate{gap:8px}.youtube-candidate img{width:80px}.youtube-dialog-body{padding:12px}}
-
-#youtubeMessage[data-state="error"]{color:var(--warn)}#youtubeCandidates{display:grid;gap:10px}#youtubeMore{margin-top:12px}.youtube-candidate img{flex-shrink:0}
+/* Keep YouTube sync controls fixed; only the candidate list scrolls. */
+#youtubeDialog{width:min(720px,calc(100vw - 28px));max-height:90dvh;overflow:hidden}
+#youtubeDialog[open]{display:flex;flex-direction:column}
+#youtubeDialog .content-dialog-head{flex:0 0 auto}
+.youtube-dialog-body{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;padding:14px 16px 16px;overflow:hidden}
+.youtube-dialog-body>.hint,.youtube-dialog-body>label,.youtube-dialog-body>.actions,.youtube-dialog-body>#youtubeMessage,.youtube-dialog-body>#youtubeMore{flex:0 0 auto}
+#youtubeDialog .actions{margin-top:10px}
+#youtubeMessage{margin:8px 0 6px;font-size:11px;line-height:1.4}
+#youtubeMessage[data-state="error"]{color:var(--warn)}
+#youtubeCandidates{display:grid;flex:1 1 auto;min-height:96px;gap:6px;margin:2px 0;overflow-y:auto;overscroll-behavior:contain;padding:2px 4px 2px 0}
+#youtubeMore{margin-top:8px}
+.youtube-candidate{display:grid;grid-template-columns:16px 88px minmax(0,1fr);align-items:center;gap:8px;border:1px solid var(--line);padding:6px 8px;border-radius:7px;min-height:0}
+.youtube-candidate input{width:16px;height:16px;margin:0}
+.youtube-candidate img{width:88px;aspect-ratio:16/9;object-fit:cover;flex-shrink:0;border-radius:4px}
+.youtube-candidate span{min-width:0;overflow:hidden}
+.youtube-candidate strong,.youtube-candidate small{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.youtube-candidate strong{font-size:12px;line-height:1.3}
+.youtube-candidate small{margin-top:2px;color:var(--muted);font-size:10px;line-height:1.3}
+@media(max-width:520px){
+  #youtubeDialog{width:calc(100vw - 20px);max-height:calc(100dvh - 20px)}
+  .youtube-dialog-body{padding:10px 12px 12px}
+  #youtubeDialog .actions{margin-top:8px}
+  #youtubeCandidates{min-height:80px;gap:5px}
+  .youtube-candidate{grid-template-columns:16px 72px minmax(0,1fr);gap:6px;padding:5px 6px}
+  .youtube-candidate img{width:72px}
+  .youtube-candidate strong{font-size:11px}
+  .youtube-candidate small{font-size:9px}
+}
 
 .chapter-export{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:10px;min-width:0}.chapter-export h3{margin:0 0 8px}.chapter-export .actions{margin-top:10px}.chapter-export-notes{padding-left:20px;font-size:12px;overflow-wrap:anywhere}.chapter-export-notes li{margin:6px 0;color:var(--warn)}#chapterOutput{width:100%;min-height:160px;resize:vertical;font-family:inherit;font-variant-numeric:tabular-nums;line-height:1.8}.chapter-edit-form{padding:18px;overflow:auto}.chapter-edit-form label{margin-bottom:12px}.chapter-edit-error{color:var(--warn)}#chapterEditDialog{max-height:90dvh;overflow:auto}.chapter-list .actions{gap:8px}.chapter-panel button{white-space:normal}.chapter-panel .hint{overflow-wrap:anywhere}@media(max-width:520px){.chapter-export{padding:12px}.chapter-edit-form{padding:12px}.chapter-edit-form input,.chapter-edit-form select,#chapterIntroTitle,#chapterOutput{font-size:16px}}
