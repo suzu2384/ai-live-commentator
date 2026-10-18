@@ -20,7 +20,7 @@ try{
 <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.45.0">
 <link rel="manifest" href="manifest.webmanifest?v=4.45.0">
 <link rel="stylesheet" href="style.css?v=4.45.0">
-<script src="core.js?v=4.45.0" defer></script><script src="vault.js?v=4.45.0" defer></script><script src="youtube.js?v=4.45.0" defer></script><script src="youtube-ui.js?v=4.45.0" defer></script><script src="chapters.js?v=4.45.0" defer></script><script src="chapter-editor.js?v=4.45.0" defer></script><script src="chapter-editor-ui.js?v=4.45.0" defer></script><script src="chapters-ui.js?v=4.45.0" defer></script><script src="app.js?v=4.45.0" defer></script>
+<script src="core.js?v=4.45.0" defer></script><script src="vault.js?v=4.45.0" defer></script><script src="youtube.js?v=4.45.0" defer></script><script src="youtube-ui.js?v=4.45.0" defer></script><script src="chapters.js?v=4.45.0" defer></script><script src="thumbnail.js?v=4.45.0" defer></script><script src="chapter-editor.js?v=4.45.0" defer></script><script src="chapter-editor-ui.js?v=4.45.0" defer></script><script src="chapters-ui.js?v=4.45.0" defer></script><script src="app.js?v=4.45.0" defer></script>
 </head>
 <body>
 <header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.45.0" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.45.0</span></div></header>
@@ -130,8 +130,14 @@ try{
 <div class="setting-meta"><span class="badge small">Gemini 3.1 Flash-Lite</span></div>
 <label>Gemini APIキー<input id="apiKey" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます" required></label>
 <label class="check"><input id="freeTier" type="checkbox">このキーのプロジェクトが Free Tier・課金未設定だと確認しました</label>
-<p class="hint compact-hint">画像・文章はGoogleへ送信されます。課金状態はこのアプリでは確認できません。</p>
-<div class="setting-action"><button type="button" id="testText">文章だけで接続テスト</button><span class="hint">API送信1回を使用</span></div></div></details>
+<p class="hint compact-hint">実況・チャプター用です。画像・文章はGoogleへ送信されます。課金状態はこのアプリでは確認できません。</p>
+<div class="setting-action"><button type="button" id="testText">文章だけで接続テスト</button><span class="hint">API送信1回を使用</span></div>
+<hr>
+<div class="setting-meta"><span class="badge small">Nano Banana 2.1 · 有料</span></div>
+<label>サムネ画像生成用Gemini APIキー<input id="thumbnailApiKey" type="password" autocomplete="new-password" placeholder="有料APIキー・任意で暗号化保存できます"></label>
+<label class="check"><input id="thumbnailBillingConfirmed" type="checkbox">画像生成はFree Tier対象外で、料金が発生することを確認しました</label>
+<p class="hint compact-hint">実況用のFree Tierキーとは分けて設定できます。サムネ生成時だけ使用し、この確認はページを開くたびに必要です。</p>
+</div></details>
 <details class="card setting-section" id="settings-youtube"><summary class="setting-summary"><span>YouTube</span><span class="setting-summary-value">配信選択・時刻同期</span></summary><div class="setting-body">
 <label>YouTube Data API v3 APIキー<input id="youtubeApiKey" type="password" autocomplete="new-password" placeholder="任意・既存の合言葉で暗号化保存できます"></label>
 <label>チャンネルID<input id="youtubeChannelId" type="text" placeholder="UCで始まるチャンネルID" maxlength="24"></label>
@@ -143,7 +149,7 @@ try{
 <div id="voicevoxFields" hidden><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label><p class="hint compact-hint">音声はこのブラウザで再生します。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
 <div class="setting-action"><button type="button" id="testVoice">音声テスト（参加友達の先頭）</button><span class="hint">声・話速・性格は「友達」で設定</span></div></div></details>
 <details class="card setting-section" id="settings-vault" open><summary class="setting-summary"><span>キー・パスワードの暗号化保存</span><span id="summary-vault" class="setting-summary-value">保存なし</span></summary><div class="setting-body">
-<p class="hint compact-hint">Gemini・YouTube APIキーとOBSパスワードを端末内に暗号化保存します。合言葉は保存しません。</p>
+<p class="hint compact-hint">Gemini・サムネ画像生成・YouTube APIキーとOBSパスワードを端末内に暗号化保存します。合言葉は保存しません。</p>
 <label>合言葉（保存時は12文字以上）<input id="vaultPass" type="password" autocomplete="off" maxlength="200"></label>
 <label>合言葉の確認（保存時のみ）<input id="vaultConfirm" type="password" autocomplete="off" maxlength="200"></label>
 <div class="actions wrap"><button type="button" id="vaultSave">暗号化して保存</button><button type="button" id="vaultUnlock">解除</button><button type="button" id="vaultLock">ロック</button><button type="button" id="vaultDelete">保存を削除</button></div>
@@ -175,6 +181,20 @@ try{
 <p id="chapterEditStatus" class="hint" role="status"></p>
 <ol id="chapterCandidates" class="chapter-list" aria-label="チャプター候補"></ol>
 <p id="chapterCandidateEmpty" class="hint">生成されたチャプター候補がここに表示されます。</p>
+<section class="chapter-thumbnail" aria-labelledby="chapterThumbnailTitle">
+<h3 id="chapterThumbnailTitle">AIサムネイル</h3>
+<p class="hint">代表画像から最大5枚を自動選定して、16:9のサムネを生成します。画像生成は有料APIを使用します。</p>
+<div id="thumbnailReferences" class="thumbnail-references" aria-label="サムネ生成に使う代表画像"></div>
+<p id="thumbnailReferenceInfo" class="hint">代表画像がある終了済み配信を選択してください。</p>
+<label class="check"><input id="thumbnailTextEnabled" type="checkbox" checked>サムネイルに文字を入れる</label>
+<label>サムネイルの文字<input id="thumbnailText" type="text" maxlength="50" autocomplete="off"></label>
+<div class="actions wrap"><button id="thumbnailGenerate" type="button" class="primary" disabled>サムネを生成</button></div>
+<p id="thumbnailStatus" class="hint" role="status" aria-live="polite"></p>
+<div id="thumbnailPreviewWrap" class="thumbnail-preview" hidden><img id="thumbnailPreview" alt="生成したサムネイル"></div>
+<label>生成履歴<select id="thumbnailHistory" disabled></select></label>
+<div class="actions wrap"><button id="thumbnailDownload" type="button" disabled>画像を保存</button></div>
+<p id="thumbnailHistoryInfo" class="hint"></p>
+</section>
 <section class="chapter-export" aria-labelledby="chapterExportTitle">
 <h3 id="chapterExportTitle">YouTube貼り付け用テキスト</h3>
 <p class="hint">YouTube同期後、編集内容から自動で更新します。動画の説明欄に貼り付けてください。</p>
