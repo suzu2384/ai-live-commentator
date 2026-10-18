@@ -645,4 +645,19 @@ html[data-theme="sand"]{
   .youtube-candidate small{font-size:9px}
 }
 
+.chapter-list li.chapter-event-item{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:center}
+.chapter-list li.chapter-event-item.has-image{grid-template-columns:minmax(0,1fr) 96px}
+.chapter-event-copy{min-width:0;display:flex;flex-direction:column;gap:5px}
+.chapter-event-thumb{width:96px;height:54px;padding:0;overflow:hidden;border-radius:7px;display:grid;place-items:center;font-size:10px;color:var(--muted);background:var(--preview-bg)}
+.chapter-event-thumb img{display:block;width:100%;height:100%;object-fit:cover}
+.chapter-image-dialog{width:min(900px,calc(100vw - 28px))}
+.chapter-image-dialog-body{padding:16px}
+.chapter-image-dialog-body img{display:block;width:100%;max-height:70dvh;object-fit:contain;border-radius:8px;background:var(--preview-bg)}
+.chapter-image-dialog-body .hint{margin:10px 0 0;overflow-wrap:anywhere}
+@media(max-width:520px){
+  .chapter-list li.chapter-event-item.has-image{grid-template-columns:minmax(0,1fr) 72px}
+  .chapter-event-thumb{width:72px;height:41px}
+  .chapter-image-dialog-body{padding:12px}
+}
+
 .chapter-export{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:10px;min-width:0}.chapter-export h3{margin:0 0 8px}.chapter-export .actions{margin-top:10px}.chapter-export-notes{padding-left:20px;font-size:12px;overflow-wrap:anywhere}.chapter-export-notes li{margin:6px 0;color:var(--warn)}#chapterOutput{width:100%;min-height:160px;resize:vertical;font-family:inherit;font-variant-numeric:tabular-nums;line-height:1.8}.chapter-edit-form{padding:18px;overflow:auto}.chapter-edit-form label{margin-bottom:12px}.chapter-edit-error{color:var(--warn)}#chapterEditDialog{max-height:90dvh;overflow:auto}.chapter-list .actions{gap:8px}.chapter-panel button{white-space:normal}.chapter-panel .hint{overflow-wrap:anywhere}@media(max-width:520px){.chapter-export{padding:12px}.chapter-edit-form{padding:12px}.chapter-edit-form input,.chapter-edit-form select,#chapterIntroTitle,#chapterOutput{font-size:16px}}
