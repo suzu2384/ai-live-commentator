@@ -14,12 +14,16 @@
     const render=()=>{
       list.replaceChildren();
       for(const item of Y.sortCandidates(items,referenceAtMs)){
-        const label=document.createElement('label'),radio=document.createElement('input'),text=document.createElement('span'),title=document.createElement('strong'),meta=document.createElement('small');
+        const label=document.createElement('label'),radio=document.createElement('input'),thumb=document.createElement('span'),image=document.createElement('img'),text=document.createElement('span'),title=document.createElement('strong'),meta=document.createElement('small');
         label.className='youtube-candidate';radio.type='radio';radio.name='youtube-video';radio.value=item.videoId;radio.checked=false;radio.disabled=loading;
         radio.addEventListener('change',()=>{selected=item;controls();});
+        thumb.className='youtube-candidate-thumb';thumb.setAttribute('aria-hidden','true');
+        image.alt='';image.loading='lazy';image.decoding='async';image.referrerPolicy='no-referrer';
+        if(typeof item.thumbnail==='string'&&item.thumbnail.trim())image.src=item.thumbnail;else image.hidden=true;
+        image.addEventListener('error',()=>{image.hidden=true;},{once:true});thumb.append(image);
         title.textContent=item.title;
         meta.textContent=`${item.state} · 開始 ${date(item.actualStartTimeMs)} · 終了 ${date(item.actualEndTimeMs)} · ID: ${item.videoId}${item.actualStartTimeMs===null?' · 開始時刻未取得のため相対時間は未同期':''}`;
-        text.append(title,meta);label.append(radio,text);list.append(label);
+        text.append(title,meta);label.append(radio,thumb,text);list.append(label);
       }
     };
     return new Promise((resolve,reject)=>{
