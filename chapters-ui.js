@@ -46,7 +46,7 @@
       this.render();
     }
     setBusy(value){this.busy=value;this.controls();}
-    controls(){const s=this.current();$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;this.editor?.controls();}
+    controls(){const s=this.current();$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;$('chapterImageRetention').disabled=this.busy;$('chapterImagesDelete').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;this.editor?.controls();}
     async begin(contentName){
       await this.ready;const s=H.session(contentName);this.active=s.id;this.selected=s.id;this.page=0;this.generationId=null;this.warnedObservation=false;
       await this.store.save(s);$('chapterStatus').textContent='実況の解析と一緒にイベントを記録しています。';this.render();
@@ -87,7 +87,10 @@
     }
     async end(reason){
       const s=this.store.records.get(this.active);if(!s)return null;
-      this.active=null;s.endedAtMs=Date.now();s.status=reason;await this.store.save(s);$('chapterStatus').textContent=s.events.length?'イベントの記録を終了しました。生成・再生成できます。':'記録を終了しました。生成に使えるイベントはありません。';this.render();return s.id;
+      this.active=null;s.endedAtMs=Date.now();s.status=reason;await this.store.save(s);
+      const pruned=await this.store.pruneRepresentativeImages(this.imageRetentionSessions);
+      if(pruned.imagesDeleted)$('chapterImageStorageStatus').textContent=`保存配信数を超えたため、古い${pruned.sessionsDeleted}配信から代表画像${pruned.imagesDeleted}枚を削除しました。`;
+      $('chapterStatus').textContent=s.events.length?'イベントの記録を終了しました。生成・再生成できます。':'記録を終了しました。生成に使えるイベントはありません。';this.render();return s.id;
     }
     async generate(key,signal,onRequest,sessionId=this.selected){
       const s=this.store.records.get(sessionId);if(!s)return;
