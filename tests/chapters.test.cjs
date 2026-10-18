@@ -48,18 +48,31 @@ test('blocked persistence warns and retains the session in memory',async()=>{
  const s=recorded(2);await store.save(s);await store.flush();assert(warned>0);assert.equal(store.records.get(s.id).events.length,2);
 });
 
-test('representative images are bounded and prefer important events',async()=>{
- assert.equal(H.MAX_REPRESENTATIVE_IMAGES,30);
- assert(H.imagePriority([{kind:'result'}])>H.imagePriority([{kind:'menu'}]));
+test('representative images have no per-session app limit',async()=>{
  const blob=H.dataUrlBlob('data:image/jpeg;base64,AQID');assert.equal(blob.type,'image/jpeg');assert.equal(blob.size,3);
- const store=new H.Store(()=>{},null);await store.ready;const s=H.session('ゲーム',1791190000000);
- for(let i=0;i<H.MAX_REPRESENTATIVE_IMAGES;i++){
-  const e={id:`m${i}`,observedAtMs:s.startedAtMs+i,kind:'menu',summary:`メニュー${i}`,contentName:'ゲーム'};s.events.push(e);
+ const store=new H.Store(()=>{},null);await store.ready;const s=H.session('ゲーム',1791190000000);await store.save(s);
+ for(let i=0;i<35;i++){
+  const e={id:`e${i}`,observedAtMs:s.startedAtMs+i,kind:'scene',summary:`出来事${i}`,contentName:'ゲーム'};s.events.push(e);
   await store.saveRepresentativeImage(s,[e],{data:'data:image/jpeg;base64,AQ==',capturedAtMs:e.observedAtMs,width:640,height:360});
   assert(e.imageId);
  }
- const oldest=s.representativeImageIds[0],important={id:'boss',observedAtMs:s.startedAtMs+999,kind:'battle',summary:'ボス戦',contentName:'ゲーム'};s.events.push(important);
- await store.saveRepresentativeImage(s,[important],{data:'data:image/jpeg;base64,Ag==',capturedAtMs:important.observedAtMs,width:640,height:360});
- assert.equal(s.representativeImageIds.length,H.MAX_REPRESENTATIVE_IMAGES);assert(!s.representativeImageIds.includes(oldest));assert(important.imageId);
- assert.equal((await store.imagesForSession(s.id)).length,H.MAX_REPRESENTATIVE_IMAGES);
+ assert.equal(s.representativeImageIds.length,35);
+ assert.equal((await store.imagesForSession(s.id)).length,35);
+});
+test('representative image retention is based on recent sessions and manual deletion keeps text history',async()=>{
+ const store=new H.Store(()=>{},null);await store.ready,sessions=[];
+ for(let n=0;n<4;n++){
+  const s=H.session(`配信${n}`,1791190000000+n*1000);sessions.push(s);await store.save(s);
+  for(let i=0;i<2;i++){
+   const e={id:`s${n}e${i}`,observedAtMs:s.startedAtMs+i,kind:'progress',summary:`出来事${n}-${i}`,contentName:s.contentName};s.events.push(e);
+   await store.saveRepresentativeImage(s,[e],{data:'data:image/jpeg;base64,AQ==',capturedAtMs:e.observedAtMs,width:640,height:360});
+  }
+ }
+ const pruned=await store.pruneRepresentativeImages(2);
+ assert.deepEqual(pruned,{keep:2,sessionsDeleted:2,imagesDeleted:4});
+ assert.equal(sessions[0].representativeImageIds.length,0);assert.equal(sessions[1].representativeImageIds.length,0);
+ assert.equal(sessions[2].representativeImageIds.length,2);assert.equal(sessions[3].representativeImageIds.length,2);
+ assert.equal(sessions[0].events.length,2);assert.equal(sessions[0].events[0].imageId,undefined);
+ const deleted=await store.deleteRepresentativeImages(sessions[3].id);
+ assert.equal(deleted,2);assert.equal(sessions[3].representativeImageIds.length,0);assert.equal(sessions[3].events.length,2);
 });
