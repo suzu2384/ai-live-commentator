@@ -17,8 +17,9 @@
   function video(item){
     if(!validId(item?.id)||!item.snippet)throw new Error('YouTubeの動画情報が不正です。');
     const detail=item.liveStreamingDetails||{},actualStartTimeMs=timestamp(detail.actualStartTime),actualEndTimeMs=timestamp(detail.actualEndTime);
+    const thumbnails=item.snippet.thumbnails||{},thumbnail=thumbnails.medium?.url||thumbnails.default?.url||thumbnails.high?.url||`https://i.ytimg.com/vi/${item.id}/mqdefault.jpg`;
     return {videoId:item.id,channelId:item.snippet.channelId,title:String(item.snippet.title||'タイトルなし'),
-      thumbnail:`https://i.ytimg.com/vi/${item.id}/mqdefault.jpg`,
+      thumbnail,
       state:detail.actualEndTime?'終了':item.snippet.liveBroadcastContent==='live'?'配信中':item.snippet.liveBroadcastContent==='upcoming'?'開始予定':'状態確認中',
       isLiveBroadcast:!!item.liveStreamingDetails,actualEndTime:actualEndTimeMs===null?null:detail.actualEndTime,actualEndTimeMs,
       scheduledStartTimeMs:timestamp(detail.scheduledStartTime),actualStartTime:actualStartTimeMs===null?null:detail.actualStartTime,actualStartTimeMs};
