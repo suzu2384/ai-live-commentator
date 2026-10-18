@@ -18,6 +18,8 @@
       $('chapterGenerate').addEventListener('click',()=>onGenerate());
       $('chapterPrev').addEventListener('click',()=>{this.page--;this.renderEvents();});
       $('chapterNext').addEventListener('click',()=>{this.page++;this.renderEvents();});
+      $('chapterImageRetention').addEventListener('change',()=>void this.changeImageRetention());
+      $('chapterImagesDelete').addEventListener('click',()=>void this.deleteCurrentRepresentativeImages());
       this.editor=new root.LiveChapterEditorUI(this);
       $('chapterImageClose')?.addEventListener('click',()=>this.closeRepresentativeImage());
       $('chapterImageDialog')?.addEventListener('cancel',e=>{e.preventDefault();this.closeRepresentativeImage();});
