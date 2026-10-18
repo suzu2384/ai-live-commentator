@@ -190,11 +190,13 @@ test('plain speech strips executable tag and plugin syntax',()=>{
 
 const V=require('../vault.js');
 test('encrypted vault round trip, random salts, wrong passphrase and tampering',async()=>{
- const clear={apiKey:'test-secret-api',obsPassword:'test-secret-obs'},pass='twelve-or-more-characters';
+ const clear={apiKey:'test-secret-api',thumbnailApiKey:'test-thumbnail-api',obsPassword:'test-secret-obs'},pass='twelve-or-more-characters';
  const a=await V.seal(clear,pass),b=await V.seal(clear,pass);
  assert.notEqual(a.ciphertext,b.ciphertext);assert.notEqual(a.salt,b.salt);
  assert.ok(!JSON.stringify(a).includes(clear.apiKey));assert.ok(!JSON.stringify(a).includes(pass));
  assert.deepEqual(await V.open(a,pass),clear);
+ const legacy=await V.seal({apiKey:'legacy-api',obsPassword:'legacy-obs',youtubeApiKey:'legacy-youtube'},pass);
+ assert.deepEqual(await V.open(legacy,pass),{apiKey:'legacy-api',obsPassword:'legacy-obs',youtubeApiKey:'legacy-youtube'});
  await assert.rejects(V.open(a,'wrong-passphrase'));
  await assert.rejects(V.open({...a,ciphertext:(a.ciphertext[0]==='A'?'B':'A')+a.ciphertext.slice(1)},pass));
  await assert.rejects(V.open({...a,iterations:1},pass));await assert.rejects(V.seal(clear,'short'));
