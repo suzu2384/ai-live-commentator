@@ -91,6 +91,9 @@
       if(checked&&!current.includes(id)&&current.length>=T.MAX_REFERENCES){
         input.checked=false;$('thumbnailStatus').textContent=`素材は最大${T.MAX_REFERENCES}枚です。別の画像を外してから選んでください。`;return;
       }
+      if(!checked&&current.includes(id)&&current.length<=1){
+        input.checked=true;$('thumbnailStatus').textContent='素材は1枚以上選んでください。';return;
+      }
       let next=checked?[...current,id]:current.filter(x=>x!==id);
       next=T.validSelection(s,next);
       s.thumbnailMaterialMode='manual';s.thumbnailMaterialImageIds=next;await this.store.save(s);
