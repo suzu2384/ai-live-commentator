@@ -132,11 +132,6 @@ try{
 <label class="check"><input id="freeTier" type="checkbox">このキーのプロジェクトが Free Tier・課金未設定だと確認しました</label>
 <p class="hint compact-hint">実況・チャプター用です。画像・文章はGoogleへ送信されます。課金状態はこのアプリでは確認できません。</p>
 <div class="setting-action"><button type="button" id="testText">文章だけで接続テスト</button><span class="hint">API送信1回を使用</span></div>
-<hr>
-<div class="setting-meta"><span class="badge small">Nano Banana 2.1 · 有料</span></div>
-<label>サムネ画像生成用Gemini APIキー<input id="thumbnailApiKey" type="password" autocomplete="new-password" placeholder="有料APIキー・任意で暗号化保存できます"></label>
-<label class="check"><input id="thumbnailBillingConfirmed" type="checkbox">画像生成はFree Tier対象外で、料金が発生することを確認しました</label>
-<p class="hint compact-hint">実況用のFree Tierキーとは分けて設定できます。サムネ生成時だけ使用し、この確認はページを開くたびに必要です。</p>
 </div></details>
 <details class="card setting-section" id="settings-youtube"><summary class="setting-summary"><span>YouTube</span><span class="setting-summary-value">配信選択・時刻同期</span></summary><div class="setting-body">
 <label>YouTube Data API v3 APIキー<input id="youtubeApiKey" type="password" autocomplete="new-password" placeholder="任意・既存の合言葉で暗号化保存できます"></label>
@@ -149,7 +144,7 @@ try{
 <div id="voicevoxFields" hidden><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label><p class="hint compact-hint">音声はこのブラウザで再生します。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
 <div class="setting-action"><button type="button" id="testVoice">音声テスト（参加友達の先頭）</button><span class="hint">声・話速・性格は「友達」で設定</span></div></div></details>
 <details class="card setting-section" id="settings-vault" open><summary class="setting-summary"><span>キー・パスワードの暗号化保存</span><span id="summary-vault" class="setting-summary-value">保存なし</span></summary><div class="setting-body">
-<p class="hint compact-hint">Gemini・サムネ画像生成・YouTube APIキーとOBSパスワードを端末内に暗号化保存します。合言葉は保存しません。</p>
+<p class="hint compact-hint">Gemini・YouTube APIキーとOBSパスワードを端末内に暗号化保存します。合言葉は保存しません。</p>
 <label>合言葉（保存時は12文字以上）<input id="vaultPass" type="password" autocomplete="off" maxlength="200"></label>
 <label>合言葉の確認（保存時のみ）<input id="vaultConfirm" type="password" autocomplete="off" maxlength="200"></label>
 <div class="actions wrap"><button type="button" id="vaultSave">暗号化して保存</button><button type="button" id="vaultUnlock">解除</button><button type="button" id="vaultLock">ロック</button><button type="button" id="vaultDelete">保存を削除</button></div>
@@ -182,18 +177,17 @@ try{
 <ol id="chapterCandidates" class="chapter-list" aria-label="チャプター候補"></ol>
 <p id="chapterCandidateEmpty" class="hint">生成されたチャプター候補がここに表示されます。</p>
 <section class="chapter-thumbnail" aria-labelledby="chapterThumbnailTitle">
-<h3 id="chapterThumbnailTitle">AIサムネイル</h3>
-<p class="hint">代表画像から最大5枚を自動選定して、16:9のサムネを生成します。画像生成は有料APIを使用します。</p>
-<div id="thumbnailReferences" class="thumbnail-references" aria-label="サムネ生成に使う代表画像"></div>
+<h3 id="chapterThumbnailTitle">ChatGPTサムネ素材</h3>
+<p class="hint">代表画像からサムネ向きの最大5枚を自動選別します。画像生成APIは使わず、選んだ画像と依頼文をChatGPTへ持っていくための素材を作ります。</p>
+<div class="actions wrap"><button id="thumbnailAutoSelect" type="button" disabled>5枚を自動選別</button></div>
+<div id="thumbnailReferences" class="thumbnail-references" aria-label="ChatGPT用に選択した代表画像"></div>
 <p id="thumbnailReferenceInfo" class="hint">代表画像がある終了済み配信を選択してください。</p>
+<details id="thumbnailPickerDetails" class="thumbnail-picker-details"><summary>素材を手動で選び直す</summary><div id="thumbnailPicker" class="thumbnail-picker"></div></details>
 <label class="check"><input id="thumbnailTextEnabled" type="checkbox" checked>サムネイルに文字を入れる</label>
 <label>サムネイルの文字<input id="thumbnailText" type="text" maxlength="50" autocomplete="off"></label>
-<div class="actions wrap"><button id="thumbnailGenerate" type="button" class="primary" disabled>サムネを生成</button></div>
+<label>ChatGPTへの依頼文<textarea id="thumbnailPrompt" rows="8" readonly spellcheck="false"></textarea></label>
+<div class="actions wrap"><button id="thumbnailCopyPrompt" type="button" class="primary" disabled>依頼文をコピー</button><button id="thumbnailDownloadPackage" type="button" disabled>ChatGPT用素材を保存</button></div>
 <p id="thumbnailStatus" class="hint" role="status" aria-live="polite"></p>
-<div id="thumbnailPreviewWrap" class="thumbnail-preview" hidden><img id="thumbnailPreview" alt="生成したサムネイル"></div>
-<label>生成履歴<select id="thumbnailHistory" disabled></select></label>
-<div class="actions wrap"><button id="thumbnailDownload" type="button" disabled>画像を保存</button></div>
-<p id="thumbnailHistoryInfo" class="hint"></p>
 </section>
 <section class="chapter-export" aria-labelledby="chapterExportTitle">
 <h3 id="chapterExportTitle">YouTube貼り付け用テキスト</h3>
@@ -241,7 +235,7 @@ try{
 <div class="content-dialog-head"><div><h2 id="helpDialogTitle">ヘルプ</h2><p>準備・接続・トラブルシューティング</p></div><button type="button" id="closeHelpDialog" class="content-dialog-close" aria-label="閉じる">×</button></div>
 <div class="help-dialog-body"><section class="help"><div class="card-head"><h2>準備とトラブルシューティング</h2></div>
 <h3>ホーム画面アイコンの背景色</h3><p>上部の「テーマ」で色を選んでから、ブラウザの「ホーム画面に追加」を実行してください。選択中のテーマに合わせた、色の違いが分かりやすいアイコン専用の背景色を使います。追加済みのアイコンは即時に変わるとは限りません。色が変わらない場合は、ブラウザでこのページを開き直してテーマを確認し、ホーム画面に追加し直してください。アプリのアンインストールでは保存設定が消える場合があるため、必要なら先に設定をエクスポートしてください。</p>
-<h3>イベントログとチャプター</h3><p>実況開始ごとに記録を作り、映像解析の応答から客観的なイベントを蓄積します。解析しなかった瞬間や通信・安全フィルターで取得できなかった出来事は記録されません。時刻は画像取得時の端末日時であり、出来事の厳密な開始時刻ではありません。「実況を終了」後に自動生成するか、「チャプター」タブから手動で生成・再生成できます。生成履歴と元イベントは別に保存します。中止・エラー時も前回の候補と記録は残ります。生成中は「即停止」で中止できます。保存はこのブラウザ内のみで、ブラウザデータを消すと失われます。イベント発生時には代表画像も端末内に保存し、元イベントログのサムネイルから確認できます。1配信あたりの画像枚数は制限せず、チャプター画面で指定した直近の配信数だけ画像を保持します。古い配信では画像だけを自動削除し、チャプター・イベントログは残します。終了後は代表画像から最大5枚を自動選定してAIサムネを生成できます。画像生成はFree Tier対象外のため専用の有料APIキーと確認チェックが必要です。生成済みサムネは代表画像とは別に履歴保存するため、代表画像を後から削除しても残ります。YouTube同期は生成後の「YouTubeと同期」から任意で行います。終了済み配信の候補は50件ずつ取得し、取得した中でチャプター日時に近い順に表示します。候補0件と取得失敗は区別して表示します。URL／動画ID直接指定も利用でき、いずれも確認・選択後に同期します。実際の開始時刻がない場合は相対時間のみ未同期になります。同期先変更・時刻の再取得・同期解除でも、元の絶対日時と生成結果は変わりません。実況開始・終了はYouTube通信に依存しません。生成履歴ごとにタイトル・時刻の編集、追加・削除ができます。編集は元の観測日時と分けて保存します。動画内の時刻で編集した場合も絶対日時で保持し、同期先変更時は再計算します。「元の生成結果に戻す」で選択中の履歴の編集を取り消せます。YouTube同期後に貼り付け用テキストを自動生成します。冒頭の00:00補完・3件以上・各区間10秒以上を確認し、コピーしてYouTubeの説明欄に貼り付けてください。配信範囲外の候補は理由を表示して出力から除外します。時刻の重複がある場合は編集・削除してください。YouTubeへの自動書き込みは行いません。</p>
+<h3>イベントログとチャプター</h3><p>実況開始ごとに記録を作り、映像解析の応答から客観的なイベントを蓄積します。解析しなかった瞬間や通信・安全フィルターで取得できなかった出来事は記録されません。時刻は画像取得時の端末日時であり、出来事の厳密な開始時刻ではありません。「実況を終了」後に自動生成するか、「チャプター」タブから手動で生成・再生成できます。生成履歴と元イベントは別に保存します。中止・エラー時も前回の候補と記録は残ります。生成中は「即停止」で中止できます。保存はこのブラウザ内のみで、ブラウザデータを消すと失われます。イベント発生時には代表画像も端末内に保存し、元イベントログのサムネイルから確認できます。1配信あたりの画像枚数は制限せず、チャプター画面で指定した直近の配信数だけ画像を保持します。古い配信では画像だけを自動削除し、チャプター・イベントログは残します。終了後は代表画像からサムネ向きの最大5枚を自動選別し、必要なら一覧から手動で入れ替えられます。「ChatGPT用素材を保存」では選択した元画質画像と自動生成した依頼文をZIPにまとめます。この機能自体は画像生成APIを使いません。YouTube同期は生成後の「YouTubeと同期」から任意で行います。終了済み配信の候補は50件ずつ取得し、取得した中でチャプター日時に近い順に表示します。候補0件と取得失敗は区別して表示します。URL／動画ID直接指定も利用でき、いずれも確認・選択後に同期します。実際の開始時刻がない場合は相対時間のみ未同期になります。同期先変更・時刻の再取得・同期解除でも、元の絶対日時と生成結果は変わりません。実況開始・終了はYouTube通信に依存しません。生成履歴ごとにタイトル・時刻の編集、追加・削除ができます。編集は元の観測日時と分けて保存します。動画内の時刻で編集した場合も絶対日時で保持し、同期先変更時は再計算します。「元の生成結果に戻す」で選択中の履歴の編集を取り消せます。YouTube同期後に貼り付け用テキストを自動生成します。冒頭の00:00補完・3件以上・各区間10秒以上を確認し、コピーしてYouTubeの説明欄に貼り付けてください。配信範囲外の候補は理由を表示して出力から除外します。時刻の重複がある場合は編集・削除してください。YouTubeへの自動書き込みは行いません。</p>
 <h3>はじめに</h3><p>フォルダ内の index.html を、操作するPCのChrome・Edgeで開きます。専用サーバーは不要です。「映像確認」「音声テスト」を試し、Geminiのキーを設定して開始してください。</p>
 <h3>VOICEVOX：Windows版では鳴るのにブラウザでは失敗する</h3><p>開発者ツールに origin 'null'、CORS、403 Forbidden が出る場合は、VOICEVOXを起動し、<a id="voicevoxSettingsLink" href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>を開きます（設定したVOICEVOX URLの設定画面）。CORS Policy Mode を localapps、Allow Origin に null を追加し、保存してVOICEVOXを再起動してください。ほかの許可設定は必要に応じて残します。その後、音声テストをやり直します。</p><p>null の許可は、このアプリ以外のローカルファイルや一部の隔離されたページにも適用されます。信頼できないHTMLを同時に開かず、使わなくなったら許可を外してください。CORSを all にしたり、ブラウザの保護を無効化したりする必要はありません。</p>
 <h3>読み上げ先に接続できない・音が出ない</h3><p>起動状態、URLとポート、ブラウザのローカルネットワーク許可、OSの音量を確認してください。VOICEVOX直接は操作しているブラウザで再生します。棒読みちゃんは設定のHTTP連携を有効にし、PC側の声・音量を確認します。声が異なる場合は「友達」タブのスタイルID・声IDを、速すぎる・遅すぎる場合はVOICEVOX話速を見直してください。</p>
