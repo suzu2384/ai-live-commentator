@@ -34,9 +34,25 @@ test('ChatGPT prompt uses stream context, selected image descriptions and option
   const s=session(),ids=T.selectReferenceIds(s,'g1');
   const withText=T.buildPrompt(s,{generationId:'g1',referenceImageIds:ids,includeText:true,caption:'ボス戦！'});
   assert(withText.includes('16:9'));assert(withText.includes('ボス戦！'));assert(withText.includes('新エリアへ'));assert(withText.includes('ボス戦開始'));assert(withText.includes('画像1:'));
+  assert.match(withText,/左側または中央左の約65%/);
+  assert.match(withText,/右側約35%/);
+  assert.match(withText,/少し斜め/);
+  assert.match(withText,/タイトル背景の装飾/);
+  assert.match(withText,/公式のプロモーション画像/);
   const without=T.buildPrompt(s,{generationId:'g1',referenceImageIds:ids,includeText:false,caption:'ignored'});
   assert(without.includes('文字・ロゴ・字幕は新しく追加しない'));assert(!without.includes('「ignored」'));
   assert.equal(T.suggestedCaption(s,'g1'),'新エリアへ');
+});
+test('prompt adapts to one or two images without inventing scenes',()=>{
+  const s=session();
+  const two=T.buildPrompt(s,{generationId:'g1',referenceImageIds:['i2','i3'],includeText:true,caption:'ふたりの旅'});
+  assert.match(two,/素材は2枚なので/);assert.match(two,/存在しない3枚目の場面は創作しない/);
+  assert(!two.includes('右側約35%'));
+  const one=T.buildPrompt(s,{generationId:'g1',referenceImageIds:['i2'],includeText:false,caption:'表示しない'});
+  assert.match(one,/無理に分割・複製して複数場面を作らない/);
+  assert.match(one,/文字・ロゴ・字幕は新しく追加しない/);
+  assert(!one.includes('「表示しない」'));
+  assert(!one.includes('右側約35%'));
 });
 test('ChatGPT material package is a ZIP containing original images and prompt',async()=>{
   const s=session(),images=[

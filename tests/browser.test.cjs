@@ -299,6 +299,7 @@ const results=[];
   await p.reload();await p.locator('#tab-chapters').click();await p.waitForFunction(()=>document.querySelectorAll('#thumbnailReferences img').length===2);
   assert.match(await p.locator('#thumbnailReferenceInfo').textContent(),/自動選別で2枚/);
   assert.match(await p.locator('#thumbnailPrompt').inputValue(),/YouTubeの通常動画向け16:9/);
+  assert.match(await p.locator('#thumbnailPrompt').inputValue(),/素材は2枚なので/);
   await p.locator('#thumbnailPickerDetails').click();await p.waitForFunction(()=>document.querySelectorAll('#thumbnailPicker input').length===2);
   const first=p.locator('#thumbnailPicker input').first();await first.uncheck();await p.waitForFunction(()=>document.getElementById('thumbnailReferenceInfo').textContent.includes('手動選択で1枚'));
   let saved=(await chapterRecords(p))[0];assert.equal(saved.thumbnailMaterialMode,'manual');assert.equal(saved.thumbnailMaterialImageIds.length,1);
