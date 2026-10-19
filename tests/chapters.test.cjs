@@ -73,6 +73,8 @@ test('representative image retention is based on recent sessions and manual dele
  assert.equal(sessions[0].representativeImageIds.length,0);assert.equal(sessions[1].representativeImageIds.length,0);
  assert.equal(sessions[2].representativeImageIds.length,2);assert.equal(sessions[3].representativeImageIds.length,2);
  assert.equal(sessions[0].events.length,2);assert.equal(sessions[0].events[0].imageId,undefined);
+ sessions[3].thumbnailMaterialMode='manual';sessions[3].thumbnailMaterialImageIds=[...sessions[3].representativeImageIds];
  const deleted=await store.deleteRepresentativeImages(sessions[3].id);
  assert.equal(deleted,2);assert.equal(sessions[3].representativeImageIds.length,0);assert.equal(sessions[3].events.length,2);
+ assert.deepEqual(sessions[3].thumbnailMaterialImageIds,[]);assert.equal(sessions[3].thumbnailMaterialMode,'auto');
 });
