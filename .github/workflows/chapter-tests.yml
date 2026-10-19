@@ -24,7 +24,7 @@ jobs:
         run: node --test tests/core.test.cjs tests/chapters.test.cjs tests/thumbnail.test.cjs tests/youtube.test.cjs tests/chapter-editor.test.cjs
       - name: Chapter and related browser scenarios
         env:
-          TEST_FILTER: 'chapter editor|YouTube|chapters record|thumbnail generation|immediate stop keeps|chapter recording preserves|tabs group|stop cancels pending analysis|encrypted credentials|settings export and import'
+          TEST_FILTER: 'chapter editor|YouTube|chapters record|ChatGPT thumbnail materials|immediate stop keeps|chapter recording preserves|tabs group|stop cancels pending analysis|encrypted credentials|settings export and import'
         run: node tests/browser.test.cjs
       - name: Collect screenshots
         if: always()
