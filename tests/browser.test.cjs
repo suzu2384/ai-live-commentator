@@ -17,7 +17,7 @@ const results=[];
  async function setup(config={}){
   const ctx=await browser.newContext({viewport:{width:1360,height:768}});const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const host=config.host||'127.0.0.1';
-  const events={images:0,api:0,thumbnailApi:0,analysisImages:[],turnLimits:[],speakerEnums:[],promptTexts:[],talks:[],queries:0,voiceTexts:[],voices:[],speeds:[],synths:0,identifies:0,obsRequests:[],overlayUrls:[],overlayTransforms:[],overlayEnabled:[],unexpected:[]};let held=null;
+  const events={images:0,api:0,analysisImages:[],turnLimits:[],speakerEnums:[],promptTexts:[],talks:[],queries:0,voiceTexts:[],voices:[],speeds:[],synths:0,identifies:0,obsRequests:[],overlayUrls:[],overlayTransforms:[],overlayEnabled:[],unexpected:[]};let held=null;
   await page.clock.install();
   await page.route('https://**/*',async r=>{
    if(r.request().url().startsWith('https://i.ytimg.com/'))return r.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="#346675"/><path d="M65 25L100 45L65 65Z" fill="white"/></svg>'});
@@ -29,14 +29,6 @@ const results=[];
     const videos=config.youtubeVideos||[];
     const items=u.pathname.endsWith('/search')?(u.searchParams.get('eventType')==='completed'?(config.youtubeSearchEmpty?[]:videos.map(v=>({id:{videoId:v.id}}))):[]):videos.filter(v=>u.searchParams.get('id').split(',').includes(v.id));
     return r.fulfill({contentType:'application/json',body:JSON.stringify({items})});
-   }
-   if(r.request().url().startsWith('https://generativelanguage.googleapis.com/v1/models/gemini-nano-banana-2.1:generateContent')){
-    events.thumbnailApi++;assert.equal(r.request().headers()['x-goog-api-key'],'thumbnail-test-key');
-    const requestBody=JSON.parse(r.request().postData()||'{}'),parts=requestBody.contents?.[0]?.parts||[];
-    assert(parts.filter(p=>p.inlineData).length>=1&&parts.filter(p=>p.inlineData).length<=5);
-    assert.equal(requestBody.generationConfig?.responseFormat?.image?.aspectRatio,'16:9');assert.equal(requestBody.generationConfig?.responseFormat?.image?.imageSize,'1K');
-    const data=(jpeg||'data:image/jpeg;base64,AQID').split(',')[1];
-    return r.fulfill({contentType:'application/json',body:JSON.stringify({candidates:[{content:{parts:[{inlineData:{mimeType:'image/jpeg',data}}]}}]})});
    }
    if(!r.request().url().startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent')){events.unexpected.push(r.request().url());return r.abort();}
    events.api++;assert.equal(r.request().headers()['x-goog-api-key'],'fake.test-key');
@@ -287,16 +279,40 @@ const results=[];
   p.once('dialog',d=>d.accept());await p.locator('#chapterImagesDelete').click();await p.waitForFunction(()=>document.getElementById('chapterSessionInfo').textContent.includes('代表画像 0枚'));records=await chapterRecords(p);record=records[0];assert.equal(record.events.length,1);assert.equal(record.generations.length,2);assert.equal(record.representativeImageIds.length,0);assert.equal(record.events[0].imageId,undefined);
   await x.close();
  });
- await test('thumbnail generation keeps history and survives representative image deletion',async()=>{
-  const x=await recorded(),p=x.page;await p.locator('#tab-connect').click();await p.locator('#thumbnailApiKey').fill('thumbnail-test-key');await p.locator('#thumbnailBillingConfirmed').check();
-  await p.locator('#tab-chapters').click();await p.waitForFunction(()=>document.querySelectorAll('#thumbnailReferences img').length>=1);
-  await p.locator('#thumbnailText').fill('ボス戦！');await p.locator('#thumbnailGenerate').click();await stopped(p);
-  await p.waitForFunction(()=>document.querySelectorAll('#thumbnailHistory option').length===1&&!document.getElementById('thumbnailPreviewWrap').hidden);
-  let records=await chapterRecords(p);assert.equal(records[0].thumbnailIds.length,1);assert(records[0].selectedThumbnailId);assert.equal(x.events.thumbnailApi,1);
-  await p.locator('#thumbnailGenerate').click();await stopped(p);await p.waitForFunction(()=>document.querySelectorAll('#thumbnailHistory option').length===2);
-  records=await chapterRecords(p);assert.equal(records[0].thumbnailIds.length,2);assert.equal(x.events.thumbnailApi,2);
+ await test('ChatGPT thumbnail materials auto-select, allow manual replacement, copy prompt and download ZIP',async()=>{
+  const x=await recorded(),p=x.page;
+  await p.evaluate(()=>new Promise((resolve,reject)=>{
+    const open=indexedDB.open('minkome-chapters-v1');
+    open.onsuccess=()=>{
+      const db=open.result,tx=db.transaction(['sessions','images'],'readwrite'),sessions=tx.objectStore('sessions'),images=tx.objectStore('images'),all=sessions.getAll();
+      all.onsuccess=()=>{
+        const s=all.result[0],sourceId=s.representativeImageIds[0],get=images.get(sourceId);
+        get.onsuccess=()=>{
+          const id='manual-image-2',record={...get.result,id,capturedAtMs:(get.result.capturedAtMs||Date.now())+1000};
+          images.put(record);s.representativeImageIds.push(id);s.events.push({id:'manual-event-2',sessionId:s.id,sequence:s.events.length+1,observedAtMs:record.capturedAtMs,recordedAtMs:record.capturedAtMs,kind:'battle',summary:'強敵との戦闘が始まった',contentName:s.contentName,imageId:id});sessions.put(s);
+        };
+        get.onerror=()=>reject(get.error);
+      };
+      all.onerror=()=>reject(all.error);tx.oncomplete=()=>{db.close();resolve();};tx.onerror=()=>reject(tx.error);
+    };open.onerror=()=>reject(open.error);
+  }));
+  await p.reload();await p.locator('#tab-chapters').click();await p.waitForFunction(()=>document.querySelectorAll('#thumbnailReferences img').length===2);
+  assert.match(await p.locator('#thumbnailReferenceInfo').textContent(),/自動選別で2枚/);
+  assert.match(await p.locator('#thumbnailPrompt').inputValue(),/YouTubeの通常動画向け16:9/);
+  await p.locator('#thumbnailPickerDetails').click();await p.waitForFunction(()=>document.querySelectorAll('#thumbnailPicker input').length===2);
+  const first=p.locator('#thumbnailPicker input').first();await first.uncheck();await p.waitForFunction(()=>document.getElementById('thumbnailReferenceInfo').textContent.includes('手動選択で1枚'));
+  let saved=(await chapterRecords(p))[0];assert.equal(saved.thumbnailMaterialMode,'manual');assert.equal(saved.thumbnailMaterialImageIds.length,1);
+  await first.check();await p.waitForFunction(()=>document.getElementById('thumbnailReferenceInfo').textContent.includes('手動選択で2枚'));
+  saved=(await chapterRecords(p))[0];assert.equal(saved.thumbnailMaterialImageIds.length,2);
+  await p.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__copiedThumbnailPrompt=text;}}}));
+  await p.locator('#thumbnailText').fill('ボス戦！');await p.locator('#thumbnailCopyPrompt').click();
+  assert.equal(await p.evaluate(()=>window.__copiedThumbnailPrompt),await p.locator('#thumbnailPrompt').inputValue());assert.match(await p.locator('#thumbnailStatus').textContent(),/コピーしました/);
+  const downloadPromise=p.waitForEvent('download');await p.locator('#thumbnailDownloadPackage').click();const download=await downloadPromise;
+  assert.match(download.suggestedFilename(),/^minkome-chatgpt-thumbnail-materials-\d{8}\.zip$/);assert.match(await p.locator('#thumbnailStatus').textContent(),/ZIPに保存しました/);
+  await p.locator('#thumbnailAutoSelect').click();await p.waitForFunction(()=>document.getElementById('thumbnailReferenceInfo').textContent.includes('自動選別で2枚'));
+  saved=(await chapterRecords(p))[0];assert.equal(saved.thumbnailMaterialMode,'auto');
   p.once('dialog',d=>d.accept());await p.locator('#chapterImagesDelete').click();await p.waitForFunction(()=>document.getElementById('chapterSessionInfo').textContent.includes('代表画像 0枚'));
-  records=await chapterRecords(p);assert.equal(records[0].representativeImageIds.length,0);assert.equal(records[0].thumbnailIds.length,2);assert.equal(await p.locator('#thumbnailHistory option').count(),2);assert.equal(await p.locator('#thumbnailPreviewWrap').isHidden(),false);
+  saved=(await chapterRecords(p))[0];assert.deepEqual(saved.thumbnailMaterialImageIds,[]);assert.equal(saved.thumbnailMaterialMode,'auto');assert.equal(await p.locator('#thumbnailDownloadPackage').isDisabled(),true);
   await x.close();
  });
  await test('immediate stop keeps events without automatic chapter requests',async()=>{
@@ -1124,15 +1140,15 @@ const results=[];
   assert.equal(x.events.api,1);await x.close();
  });
  await test('encrypted credentials survive reload, require passphrase, and lock clears fields',async()=>{
-  const x=await setup();const p=x.page;await youtubeSettings(p);await p.locator('#thumbnailApiKey').fill('thumbnail-test-key');await p.locator('#vaultPass').fill('a sufficiently long phrase');await p.locator('#vaultConfirm').fill('a sufficiently long phrase');await p.locator('#vaultSave').click();
+  const x=await setup();const p=x.page;await youtubeSettings(p);await p.locator('#vaultPass').fill('a sufficiently long phrase');await p.locator('#vaultConfirm').fill('a sufficiently long phrase');await p.locator('#vaultSave').click();
   await p.waitForFunction(()=>document.getElementById('vaultState').textContent.includes('暗号化して保存しました'));
-  const raw=await p.evaluate(()=>JSON.stringify(localStorage));assert.ok(!raw.includes('fake.test-key')&&!raw.includes('thumbnail-test-key')&&!raw.includes('obs-secret')&&!raw.includes('sufficiently')&&!raw.includes('youtube-test-key'));
+  const raw=await p.evaluate(()=>JSON.stringify(localStorage));assert.ok(!raw.includes('fake.test-key')&&!raw.includes('obs-secret')&&!raw.includes('sufficiently')&&!raw.includes('youtube-test-key'));
   await p.reload();assert.equal(await p.locator('#apiKey').inputValue(),'');
   await openConnect(p);await p.locator('#vaultPass').fill('wrong passphrase');await p.locator('#vaultUnlock').click();await p.waitForFunction(()=>document.getElementById('vaultState').textContent.includes('解除できません'));
   assert.equal(await p.locator('#apiKey').inputValue(),'');await p.locator('#vaultPass').fill('a sufficiently long phrase');await p.locator('#vaultUnlock').click();
   await p.waitForFunction(()=>document.getElementById('vaultState').textContent.startsWith('解除しました'));
-  assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');assert.equal(await p.locator('#thumbnailApiKey').inputValue(),'thumbnail-test-key');assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');assert.equal(await p.locator('#vaultPass').inputValue(),'');assert.equal(await p.locator('#youtubeApiKey').inputValue(),'youtube-test-key');
-  await p.locator('#vaultLock').click();assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#thumbnailApiKey').inputValue(),'');assert.equal(await p.locator('#obsPassword').inputValue(),'');assert.equal(await p.locator('#youtubeApiKey').inputValue(),'');await x.close();
+  assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');assert.equal(await p.locator('#vaultPass').inputValue(),'');assert.equal(await p.locator('#youtubeApiKey').inputValue(),'youtube-test-key');
+  await p.locator('#vaultLock').click();assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#obsPassword').inputValue(),'');assert.equal(await p.locator('#youtubeApiKey').inputValue(),'');await x.close();
  });
  await test('old settings migrate voice IDs; tabs and mobile stop remain accessible',async()=>{
   const x=await setup();const p=x.page;
