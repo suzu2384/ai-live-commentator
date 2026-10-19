@@ -519,11 +519,6 @@
     if (!$('freeTier').checked){revealSetting('freeTier');throw new C.AppError('このキーのプロジェクトがFree Tier・課金未設定であることを確認し、チェックを付けてください。');}
     return key;
   }
-  function requireThumbnailKey(){
-    let key;try{key=C.normalizeKey($('thumbnailApiKey').value);}catch(e){revealSetting('thumbnailApiKey');throw new C.AppError('サムネ画像生成用Gemini APIキーを入力してください。');}
-    if(!$('thumbnailBillingConfirmed').checked){revealSetting('thumbnailBillingConfirmed');throw new C.AppError('画像生成はFree Tier対象外です。料金が発生することを確認してチェックを付けてください。');}
-    return key;
-  }
   function reserve() { stats.used++; updateStats(); }
   async function getFrame(s, signal) {
     C.check(signal); const capturedAt = performance.now(),capturedAtMs=Date.now();
@@ -1401,7 +1396,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     return p;
   });}
   const vaultKey='ai-live-commentator-vault-v1';
-  function lockSecrets(){$('apiKey').value='';$('thumbnailApiKey').value='';$('obsPassword').value='';$('youtubeApiKey').value='';$('vaultPass').value='';$('vaultConfirm').value='';$('freeTier').checked=false;$('thumbnailBillingConfirmed').checked=false;updateSettingSummaries();}
+  function lockSecrets(){$('apiKey').value='';$('obsPassword').value='';$('youtubeApiKey').value='';$('vaultPass').value='';$('vaultConfirm').value='';$('freeTier').checked=false;updateSettingSummaries();}
   function vaultState(){try{$('vaultState').textContent=localStorage.getItem(vaultKey)?'暗号化した情報があります。合言葉を入力して解除できます。':'暗号化した情報はまだありません。';}catch{$('vaultState').textContent='ブラウザが保存を許可していません。';}updateSettingSummaries();}
   async function vaultOperation(fn){
     if(busy||vaultBusy)return;vaultBusy=true;setBusy(false);$('start').disabled=true;
@@ -1412,7 +1407,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     if($('vaultPass').value!==$('vaultConfirm').value)throw new Error('確認用の合言葉が一致しません。');
     const apiKey=C.normalizeKey($('apiKey').value);
     const epoch=pageEpoch;
-    const data=await LiveVault.seal({apiKey,thumbnailApiKey:$('thumbnailApiKey').value.trim(),obsPassword:$('obsPassword').value,youtubeApiKey:$('youtubeApiKey').value.trim()},$('vaultPass').value);
+    const data=await LiveVault.seal({apiKey,obsPassword:$('obsPassword').value,youtubeApiKey:$('youtubeApiKey').value.trim()},$('vaultPass').value);
     if(epoch!==pageEpoch)return;
     localStorage.setItem(vaultKey,JSON.stringify(data));$('vaultState').textContent='暗号化して保存しました。現在は解除中です。';updateSettingSummaries();
   }));
@@ -1422,12 +1417,12 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     const epoch=pageEpoch;
     const credentials=await LiveVault.open(data,$('vaultPass').value);
     if(epoch!==pageEpoch)return;
-    $('apiKey').value=credentials.apiKey;$('thumbnailApiKey').value=credentials.thumbnailApiKey||'';$('obsPassword').value=credentials.obsPassword;$('youtubeApiKey').value=credentials.youtubeApiKey||'';$('freeTier').checked=false;$('thumbnailBillingConfirmed').checked=false;
+    $('apiKey').value=credentials.apiKey;$('obsPassword').value=credentials.obsPassword;$('youtubeApiKey').value=credentials.youtubeApiKey||'';$('freeTier').checked=false;
     $('vaultState').textContent='解除しました。Free Tierの確認をしてから開始してください。';updateSettingSummaries();
   }));
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
-  chapterUI=new LiveChapterUI({log,onSync:()=>operation(async signal=>{await chapterUI.linkYouTube($('youtubeApiKey').value.trim(),$('youtubeChannelId').value.trim(),signal,setStatus);}),onResync:()=>operation(async signal=>{setStatus('YouTube開始時刻を取得中');await chapterUI.syncYouTube($('youtubeApiKey').value.trim(),signal);}),onUnlink:()=>operation(async signal=>{await chapterUI.unlinkYouTube(signal);}),onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);}),onThumbnailGenerate:()=>operation(async signal=>{setStatus('AIサムネイルを生成中');await chapterUI.generateThumbnail(requireThumbnailKey(),signal);})});
+  chapterUI=new LiveChapterUI({log,onSync:()=>operation(async signal=>{await chapterUI.linkYouTube($('youtubeApiKey').value.trim(),$('youtubeChannelId').value.trim(),signal,setStatus);}),onResync:()=>operation(async signal=>{setStatus('YouTube開始時刻を取得中');await chapterUI.syncYouTube($('youtubeApiKey').value.trim(),signal);}),onUnlink:()=>operation(async signal=>{await chapterUI.unlinkYouTube(signal);}),onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);})});
   contentLibrary=loadContentLibrary();contentKnowledge=loadContentKnowledge();renderContentOptions('');
   fontLibrary=loadFontLibrary();
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};}catch{}
