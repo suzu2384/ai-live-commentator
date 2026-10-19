@@ -4,8 +4,8 @@
   const date=ms=>Number.isFinite(ms)?new Date(ms).toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'—';
   const names={scene:'場面',progress:'進行',battle:'戦闘',result:'結果',menu:'メニュー',other:'その他'};
   class ChapterUI{
-    constructor({log,onGenerate,onThumbnailGenerate,onSelectTab,onSync,onResync,onUnlink}){
-      this.log=log;this.onSelectTab=onSelectTab;this.onThumbnailGenerate=onThumbnailGenerate;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;this.imageDialogUrl=null;this.imageRetentionSessions=10;this.pendingImageSaves=new Set();this.thumbnailUrl=null;this.thumbnailReferenceUrls=[];this.thumbnailRenderToken=0;this.thumbnailTextTouched=false;
+    constructor({log,onGenerate,onSelectTab,onSync,onResync,onUnlink}){
+      this.log=log;this.onSelectTab=onSelectTab;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;this.imageDialogUrl=null;this.imageRetentionSessions=10;this.pendingImageSaves=new Set();this.thumbnailReferenceUrls=[];this.thumbnailPickerUrls=[];this.thumbnailRenderToken=0;this.thumbnailTextTouched=false;
       try{const stored=Number(localStorage.getItem('minkome-image-retention-sessions-v1'));if(Number.isInteger(stored)&&stored>=1&&stored<=100)this.imageRetentionSessions=stored;}catch{} $('chapterImageRetention').value=String(this.imageRetentionSessions);this.store=new H.Store(()=>{$('chapterStorageWarning').hidden=false;});
       this.ready=this.store.ready.then(async()=>{await this.store.pruneRepresentativeImages(this.imageRetentionSessions);this.selected=[...this.store.records.values()].sort((a,b)=>b.startedAtMs-a.startedAtMs)[0]?.id||null;$('chapterStatus').textContent=this.selected?'保存済みの記録を復元しました。生成・再生成できます。':'イベントを蓄積すると生成できます。';this.render();});
       try{$('chapterAuto').checked=localStorage.getItem('minkome-chapter-auto-v1')!=='false';}catch{}
@@ -20,11 +20,12 @@
       $('chapterNext').addEventListener('click',()=>{this.page++;this.renderEvents();});
       $('chapterImageRetention').addEventListener('change',()=>void this.changeImageRetention());
       $('chapterImagesDelete').addEventListener('click',()=>void this.deleteCurrentRepresentativeImages());
-      $('thumbnailGenerate').addEventListener('click',()=>this.onThumbnailGenerate?.());
-      $('thumbnailHistory').addEventListener('change',()=>void this.selectThumbnailHistory());
-      $('thumbnailText').addEventListener('input',()=>{this.thumbnailTextTouched=true;});
-      $('thumbnailTextEnabled').addEventListener('change',()=>this.controls());
-      $('thumbnailDownload').addEventListener('click',()=>void this.downloadCurrentThumbnail());
+      $('thumbnailAutoSelect').addEventListener('click',()=>void this.autoSelectThumbnailMaterials());
+      $('thumbnailPickerDetails').addEventListener('toggle',()=>{if($('thumbnailPickerDetails').open)void this.renderThumbnailPicker();});
+      $('thumbnailText').addEventListener('input',()=>{this.thumbnailTextTouched=true;this.updateThumbnailPrompt();});
+      $('thumbnailTextEnabled').addEventListener('change',()=>{this.controls();this.updateThumbnailPrompt();});
+      $('thumbnailCopyPrompt').addEventListener('click',()=>void this.copyThumbnailPrompt());
+      $('thumbnailDownloadPackage').addEventListener('click',()=>void this.downloadThumbnailPackage());
       this.editor=new root.LiveChapterEditorUI(this);
       $('chapterImageClose')?.addEventListener('click',()=>this.closeRepresentativeImage());
       $('chapterImageDialog')?.addEventListener('cancel',e=>{e.preventDefault();this.closeRepresentativeImage();});
@@ -53,64 +54,99 @@
     }
     async deleteCurrentRepresentativeImages(){
       const s=this.current();if(!s?.representativeImageIds?.length||this.active===s.id)return;
-      if(!confirm('この配信の代表画像をすべて削除しますか？\nチャプター・イベントログ・生成履歴は残ります。'))return;
+      if(!confirm('この配信の代表画像をすべて削除しますか？\nチャプター・イベントログは残ります。ChatGPT用素材の選択は解除されます。'))return;
       const count=await this.store.deleteRepresentativeImages(s.id);
       $('chapterImageStorageStatus').textContent=count?`この配信の代表画像${count}枚を削除しました。`:'削除する代表画像はありません。';
       this.render();
     }
     clearThumbnailUrls(){
-      if(this.thumbnailUrl){URL.revokeObjectURL(this.thumbnailUrl);this.thumbnailUrl=null;}
       for(const url of this.thumbnailReferenceUrls)URL.revokeObjectURL(url);
-      this.thumbnailReferenceUrls=[];
+      for(const url of this.thumbnailPickerUrls)URL.revokeObjectURL(url);
+      this.thumbnailReferenceUrls=[];this.thumbnailPickerUrls=[];
     }
-    async selectThumbnailHistory(){
-      const s=this.current();if(!s)return;
-      const id=$('thumbnailHistory').value||null;await this.store.selectGeneratedThumbnail(s,id);await this.renderThumbnailPanel();
+    async thumbnailMaterialIds(){
+      const s=this.current(),T=root.LiveThumbnailMaterials;if(!s)return [];
+      const ids=T.selectedReferenceIds(s,this.generationId);
+      if(s.thumbnailMaterialMode!=='manual'){
+        const previous=JSON.stringify(s.thumbnailMaterialImageIds||[]);
+        s.thumbnailMaterialMode='auto';s.thumbnailMaterialImageIds=[...ids];
+        if(previous!==JSON.stringify(ids))await this.store.save(s);
+      }
+      return ids;
     }
-    async generateThumbnail(key,signal){
-      const s=this.current(),T=root.LiveThumbnails;if(!s)return;
-      if(this.active===s.id)throw new Error('実況終了後にサムネを生成してください。');
-      const referenceImageIds=T.selectReferenceIds(s,this.generationId);
-      if(!referenceImageIds.length)throw new Error('サムネ生成に使える代表画像がありません。');
-      const images=(await Promise.all(referenceImageIds.map(id=>this.store.image(id)))).filter(Boolean);
-      if(!images.length)throw new Error('代表画像を読み込めませんでした。');
-      const includeText=$('thumbnailTextEnabled').checked,caption=$('thumbnailText').value.trim();
-      if(includeText&&!caption)throw new Error('サムネイルに入れる文字を入力してください。');
-      const prompt=T.buildPrompt(s,{generationId:this.generationId,referenceImageIds,includeText,caption});
-      $('thumbnailStatus').textContent=`${images.length}枚の代表画像からAIサムネを生成しています…`;
-      const result=await C.deadline(t=>T.generate(key,{prompt,images,signal:t}),180000,signal,'サムネ生成がタイムアウトしました。再生成できます。');
-      C.check(signal);const id=await this.store.saveGeneratedThumbnail(s,{blob:result.blob,model:result.model,prompt,caption,includeText,referenceImageIds});
-      if(!id)throw new Error('生成したサムネイルを端末内に保存できませんでした。');
-      $('thumbnailStatus').textContent='サムネイルを生成して履歴に保存しました。';this.log(`AIサムネイルを生成（${images.length}枚参照・${result.model}）。`);
+    updateThumbnailPrompt(ids=null){
+      const s=this.current(),T=root.LiveThumbnailMaterials;if(!s)return;
+      const selected=ids||T.selectedReferenceIds(s,this.generationId),includeText=$('thumbnailTextEnabled').checked,caption=$('thumbnailText').value.trim();
+      $('thumbnailPrompt').value=T.buildPrompt(s,{generationId:this.generationId,referenceImageIds:selected,includeText,caption});
+    }
+    async autoSelectThumbnailMaterials(){
+      const s=this.current(),T=root.LiveThumbnailMaterials;if(!s||this.active===s.id)return;
+      s.thumbnailMaterialMode='auto';s.thumbnailMaterialImageIds=T.selectReferenceIds(s,this.generationId);await this.store.save(s);
+      $('thumbnailStatus').textContent=s.thumbnailMaterialImageIds.length?`${s.thumbnailMaterialImageIds.length}枚を自動選別しました。`:'選別できる代表画像がありません。';
+      await this.renderThumbnailPanel();if($('thumbnailPickerDetails').open)await this.renderThumbnailPicker();
+    }
+    async changeThumbnailMaterial(id,checked,input){
+      const s=this.current(),T=root.LiveThumbnailMaterials;if(!s||this.active===s.id)return;
+      const current=T.selectedReferenceIds(s,this.generationId);
+      if(checked&&!current.includes(id)&&current.length>=T.MAX_REFERENCES){
+        input.checked=false;$('thumbnailStatus').textContent=`素材は最大${T.MAX_REFERENCES}枚です。別の画像を外してから選んでください。`;return;
+      }
+      let next=checked?[...current,id]:current.filter(x=>x!==id);
+      next=T.validSelection(s,next);
+      s.thumbnailMaterialMode='manual';s.thumbnailMaterialImageIds=next;await this.store.save(s);
+      $('thumbnailStatus').textContent=next.length?`${next.length}枚を手動選択しています。`:'素材が未選択です。「自動選別」で戻せます。';
       await this.renderThumbnailPanel();
     }
-    async downloadCurrentThumbnail(){
-      const s=this.current();if(!s)return;const id=s.selectedThumbnailId||$('thumbnailHistory').value;if(!id)return;
-      const record=await this.store.thumbnail(id);if(!record?.blob)return;
-      const ext=record.mimeType==='image/jpeg'?'jpg':record.mimeType==='image/webp'?'webp':'png',stamp=new Date(record.createdAtMs).toISOString().replace(/[:.]/g,'-');
-      const url=URL.createObjectURL(record.blob),a=document.createElement('a');a.href=url;a.download=`minkome-thumbnail-${stamp}.${ext}`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),0);
-      $('thumbnailStatus').textContent='選択中のサムネイルを保存しました。';
+    async copyThumbnailPrompt(){
+      const text=$('thumbnailPrompt').value;if(!text)return;
+      try{await navigator.clipboard.writeText(text);$('thumbnailStatus').textContent='ChatGPTへの依頼文をコピーしました。';}
+      catch{$('thumbnailPrompt').focus();$('thumbnailPrompt').select();$('thumbnailStatus').textContent='コピーできなかったため依頼文を選択しました。Ctrl+Cでコピーしてください。';}
+    }
+    async downloadThumbnailPackage(){
+      const s=this.current(),T=root.LiveThumbnailMaterials;if(!s||this.active===s.id)return;
+      const ids=await this.thumbnailMaterialIds();if(!ids.length){$('thumbnailStatus').textContent='保存する素材画像を1枚以上選んでください。';return;}
+      const images=(await Promise.all(ids.map(id=>this.store.image(id)))).filter(Boolean);
+      if(!images.length){$('thumbnailStatus').textContent='選択した代表画像を読み込めませんでした。';return;}
+      try{
+        const blob=await T.buildPackage({images,prompt:$('thumbnailPrompt').value,session:s}),url=URL.createObjectURL(blob),a=document.createElement('a');
+        const stamp=new Date(s.startedAtMs||Date.now()).toISOString().slice(0,10).replaceAll('-','');
+        a.href=url;a.download=`minkome-chatgpt-thumbnail-materials-${stamp}.zip`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),0);
+        $('thumbnailStatus').textContent=`選択画像${images.length}枚と依頼文をZIPに保存しました。`;this.log(`ChatGPT用サムネ素材 ${images.length}枚を保存。`);
+      }catch(e){$('thumbnailStatus').textContent=e.message||'ChatGPT用素材を保存できませんでした。';}
     }
     async renderThumbnailPanel(){
-      const token=++this.thumbnailRenderToken,s=this.current(),T=root.LiveThumbnails,refs=$('thumbnailReferences'),history=$('thumbnailHistory');
-      this.clearThumbnailUrls();refs.replaceChildren();history.replaceChildren();$('thumbnailPreview').removeAttribute('src');$('thumbnailPreviewWrap').hidden=true;
-      if(!s){$('thumbnailReferenceInfo').textContent='代表画像がある終了済み配信を選択してください。';$('thumbnailHistoryInfo').textContent='';this.controls();return;}
+      const token=++this.thumbnailRenderToken,s=this.current(),T=root.LiveThumbnailMaterials,refs=$('thumbnailReferences');
+      for(const url of this.thumbnailReferenceUrls)URL.revokeObjectURL(url);this.thumbnailReferenceUrls=[];refs.replaceChildren();
+      if(!s){$('thumbnailReferenceInfo').textContent='代表画像がある終了済み配信を選択してください。';$('thumbnailPrompt').value='';this.controls();return;}
       if(!this.thumbnailTextTouched)$('thumbnailText').value=T.suggestedCaption(s,this.generationId);
-      const referenceIds=T.selectReferenceIds(s,this.generationId);
-      $('thumbnailReferenceInfo').textContent=referenceIds.length?`${referenceIds.length}枚を生成素材として自動選定しています。`:'サムネ生成に使える代表画像がありません。';
-      for(const id of referenceIds){
+      const ids=await this.thumbnailMaterialIds();if(token!==this.thumbnailRenderToken)return;
+      for(const id of ids){
         const record=await this.store.image(id);if(token!==this.thumbnailRenderToken)return;if(!record?.blob)continue;
-        const img=document.createElement('img'),url=URL.createObjectURL(record.blob);this.thumbnailReferenceUrls.push(url);img.src=url;img.alt='サムネ生成に使う代表画像';refs.append(img);
+        const card=document.createElement('div'),img=document.createElement('img'),meta=document.createElement('span'),url=URL.createObjectURL(record.blob),info=T.imageInfo(s,id,this.generationId);
+        card.className='thumbnail-reference-card';img.src=url;img.alt='ChatGPT用に選択した代表画像';meta.textContent=`${names[info.kind]||info.kind} · ${info.summary}`;
+        this.thumbnailReferenceUrls.push(url);card.append(img,meta);refs.append(card);
       }
-      const records=await this.store.thumbnailsForSession(s.id);if(token!==this.thumbnailRenderToken)return;
-      for(const record of records){const option=document.createElement('option');option.value=record.id;option.textContent=`${date(record.createdAtMs)} · ${record.caption||'文字なし'}`;history.append(option);}
-      const selected=records.find(x=>x.id===s.selectedThumbnailId)||records[0]||null;
-      if(selected){history.value=selected.id;this.thumbnailUrl=URL.createObjectURL(selected.blob);$('thumbnailPreview').src=this.thumbnailUrl;$('thumbnailPreviewWrap').hidden=false;$('thumbnailHistoryInfo').textContent=`${selected.model} · 参照${selected.referenceImageIds?.length||0}枚 · ${selected.includeText?'文字あり':'文字なし'}`;}
-      else $('thumbnailHistoryInfo').textContent='まだ生成履歴はありません。';
-      this.controls();
+      const mode=s.thumbnailMaterialMode==='manual'?'手動選択':'自動選別';
+      $('thumbnailReferenceInfo').textContent=ids.length?`${mode}で${ids.length}枚を選択中です。ZIPには元画質の画像と依頼文を保存します。`:'サムネ素材に使える代表画像がありません。';
+      this.updateThumbnailPrompt(ids);this.controls();
+      if($('thumbnailPickerDetails').open)void this.renderThumbnailPicker();
+    }
+    async renderThumbnailPicker(){
+      const token=this.thumbnailRenderToken,s=this.current(),T=root.LiveThumbnailMaterials,picker=$('thumbnailPicker');picker.replaceChildren();
+      for(const url of this.thumbnailPickerUrls)URL.revokeObjectURL(url);this.thumbnailPickerUrls=[];
+      if(!s?.representativeImageIds?.length){picker.textContent='代表画像がありません。';return;}
+      const selected=new Set(T.selectedReferenceIds(s,this.generationId)),records=await this.store.imagesForSession(s.id);if(token!==this.thumbnailRenderToken)return;
+      for(const record of records){
+        const label=document.createElement('label'),input=document.createElement('input'),img=document.createElement('img'),copy=document.createElement('span'),title=document.createElement('strong'),summary=document.createElement('small');
+        const info=T.imageInfo(s,record.id,this.generationId),url=URL.createObjectURL(record.blob);this.thumbnailPickerUrls.push(url);
+        label.className='thumbnail-picker-card';label.classList.toggle('selected',selected.has(record.id));input.type='checkbox';input.checked=selected.has(record.id);input.disabled=this.busy||this.active===s.id;
+        img.src=url;img.alt='代表画像';title.textContent=`${date(record.capturedAtMs)} · ${names[info.kind]||info.kind}${info.isChapter?' · チャプター':''}`;summary.textContent=info.summary||'代表画像';copy.append(title,summary);label.append(input,img,copy);
+        input.addEventListener('change',async()=>{await this.changeThumbnailMaterial(record.id,input.checked,input);label.classList.toggle('selected',input.checked);});
+        picker.append(label);
+      }
     }
     setBusy(value){this.busy=value;this.controls();}
-    controls(){const s=this.current(),hasThumb=!!s?.selectedThumbnailId||$('thumbnailHistory').options.length>0;$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;$('chapterImageRetention').disabled=this.busy;$('chapterImagesDelete').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailGenerate').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailGenerate').textContent=s?.thumbnailIds?.length?'再生成':'サムネを生成';$('thumbnailHistory').disabled=this.busy||!hasThumb;$('thumbnailDownload').disabled=this.busy||!hasThumb;$('thumbnailTextEnabled').disabled=this.busy;$('thumbnailText').disabled=this.busy||!$('thumbnailTextEnabled').checked;this.editor?.controls();}
+    controls(){const s=this.current(),T=root.LiveThumbnailMaterials,ids=s?T.selectedReferenceIds(s,this.generationId):[],usable=!!s&&this.active!==s.id&&ids.length>0;$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;$('chapterImageRetention').disabled=this.busy;$('chapterImagesDelete').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailAutoSelect').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailCopyPrompt').disabled=this.busy||!usable;$('thumbnailDownloadPackage').disabled=this.busy||!usable;$('thumbnailTextEnabled').disabled=this.busy||!s||this.active===s?.id;$('thumbnailText').disabled=this.busy||!s||this.active===s?.id||!$('thumbnailTextEnabled').checked;this.editor?.controls();}
     async begin(contentName){
       await this.ready;const s=H.session(contentName);this.active=s.id;this.selected=s.id;this.page=0;this.generationId=null;this.warnedObservation=false;
       await this.store.save(s);$('chapterStatus').textContent='実況の解析と一緒にイベントを記録しています。';this.render();
@@ -180,7 +216,7 @@
       }
       if(this.selected)select.value=this.selected;
       const s=this.current(),states={recording:this.active===s?.id?'記録中':'未終了の記録',finished:'終了',interrupted:'中断'};
-      $('chapterSessionInfo').textContent=s?`${states[s.status]||'保存済み'} · ${date(s.startedAtMs)} ～ ${date(s.endedAtMs)} · イベント ${s.events.length}件 · 代表画像 ${s.representativeImageIds?.length||0}枚 · サムネ ${s.thumbnailIds?.length||0}件`:'実況を開始すると、ここに記録が蓄積されます。';
+      $('chapterSessionInfo').textContent=s?`${states[s.status]||'保存済み'} · ${date(s.startedAtMs)} ～ ${date(s.endedAtMs)} · イベント ${s.events.length}件 · 代表画像 ${s.representativeImageIds?.length||0}枚`:'実況を開始すると、ここに記録が蓄積されます。';
       const sync=s?.youtubeSync;
       $('youtubeSyncInfo').textContent=sync?`YouTube: ${sync.title} (${sync.videoId}) · ${Number.isFinite(sync.actualStartTimeMs)?'同期済み · 実際の開始 '+date(sync.actualStartTimeMs):'未同期 · 実際の開始時刻は未取得'} · 実際の終了 ${date(sync.actualEndTimeMs)}${sync.syncError?' · '+sync.syncError:''}`:'YouTube連携なし（絶対日時で表示）';
       const genSelect=$('chapterGeneration');genSelect.replaceChildren();
