@@ -1354,17 +1354,18 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   addEventListener('scroll',scheduleStickyTabsState,{passive:true});
   addEventListener('resize',scheduleStickyTabsState,{passive:true});
   scheduleStickyTabsState();
+  function mainTabs(){return [...tabsBar.querySelectorAll(':scope > [role=tab]')];}
   function selectTab(name,focus=false){
-    for(const tab of document.querySelectorAll('[role=tab]')){
+    for(const tab of mainTabs()){
       const selected=tab.id===`tab-${name}`;tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;
       $(tab.getAttribute('aria-controls')).hidden=!selected;if(selected&&focus)tab.focus();
     }
     document.querySelector('.panel-scroll').scrollTop=0;
   }
-  for(const tab of document.querySelectorAll('[role=tab]')){
+  for(const tab of mainTabs()){
     tab.addEventListener('click',()=>selectTab(tab.id.slice(4)));
     tab.addEventListener('keydown',e=>{
-      const tabs=[...document.querySelectorAll('[role=tab]')];let n=tabs.indexOf(tab);
+      const tabs=mainTabs();let n=tabs.indexOf(tab);
       if(e.key==='ArrowRight')n=(n+1)%tabs.length;else if(e.key==='ArrowLeft')n=(n+tabs.length-1)%tabs.length;else if(e.key==='Home')n=0;else if(e.key==='End')n=tabs.length-1;else return;
       e.preventDefault();selectTab(tabs[n].id.slice(4),true);
     });
