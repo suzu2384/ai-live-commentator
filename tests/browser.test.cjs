@@ -434,7 +434,7 @@ const results=[];
  });
  await test('tabs group live, friends, connection and history without changing setting ids',async()=>{
   const x=await setup();const p=x.page;
-  assert.deepEqual(await p.locator('[role=tab]').allTextContents(),['実況','友達','接続','履歴','チャプター']);
+  assert.deepEqual(await p.locator('.tabs > [role=tab]').allTextContents(),['実況','友達','接続','履歴','チャプター']);
   assert.equal(await p.locator('#contentName').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-live');
   assert.equal(await p.locator('#participantCount').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-live');
   assert.equal(await p.locator('#apiInterval').evaluate(el=>el.closest('details').id),'settings-advanced');
