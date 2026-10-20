@@ -125,7 +125,7 @@
     async copyThumbnailPrompt(){
       const text=$('thumbnailPrompt').value;if(!text)return;
       try{await navigator.clipboard.writeText(text);$('thumbnailStatus').textContent='ChatGPTへの依頼文をコピーしました。';}
-      catch{$('thumbnailPrompt').focus();$('thumbnailPrompt').select();$('thumbnailStatus').textContent='コピーできなかったため依頼文を選択しました。Ctrl+Cでコピーしてください。';}
+      catch{const prompt=$('thumbnailPrompt'),details=prompt.closest('details');if(details)details.open=true;prompt.focus();prompt.select();$('thumbnailStatus').textContent='コピーできなかったため依頼文を表示して選択しました。Ctrl+Cでコピーしてください。';}
     }
     async downloadThumbnailPackage(){
       const s=this.current(),T=root.LiveThumbnailMaterials;if(!s||this.active===s.id)return;
