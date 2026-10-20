@@ -9,7 +9,6 @@
   const fontLibraryKey = 'ai-live-commentator-font-library-v1';
   const settingsExportFormat = 'minkome-settings';
   const settingsExportVersion = 1;
-  const driveClientStorageKey = 'ai-live-commentator-drive-client-v1';
   const driveSecretsFormat = 'minkome-secrets';
   const driveSecretsVersion = 1;
   const obsOverlaySourceName='みんコメ 吹き出し';
@@ -551,23 +550,22 @@
   function driveFileLabel(file){return file?.modifiedTime?new Date(file.modifiedTime).toLocaleString('ja-JP'):'なし';}
   function driveControls(){
     if(!$('driveConnect'))return;
-    const allowed=driveOriginAllowed(),valid=globalThis.LiveDriveSync?.validClientId($('driveClientId').value),connected=!!driveClient?.accessToken,locked=busy||vaultBusy||driveBusy;
+    const clientId=String(globalThis.MINKOME_GOOGLE_OAUTH_CLIENT_ID||'').trim(),allowed=driveOriginAllowed(),valid=globalThis.LiveDriveSync?.validClientId(clientId),connected=!!driveClient?.accessToken,locked=busy||vaultBusy||driveBusy;
     $('driveConnect').disabled=locked||!allowed||!valid;
     for(const id of ['driveSave','driveRestore','driveDisconnect','driveDelete'])$(id).disabled=locked||!connected;
     $('driveOriginInfo').textContent=allowed
-      ?'現在の起動元: '+location.origin+'。Google CloudのWebアプリ用OAuth Client IDで、このオリジンを「承認済みのJavaScript生成元」に登録し、Drive APIを有効にしてください。'
+      ?(valid?'Google認証設定はアプリに組み込み済みです。現在の起動元: '+location.origin:'アプリのGoogle認証設定を読み込めませんでした。')
       :'現在は file:// などGoogle Web OAuthで使えない起動方法です。Drive連携だけはGitHub Pagesまたは http://localhost で開いてください。';
     $('summary-drive').textContent=connected?'接続済み':'未接続';
   }
   async function configureDrive(){
     if(!globalThis.LiveDriveSync)throw new C.AppError('Google Drive連携モジュールを読み込めませんでした。');
     if(!driveOriginAllowed())throw new C.AppError('Google Drive連携はGitHub Pagesまたはhttp://localhostで開いた時に利用できます。');
-    const clientId=$('driveClientId').value.trim();
-    if(!LiveDriveSync.validClientId(clientId))throw new C.AppError('Google OAuth Client IDを確認してください。');
+    const clientId=String(globalThis.MINKOME_GOOGLE_OAUTH_CLIENT_ID||'').trim();
+    if(!LiveDriveSync.validClientId(clientId))throw new C.AppError('アプリのGoogle OAuth設定を読み込めませんでした。');
     await loadGoogleIdentity();
     driveClient ||= new LiveDriveSync.DriveClient();
     driveClient.configure(clientId);
-    try{localStorage.setItem(driveClientStorageKey,clientId);}catch{}
     return driveClient;
   }
   async function refreshDriveStatus(){
@@ -1409,7 +1407,6 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('exportSettings').addEventListener('click',()=>{try{exportSettings();}catch(e){$('saveState').textContent=e.message;log(e.message,'warn');}});
   $('importSettings').addEventListener('click',()=>{$('importSettingsFile').click();});
   $('importSettingsFile').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';try{await importSettingsFile(file);}catch(error){$('saveState').textContent=error.message||'設定のインポートに失敗しました。';log(error.message||'設定のインポートに失敗しました。','warn');}});
-  $('driveClientId').addEventListener('input',driveControls);
   $('driveConnect').addEventListener('click',()=>driveOperation(connectDrive));
   $('driveSave').addEventListener('click',()=>driveOperation(saveDriveData));
   $('driveRestore').addEventListener('click',()=>driveOperation(restoreDriveData));
@@ -1553,7 +1550,6 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   const profiles=Array.isArray(stored.profiles)?stored.profiles:[];
   if(!profiles.length)profiles.push({...defaultProfile(0),speaker:stored.speaker??3,bouyomiVoice:stored.bouyomiVoice??0});
   buildProfiles(profiles);renderParticipantSelection(selectedIds);
-  try{$('driveClientId').value=localStorage.getItem(driveClientStorageKey)||'';}catch{}
   vaultState();driveControls();outputFields();overlayFields();initSettingSections();updateStats();renderSpeakerStats();
   log('準備できました。映像確認と音声テストを済ませてから開始してください。');
 })();
