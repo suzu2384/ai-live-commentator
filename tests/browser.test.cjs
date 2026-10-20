@@ -265,6 +265,8 @@ const results=[];
   assert.equal(x.events.talks.length,0);
   await finish(p);
   assert.equal(await p.locator('#chapterSubtabChapters').getAttribute('aria-selected'),'true');assert.equal(await p.locator('#chapterCandidates li').count(),1);
+  await p.locator('#chapterSubtabChapters').press('ArrowRight');assert.equal(await p.locator('#chapterSubtabYoutube').getAttribute('aria-selected'),'true');
+  await p.locator('#chapterSubtabYoutube').press('Home');assert.equal(await p.locator('#chapterSubtabChapters').getAttribute('aria-selected'),'true');
   let records=await chapterRecords(p),record=records[0];assert.equal(record.status,'finished');assert.equal(record.events.length,1);assert.equal(record.generations.length,1);assert.equal(record.representativeImageIds.length,1);assert(record.events[0].imageId);assert.equal(await p.locator('#chapterImageRetention').inputValue(),'10');assert.match(await p.locator('#chapterSessionInfo').textContent(),/代表画像 1枚/);
   assert(record.events[0].observedAtMs>1700000000000);assert(record.events[0].recordedAtMs>=record.events[0].observedAtMs);assert.equal(record.generations[0].chapters[0].sourceEventId,record.events[0].id);
   assert.equal(record.generations[0].chapters[0].observedAtMs,record.events[0].observedAtMs);
