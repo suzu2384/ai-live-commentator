@@ -495,9 +495,12 @@
     $('saveState').textContent='設定をインポートしました。APIキーとOBSパスワードは変更していません。';
     log('設定をインポートしました。友達設定・対象コンテンツ一覧・追加知識・登録フォント一覧も反映しました。');
   }
-  function exportSettings(){
+  function settingsBundle(){
     const s=settings();
-    const bundle={format:settingsExportFormat,version:settingsExportVersion,exportedAt:new Date().toISOString(),secretsIncluded:false,settings:persistedSettings(s),contentLibrary:[...contentLibrary],contentKnowledge:{...contentKnowledge},fontLibrary:[...fontLibrary]};
+    return {format:settingsExportFormat,version:settingsExportVersion,exportedAt:new Date().toISOString(),secretsIncluded:false,settings:persistedSettings(s),contentLibrary:[...contentLibrary],contentKnowledge:{...contentKnowledge},fontLibrary:[...fontLibrary]};
+  }
+  function exportSettings(){
+    const bundle=settingsBundle();
     const blob=new Blob([JSON.stringify(bundle,null,2)+'\n'],{type:'application/json'});
     const url=URL.createObjectURL(blob),a=document.createElement('a'),stamp=new Date().toISOString().slice(0,10).replaceAll('-','');
     a.href=url;a.download=`minkome-settings-${stamp}.json`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),0);
