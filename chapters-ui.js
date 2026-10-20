@@ -241,7 +241,7 @@
       }
       if(this.selected)select.value=this.selected;
       const s=this.current(),states={recording:this.active===s?.id?'記録中':'未終了の記録',finished:'終了',interrupted:'中断'};
-      $('chapterSessionInfo').textContent=s?`${states[s.status]||'保存済み'} · イベント ${s.events.length}件 · 画像 ${s.representativeImageIds?.length||0}枚`:'実況を開始すると、ここに記録が蓄積されます。';
+      $('chapterSessionInfo').textContent=s?`${states[s.status]||'保存済み'} · イベント ${s.events.length}件 · 代表画像 ${s.representativeImageIds?.length||0}枚`:'実況を開始すると、ここに記録が蓄積されます。';
       const sync=s?.youtubeSync;
       $('youtubeSyncInfo').textContent=sync?`${sync.title} · ${Number.isFinite(sync.actualStartTimeMs)?'同期済み / 開始 '+date(sync.actualStartTimeMs):'動画選択済み / 開始時刻未取得'}${sync.syncError?' · '+sync.syncError:''}`:'未同期。動画を選ぶと説明欄用の相対時刻を作成できます。';
       const genSelect=$('chapterGeneration');genSelect.replaceChildren();
