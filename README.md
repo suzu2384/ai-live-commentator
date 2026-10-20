@@ -2,6 +2,19 @@
 
 OBSの映像をGemini 3.1 Flash-Liteが見て、AIの仲間たちが同じ場所に集まっているような短い感想・掛け合いを添えます。サーバー・インストール・ビルドは不要です。
 
+## v4.49.0 Google Drive保存
+
+通常設定と秘密情報をGoogle Driveのアプリ専用領域（`appDataFolder`）へ保存・復元できるようにしました。端末内の合言葉式暗号化保存はそのまま残し、Drive保存を別の選択肢として追加しています。
+
+Drive上ではデータを2ファイルに分離します。
+
+- `minkome-settings.json`: 「設定をエクスポート」と同じ通常設定。実況・接続・読み上げ・OBS吹き出し・友達設定・参加メンバー・発言人数の重み・対象コンテンツ・追加知識・登録フォントを含み、APIキーやOBSパスワードは含みません。
+- `minkome-secrets.json`: Gemini APIキー、YouTube Data APIキー、OBSパスワード。みんコメ側では暗号化せず保存するため、復元時の合言葉は不要です。Free Tier確認状態は保存しません。
+
+「Google Driveに接続」しただけでは設定を変更せず、「Driveへ保存」「Driveから復元」を押した時だけ2ファイルを読み書きします。「Driveの保存を削除」はDrive上の2ファイルだけを削除し、端末内の通常設定・暗号化Vaultには触れません。
+
+Drive APIには `https://www.googleapis.com/auth/drive.appdata` の限定スコープだけを使用します。Webアプリ用Google OAuth Client IDは端末側に記憶しますが、設定エクスポートやDrive上のファイルには含めません。Google Web OAuthの制約により `file://` ではDrive認証を利用できないため、Drive連携時はGitHub Pagesまたは `http://localhost` で開き、そのオリジンをOAuth Clientの承認済みJavaScript生成元へ登録する必要があります。
+
 ## v4.48.0 チャプターUI整理
 
 チャプター画面を、共通の「実況の記録」選択と **チャプター / YouTube / サムネ / 記録** の4小タブに再編しました。イベント・生成・同期・サムネ素材・保存管理の機能自体やIndexedDBの保存形式は変更せず、作業ごとに表示領域を分離しています。
