@@ -2,6 +2,7 @@
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const path=require('node:path');
+const fs=require('node:fs');
 const {createHash}=require('node:crypto');
 const entry='file://'+path.resolve(__dirname,'../index.html');
 const sha=s=>createHash('sha256').update(s).digest('base64');
@@ -17,9 +18,35 @@ const results=[];
  async function setup(config={}){
   const ctx=await browser.newContext({viewport:{width:1360,height:768}});const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const host=config.host||'127.0.0.1';
-  const events={images:0,api:0,analysisImages:[],turnLimits:[],speakerEnums:[],promptTexts:[],talks:[],queries:0,voiceTexts:[],voices:[],speeds:[],synths:0,identifies:0,obsRequests:[],overlayUrls:[],overlayTransforms:[],overlayEnabled:[],unexpected:[]};let held=null;
+  const events={images:0,api:0,drive:0,analysisImages:[],turnLimits:[],speakerEnums:[],promptTexts:[],talks:[],queries:0,voiceTexts:[],voices:[],speeds:[],synths:0,identifies:0,obsRequests:[],overlayUrls:[],overlayTransforms:[],overlayEnabled:[],unexpected:[]};let held=null;
+  const driveFiles=config.driveFiles||new Map();let driveNext=1;
   await page.clock.install();
+  if(config.httpEntry)await page.route('http://localhost:9876/**',async r=>{
+   const u=new URL(r.request().url()),rel=u.pathname==='/'?'index.html':u.pathname.slice(1),file=path.resolve(__dirname,'..',rel),root=path.resolve(__dirname,'..');
+   if(!file.startsWith(root)||!fs.existsSync(file)||fs.statSync(file).isDirectory())return r.fulfill({status:404,body:'not found'});
+   const ext=path.extname(file),types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.webmanifest':'application/manifest+json','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'};
+   return r.fulfill({status:200,contentType:types[ext]||'application/octet-stream',body:fs.readFileSync(file)});
+  });
   await page.route('https://**/*',async r=>{
+   if(r.request().url().startsWith('https://accounts.google.com/gsi/client')&&config.httpEntry)return r.fulfill({contentType:'text/javascript',body:`globalThis.google={accounts:{oauth2:{initTokenClient:(opts)=>({callback:opts.callback,requestAccessToken(){setTimeout(()=>this.callback({access_token:'drive-token'}),0);}}),revoke:(_token,cb)=>cb&&cb()}}};`});
+   if(r.request().url().startsWith('https://www.googleapis.com/drive/v3/')||r.request().url().startsWith('https://www.googleapis.com/upload/drive/v3/')){
+    events.drive++;assert.equal(r.request().headers().authorization,'Bearer drive-token');const u=new URL(r.request().url()),method=r.request().method();
+    if(u.pathname==='/drive/v3/files'&&method==='GET'){
+      const q=u.searchParams.get('q')||'',match=q.match(/name='([^']+)'/),name=match?.[1]?.replaceAll("\\'","'")||'';
+      const files=[...driveFiles.values()].filter(f=>f.name===name).map(f=>({id:f.id,name:f.name,modifiedTime:f.modifiedTime,size:String(Buffer.byteLength(f.body||''))}));
+      return r.fulfill({contentType:'application/json',body:JSON.stringify({files})});
+    }
+    if(u.pathname==='/drive/v3/files'&&method==='POST'){
+      const meta=JSON.parse(r.request().postData()||'{}'),id='drive-'+driveNext++,file={id,name:meta.name,modifiedTime:new Date().toISOString(),body:''};driveFiles.set(id,file);
+      assert.deepEqual(meta.parents,['appDataFolder']);return r.fulfill({contentType:'application/json',body:JSON.stringify({id,name:file.name,modifiedTime:file.modifiedTime})});
+    }
+    const fileMatch=u.pathname.match(/^\/drive\/v3\/files\/([^/]+)$/);
+    if(fileMatch&&method==='GET'&&u.searchParams.get('alt')==='media'){const file=driveFiles.get(fileMatch[1]);return r.fulfill({status:file?200:404,contentType:'application/json',body:file?.body||'{}'});}
+    if(fileMatch&&method==='DELETE'){driveFiles.delete(fileMatch[1]);return r.fulfill({status:204,body:''});}
+    const upload=u.pathname.match(/^\/upload\/drive\/v3\/files\/([^/]+)$/);
+    if(upload&&method==='PATCH'){const file=driveFiles.get(upload[1]);file.body=r.request().postData()||'';file.modifiedTime=new Date(Date.now()+1000).toISOString();return r.fulfill({contentType:'application/json',body:JSON.stringify({id:file.id,name:file.name,modifiedTime:file.modifiedTime})});}
+    events.unexpected.push('drive:'+method+':'+u.pathname);return r.abort();
+   }
    if(r.request().url().startsWith('https://i.ytimg.com/'))return r.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="#346675"/><path d="M65 25L100 45L65 65Z" fill="white"/></svg>'});
    if(r.request().url().startsWith('https://www.googleapis.com/youtube/v3/')){
     events.youtube=(events.youtube||0)+1;assert.equal(r.request().headers()['x-goog-api-key'],'youtube-test-key');
@@ -97,7 +124,7 @@ const results=[];
     events.unexpected.push('obs:'+type);return reply(m,{});
    });ws.send(JSON.stringify({op:0,d:{rpcVersion:1,authentication:{salt:'salt',challenge:'challenge'}}}));
   });
-  await page.goto(entry);
+  await page.goto(config.httpEntry?'http://localhost:9876/index.html':entry);
   await page.locator('details.setting-section').evaluateAll(ds=>ds.forEach(d=>d.open=true));
   await page.locator('#settings-advanced').evaluate(d=>d.open=true);
   await page.locator('#greetStart').uncheck();await page.locator('#greetEnd').uncheck();
@@ -109,7 +136,7 @@ const results=[];
   await page.locator('#tab-live').click();
   for(let n=1;n<=6;n++)await page.locator('#speakerWeight'+n).fill(n===1?'100':'0');
   if(config.before)await config.before(page);
-  return {page,ctx,events,errors,held:()=>held,close:async()=>{assert.deepEqual(errors,[]);assert.deepEqual(events.unexpected,[]);await ctx.close();}};
+  return {page,ctx,events,errors,driveFiles,held:()=>held,close:async()=>{assert.deepEqual(errors,[]);assert.deepEqual(events.unexpected,[]);await ctx.close();}};
  }
  async function start(x){await x.page.locator('#start').click();await idle(x.page);await x.page.clock.fastForward(4100);}
  async function stop(p){await p.locator('#stop').click();await stopped(p);}
