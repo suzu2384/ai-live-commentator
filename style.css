@@ -757,7 +757,6 @@ html[data-theme="sand"]{
 .drive-file-status span{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--preview-bg);font-size:11px;color:var(--muted)}
 .drive-file-status strong{color:var(--text);font-weight:650}
 .drive-security-note{padding:8px 10px;border-left:3px solid var(--warning,#c69535);background:color-mix(in srgb,var(--warning,#c69535) 8%,transparent);border-radius:4px}
-#driveClientId{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
 @media(max-width:520px){
   .drive-file-status{grid-template-columns:1fr}
   #settings-drive .actions button{flex:1 1 145px}
