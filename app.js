@@ -9,6 +9,9 @@
   const fontLibraryKey = 'ai-live-commentator-font-library-v1';
   const settingsExportFormat = 'minkome-settings';
   const settingsExportVersion = 1;
+  const driveClientStorageKey = 'ai-live-commentator-drive-client-v1';
+  const driveSecretsFormat = 'minkome-secrets';
+  const driveSecretsVersion = 1;
   const obsOverlaySourceName='みんコメ 吹き出し';
   const legacyObsOverlaySourceName='みんコメ コメント';
   const obsOverlayColors=['#2e7fa3','#a93b6b','#3f7f46','#b47420','#6549a7','#a8443b'];
@@ -53,7 +56,8 @@
   let obsOverlayTimer=null,obsOverlayEpoch=0,obsOverlayFaulted=false,obsOverlayTarget=null;
   let phaseAt = performance.now(), lastCaptureAt = null, busy = false, lastSettings = null;
   const stats = { used:0, stale:0 };
-  let resumeAction=null, finishAction=null, streaming=false, vaultBusy=false, pageEpoch=0;
+  let resumeAction=null, finishAction=null, streaming=false, vaultBusy=false, driveBusy=false, pageEpoch=0;
+  let driveClient=null;
   let obsSourceFailurePending=false,obsSourceRecoveryReady=false;
   const speakerSessionCounts=Object.fromEntries(Array.from({length:6},(_,i)=>[`p${i+1}`,0]));
   let activeSpeakerId=null,lastSpeakerId=null,activeSpeakerMode='';
@@ -119,7 +123,7 @@
   }
   function setBusy(value) {
     busy = value;chapterUI?.setBusy(value||vaultBusy);
-    for (const el of document.querySelectorAll('#settings input,#settings select,#settings textarea,#settings button,#panel-friends input,#panel-friends select,#panel-friends textarea,#panel-friends button')) el.disabled = value || vaultBusy;
+    for (const el of document.querySelectorAll('#settings input,#settings select,#settings textarea,#settings button,#panel-friends input,#panel-friends select,#panel-friends textarea,#panel-friends button')) el.disabled = value || vaultBusy || driveBusy;
     $('start').disabled = value; $('stop').disabled = !value; $('finish').disabled = !streaming;updateObsRefreshButton();
   }
   function revealSetting(id){
@@ -137,6 +141,7 @@
     $('summary-voice').textContent=$('output').value==='voicevox'?'VOICEVOX':'棒読みちゃん';
     try{$('summary-vault').textContent=localStorage.getItem('ai-live-commentator-vault-v1')?'保存あり':'保存なし';}
     catch{$('summary-vault').textContent='保存状態不明';}
+    if($('summary-drive'))$('summary-drive').textContent=driveClient?.accessToken?'接続済み':'未接続';
   }
   function initSettingSections(){
     for(const section of document.querySelectorAll('details.setting-section'))section.open=section.id==='settings-vault';
