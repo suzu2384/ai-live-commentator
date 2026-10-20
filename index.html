@@ -154,55 +154,93 @@ try{
 
 <div id="panel-chapters" role="tabpanel" aria-labelledby="tab-chapters" hidden>
 <section class="card chapter-panel">
+<div class="chapter-workspace-head">
 <div class="card-head"><h2>チャプター</h2></div>
-<p class="hint">映像解析で確認できた出来事を端末内に保存します。元の日時は端末の時計・表示タイムゾーンを使用します。YouTube同期済みの場合は動画内の相対時間も併記します。</p>
 <p id="chapterStorageWarning" class="chapter-warning" role="alert" hidden>端末への保存に失敗しました。この画面では記録を保持しますが、再読み込みすると未保存分が失われます。ブラウザの保存容量・設定を確認してください。</p>
-<label>実況の記録<select id="chapterSession"></select></label>
-<p id="chapterSessionInfo" class="hint"></p>
-<div class="chapter-image-storage">
-<label>代表画像を保持する配信数<input id="chapterImageRetention" type="number" min="1" max="100" step="1" value="10" inputmode="numeric"></label>
-<button id="chapterImagesDelete" type="button" disabled>この配信の代表画像を削除</button>
+<label class="chapter-session-select">実況の記録<select id="chapterSession"></select></label>
+<p id="chapterSessionInfo" class="chapter-session-info"></p>
 </div>
-<p class="hint">代表画像は直近の指定配信数だけ保持します。古い配信は画像だけ自動削除し、チャプター・イベントログは残します。1配信あたりの画像枚数は制限しません。</p>
-<p id="chapterImageStorageStatus" class="hint" role="status" aria-live="polite"></p>
-<p id="youtubeSyncInfo" class="hint"></p><div class="actions wrap"><button id="youtubeSync" type="button" disabled>YouTubeと同期</button><button id="youtubeResync" type="button" disabled>YouTube時刻を再取得</button><button id="youtubeUnlink" type="button" disabled>同期解除</button></div>
-<label class="check"><input id="chapterAuto" type="checkbox" checked>「実況を終了」後にチャプターを自動生成</label>
-<p class="hint">生成・再生成はGeminiの無料枠を使用します。長い記録は分割整理して統合するため複数回送信します。「即停止」では自動生成せず、記録を残します。</p>
-<div class="actions wrap"><button id="chapterGenerate" type="button" disabled>生成・再生成</button></div>
-<p id="chapterStatus" class="hint" role="status" aria-live="polite">イベントを蓄積すると生成できます。</p>
-<label>生成履歴<select id="chapterGeneration"></select></label>
-<p class="hint">タイトル・時刻を編集できます。編集内容は生成履歴ごとに保存され、元イベントとAIの生成結果は残ります。</p>
-<div class="actions wrap"><button id="chapterAdd" type="button" disabled>チャプターを追加</button><button id="chapterReset" type="button" class="subtle" disabled>元の生成結果に戻す</button><button id="chapterUndoDelete" type="button" hidden>直前の削除を戻す</button></div>
+
+<nav class="chapter-subtabs" role="tablist" aria-label="チャプター作業">
+<button id="chapterSubtabChapters" type="button" role="tab" aria-controls="chapterSectionChapters" aria-selected="true" data-chapter-view="chapters">チャプター</button>
+<button id="chapterSubtabYoutube" type="button" role="tab" aria-controls="chapterSectionYoutube" aria-selected="false" tabindex="-1" data-chapter-view="youtube">YouTube</button>
+<button id="chapterSubtabThumbnail" type="button" role="tab" aria-controls="chapterSectionThumbnail" aria-selected="false" tabindex="-1" data-chapter-view="thumbnail">サムネ</button>
+<button id="chapterSubtabRecords" type="button" role="tab" aria-controls="chapterSectionRecords" aria-selected="false" tabindex="-1" data-chapter-view="records">記録</button>
+</nav>
+
+<section id="chapterSectionChapters" class="chapter-section" role="tabpanel" aria-labelledby="chapterSubtabChapters" data-chapter-section="chapters">
+<div class="chapter-section-toolbar">
+<label class="chapter-generation-select">生成履歴<select id="chapterGeneration"></select></label>
+<button id="chapterGenerate" type="button" class="primary" disabled>生成・再生成</button>
+</div>
+<p id="chapterStatus" class="hint chapter-status" role="status" aria-live="polite">イベントを蓄積すると生成できます。</p>
+<details class="chapter-compact-details">
+<summary>生成設定</summary>
+<div class="chapter-detail-body">
+<label class="check"><input id="chapterAuto" type="checkbox" checked>実況終了後に自動生成</label>
+<p class="hint compact-hint">生成・再生成はGeminiの無料枠を使用します。長い記録は分割整理して統合します。「即停止」では自動生成しません。</p>
+</div>
+</details>
+<div class="chapter-list-actions actions wrap">
+<button id="chapterAdd" type="button" disabled>＋ チャプターを追加</button>
+<button id="chapterReset" type="button" class="subtle" disabled>元の生成結果に戻す</button>
+<button id="chapterUndoDelete" type="button" hidden>直前の削除を戻す</button>
+</div>
 <p id="chapterEditStatus" class="hint" role="status"></p>
 <ol id="chapterCandidates" class="chapter-list" aria-label="チャプター候補"></ol>
 <p id="chapterCandidateEmpty" class="hint">生成されたチャプター候補がここに表示されます。</p>
-<section class="chapter-thumbnail" aria-labelledby="chapterThumbnailTitle">
-<h3 id="chapterThumbnailTitle">ChatGPTサムネ素材</h3>
-<p class="hint">代表画像からサムネ向きの最大5枚を自動選別します。画像生成APIは使わず、選んだ画像と依頼文をChatGPTへ持っていくための素材を作ります。</p>
-<div class="actions wrap"><button id="thumbnailAutoSelect" type="button" disabled>5枚を自動選別</button></div>
-<div id="thumbnailReferences" class="thumbnail-references" aria-label="ChatGPT用に選択した代表画像"></div>
-<p id="thumbnailReferenceInfo" class="hint">代表画像がある終了済み配信を選択してください。</p>
-<details id="thumbnailPickerDetails" class="thumbnail-picker-details"><summary>素材を手動で選び直す</summary><div id="thumbnailPicker" class="thumbnail-picker"></div></details>
-<label class="check"><input id="thumbnailTextEnabled" type="checkbox" checked>サムネイルに文字を入れる</label>
-<label>サムネイルの文字<input id="thumbnailText" type="text" maxlength="50" autocomplete="off"></label>
-<label>ChatGPTへの依頼文<textarea id="thumbnailPrompt" rows="8" readonly spellcheck="false"></textarea></label>
-<div class="actions wrap"><button id="thumbnailCopyPrompt" type="button" class="primary" disabled>依頼文をコピー</button><button id="thumbnailDownloadPackage" type="button" disabled>ChatGPT用素材を保存</button></div>
-<p id="thumbnailStatus" class="hint" role="status" aria-live="polite"></p>
 </section>
+
+<section id="chapterSectionYoutube" class="chapter-section" role="tabpanel" aria-labelledby="chapterSubtabYoutube" data-chapter-section="youtube" hidden>
+<div class="chapter-section-head"><div><h3>YouTube同期</h3><p id="youtubeSyncInfo" class="hint"></p></div></div>
+<div class="actions wrap chapter-youtube-actions"><button id="youtubeSync" type="button" class="primary" disabled>YouTubeと同期</button><button id="youtubeResync" type="button" disabled>時刻を再取得</button><button id="youtubeUnlink" type="button" class="subtle" disabled>同期解除</button></div>
 <section class="chapter-export" aria-labelledby="chapterExportTitle">
-<h3 id="chapterExportTitle">YouTube貼り付け用テキスト</h3>
-<p class="hint">YouTube同期後、編集内容から自動で更新します。動画の説明欄に貼り付けてください。</p>
+<h3 id="chapterExportTitle">説明欄用チャプター</h3>
 <label class="check"><input id="chapterIntro" type="checkbox" checked disabled>先頭が0秒でない場合に「00:00」を補う</label>
 <label>00:00のタイトル<input id="chapterIntroTitle" type="text" value="配信開始" maxlength="80" disabled></label>
 <p id="chapterIntroAdded" class="hint" hidden>出力に00:00を補っています。元のイベント・生成結果への追加はありません。</p>
 <p id="chapterExportStatus" class="hint" role="status"></p><ul id="chapterExportNotes" class="chapter-export-notes"></ul>
 <label for="chapterOutput">説明欄に貼り付ける内容</label><textarea id="chapterOutput" rows="7" readonly spellcheck="false" placeholder="YouTubeと同期すると、ここに表示されます。"></textarea>
-<div class="actions wrap"><button id="chapterCopy" type="button" class="primary" disabled>テキストをコピー</button><button id="chapterSelectText" type="button" disabled>テキストを選択</button></div>
+<div class="actions wrap"><button id="chapterCopy" type="button" class="primary" disabled>テキストをコピー</button><button id="chapterSelectText" type="button" hidden disabled>テキストを選択</button></div>
 <p id="chapterCopyStatus" class="hint" role="status" aria-live="polite"></p>
 </section>
+</section>
+
+<section id="chapterSectionThumbnail" class="chapter-section" role="tabpanel" aria-labelledby="chapterSubtabThumbnail" data-chapter-section="thumbnail" hidden>
+<section class="chapter-thumbnail" aria-labelledby="chapterThumbnailTitle">
+<div class="chapter-section-head"><div><h3 id="chapterThumbnailTitle">ChatGPTサムネ素材</h3><p class="hint">代表画像からサムネ向きの最大5枚を選び、ChatGPTへ渡す素材を作ります。</p></div><button id="thumbnailAutoSelect" type="button" disabled>自動選別</button></div>
+<div id="thumbnailReferences" class="thumbnail-references" aria-label="ChatGPT用に選択した代表画像"></div>
+<p id="thumbnailReferenceInfo" class="hint">代表画像がある終了済み配信を選択してください。</p>
+<details id="thumbnailPickerDetails" class="thumbnail-picker-details"><summary>素材を手動で選び直す</summary><div id="thumbnailPicker" class="thumbnail-picker"></div></details>
+<div class="thumbnail-text-settings">
+<label class="check"><input id="thumbnailTextEnabled" type="checkbox" checked>サムネイルに文字を入れる</label>
+<label>サムネイルの文字<input id="thumbnailText" type="text" maxlength="50" autocomplete="off"></label>
+</div>
+<div class="actions wrap thumbnail-primary-actions"><button id="thumbnailDownloadPackage" type="button" class="primary" disabled>ChatGPT用素材を保存</button><button id="thumbnailCopyPrompt" type="button" disabled>依頼文をコピー</button></div>
+<details class="chapter-compact-details thumbnail-prompt-details">
+<summary>ChatGPTへの依頼文を確認</summary>
+<div class="chapter-detail-body"><textarea id="thumbnailPrompt" rows="8" readonly spellcheck="false"></textarea></div>
+</details>
+<p id="thumbnailStatus" class="hint" role="status" aria-live="polite"></p>
+</section>
+</section>
+
+<section id="chapterSectionRecords" class="chapter-section" role="tabpanel" aria-labelledby="chapterSubtabRecords" data-chapter-section="records" hidden>
 <details id="chapterEventsSection" open><summary id="chapterEventCount">元イベントログ（0件）</summary>
 <div class="chapter-pagination"><button id="chapterPrev" type="button">前へ</button><span id="chapterPage"></span><button id="chapterNext" type="button">次へ</button></div>
 <ol id="chapterEvents" class="chapter-list" aria-label="元イベントログ"></ol></details>
+<details class="chapter-compact-details chapter-storage-details">
+<summary>代表画像の保存管理</summary>
+<div class="chapter-detail-body">
+<div class="chapter-image-storage">
+<label>代表画像を保持する配信数<input id="chapterImageRetention" type="number" min="1" max="100" step="1" value="10" inputmode="numeric"></label>
+<button id="chapterImagesDelete" type="button" disabled>この配信の代表画像を削除</button>
+</div>
+<p class="hint compact-hint">代表画像は直近の指定配信数だけ保持します。古い配信では画像だけを削除し、チャプター・イベントログは残します。</p>
+<p id="chapterImageStorageStatus" class="hint" role="status" aria-live="polite"></p>
+</div>
+</details>
+</section>
 </section></div>
 
 <div id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden>
