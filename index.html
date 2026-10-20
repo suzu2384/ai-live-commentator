@@ -20,7 +20,7 @@ try{
 <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.48.0">
 <link rel="manifest" href="manifest.webmanifest?v=4.48.0">
 <link rel="stylesheet" href="style.css?v=4.48.0">
-<script src="core.js?v=4.48.0" defer></script><script src="vault.js?v=4.48.0" defer></script><script src="youtube.js?v=4.48.0" defer></script><script src="youtube-ui.js?v=4.48.0" defer></script><script src="chapters.js?v=4.48.0" defer></script><script src="thumbnail.js?v=4.48.0" defer></script><script src="chapter-editor.js?v=4.48.0" defer></script><script src="chapter-editor-ui.js?v=4.48.0" defer></script><script src="chapters-ui.js?v=4.48.0" defer></script><script src="app.js?v=4.48.0" defer></script>
+<script src="core.js?v=4.48.0" defer></script><script src="vault.js?v=4.48.0" defer></script><script src="drive-sync.js?v=4.48.0" defer></script><script src="youtube.js?v=4.48.0" defer></script><script src="youtube-ui.js?v=4.48.0" defer></script><script src="chapters.js?v=4.48.0" defer></script><script src="thumbnail.js?v=4.48.0" defer></script><script src="chapter-editor.js?v=4.48.0" defer></script><script src="chapter-editor-ui.js?v=4.48.0" defer></script><script src="chapters-ui.js?v=4.48.0" defer></script><script src="app.js?v=4.48.0" defer></script>
 </head>
 <body>
 <header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.48.0" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.48.0</span></div></header>
@@ -149,6 +149,15 @@ try{
 <label>合言葉の確認（保存時のみ）<input id="vaultConfirm" type="password" autocomplete="off" maxlength="200"></label>
 <div class="actions wrap"><button type="button" id="vaultSave">暗号化して保存</button><button type="button" id="vaultUnlock">解除</button><button type="button" id="vaultLock">ロック</button><button type="button" id="vaultDelete">保存を削除</button></div>
 <p id="vaultState" class="hint" role="status">保存状態を確認中</p></div></details>
+<details class="card setting-section" id="settings-drive"><summary class="setting-summary"><span>Google Drive保存</span><span id="summary-drive" class="setting-summary-value">未接続</span></summary><div class="setting-body">
+<p class="hint compact-hint">合言葉なしで別端末へ設定とキー類を引き継ぎます。Google Driveのアプリ専用領域に、通常設定と秘密情報を別ファイルで保存します。</p>
+<label>Google OAuth Client ID<input id="driveClientId" type="text" autocomplete="off" spellcheck="false" placeholder="1234567890-xxxx.apps.googleusercontent.com"></label>
+<p id="driveOriginInfo" class="hint compact-hint"></p>
+<div class="actions wrap"><button type="button" id="driveConnect">Google Driveに接続</button><button type="button" id="driveSave" class="primary" disabled>Driveへ保存</button><button type="button" id="driveRestore" disabled>Driveから復元</button><button type="button" id="driveDisconnect" class="subtle" disabled>切断</button><button type="button" id="driveDelete" class="subtle" disabled>Driveの保存を削除</button></div>
+<p id="driveState" class="hint" role="status" aria-live="polite">未接続です。</p>
+<div class="drive-file-status"><span>通常設定 <strong id="driveSettingsState">未確認</strong></span><span>キー・パスワード <strong id="driveSecretsState">未確認</strong></span></div>
+<p class="hint compact-hint drive-security-note">秘密情報ファイルはアプリ側では暗号化しません。Googleアカウントへのアクセス権を持つこのアプリからは、Gemini APIキー・YouTube APIキー・OBSパスワードを読み出せます。Free Tier確認状態は保存しません。</p>
+</div></details>
 </div>
 </form>
 
