@@ -689,3 +689,64 @@ html[data-theme="sand"]{
   #thumbnailText,#thumbnailPrompt{font-size:16px}
 }
 .chapter-export{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:10px;min-width:0}.chapter-export h3{margin:0 0 8px}.chapter-export .actions{margin-top:10px}.chapter-export-notes{padding-left:20px;font-size:12px;overflow-wrap:anywhere}.chapter-export-notes li{margin:6px 0;color:var(--warn)}#chapterOutput{width:100%;min-height:160px;resize:vertical;font-family:inherit;font-variant-numeric:tabular-nums;line-height:1.8}.chapter-edit-form{padding:18px;overflow:auto}.chapter-edit-form label{margin-bottom:12px}.chapter-edit-error{color:var(--warn)}#chapterEditDialog{max-height:90dvh;overflow:auto}.chapter-list .actions{gap:8px}.chapter-panel button{white-space:normal}.chapter-panel .hint{overflow-wrap:anywhere}@media(max-width:520px){.chapter-export{padding:12px}.chapter-edit-form{padding:12px}.chapter-edit-form input,.chapter-edit-form select,#chapterIntroTitle,#chapterOutput{font-size:16px}}
+
+
+/* v4.48 chapter workspace: one stream selector, four focused work areas. */
+.chapter-workspace-head{min-width:0}
+.chapter-workspace-head .card-head{margin-bottom:8px}
+.chapter-session-select{margin:0 0 5px}
+.chapter-session-select select{margin-top:4px}
+.chapter-session-info{margin:0 0 10px;color:var(--muted);font-size:11px;line-height:1.5;font-variant-numeric:tabular-nums}
+.chapter-subtabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:4px 0 0;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--preview-bg)}
+.chapter-subtabs button{min-width:0;min-height:36px;padding:7px 5px;border:0;background:transparent;color:var(--muted);font-size:11px;white-space:nowrap}
+.chapter-subtabs button:hover{background:var(--surface-open);color:var(--text)}
+.chapter-subtabs button[aria-selected=true]{background:var(--surface-open);color:var(--accent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent)}
+.chapter-section{min-width:0;padding:14px 1px 2px}
+.chapter-section[hidden]{display:none!important}
+.chapter-section-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px;margin-bottom:4px}
+.chapter-section-toolbar label{margin:0}
+.chapter-section-toolbar button{min-height:38px}
+.chapter-generation-select select{margin-top:4px}
+.chapter-status{margin:7px 0}
+.chapter-list-actions{margin:8px 0 2px}
+.chapter-list-actions #chapterReset{margin-left:auto}
+.chapter-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+.chapter-section-head h3{margin:0;font-size:13px}
+.chapter-section-head .hint{margin:3px 0 0}
+.chapter-section-head>button{flex:0 0 auto}
+.chapter-compact-details{margin:10px 0;padding:0;border:1px solid var(--line);border-radius:9px;background:var(--preview-bg);overflow:hidden}
+.chapter-compact-details>summary{margin:0;padding:9px 10px;color:var(--muted);font-size:11px}
+.chapter-compact-details[open]>summary{color:var(--text);background:var(--surface-open)}
+.chapter-detail-body{padding:10px 10px 3px;border-top:1px solid var(--line)}
+.chapter-detail-body>label:last-of-type{margin-bottom:7px}
+.chapter-youtube-actions{margin:4px 0 12px}
+#chapterSectionYoutube .chapter-export{margin:0;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--preview-bg)}
+#chapterSectionYoutube .chapter-export h3{font-size:12px;margin:0 0 10px}
+#chapterSectionYoutube #chapterOutput{min-height:135px}
+#chapterSectionThumbnail .chapter-thumbnail{margin:0;padding:0;border:0;border-radius:0}
+.thumbnail-text-settings{margin-top:10px}
+.thumbnail-primary-actions{margin-top:4px}
+.thumbnail-prompt-details{margin-top:10px}
+.thumbnail-prompt-details #thumbnailPrompt{margin:0;min-height:130px}
+#chapterSectionRecords>#chapterEventsSection{margin:0;padding:0;border:0}
+#chapterSectionRecords>#chapterEventsSection>summary{margin:0 0 10px;color:var(--text);font-size:12px;font-weight:650}
+.chapter-storage-details{margin-top:14px}
+.chapter-storage-details .chapter-image-storage{margin-top:0}
+.chapter-storage-details .chapter-image-storage label{min-width:160px}
+@media(min-width:901px){
+  .chapter-subtabs{position:sticky;top:0;z-index:2;backdrop-filter:blur(12px)}
+}
+@media(max-width:520px){
+  .chapter-subtabs{gap:2px;padding:3px}
+  .chapter-subtabs button{min-height:40px;padding:7px 2px;font-size:10px}
+  .chapter-section{padding-top:10px}
+  .chapter-section-toolbar{grid-template-columns:minmax(0,1fr) auto;gap:6px}
+  .chapter-section-toolbar button{padding:8px 10px;font-size:11px}
+  .chapter-list-actions{gap:6px}
+  .chapter-list-actions #chapterReset{margin-left:0}
+  .chapter-section-head{align-items:center}
+  .chapter-section-head h3{font-size:12px}
+  #chapterSectionYoutube .chapter-export{padding:11px}
+  #chapterSectionYoutube #chapterOutput,#thumbnailPrompt{font-size:16px}
+  .thumbnail-primary-actions button{flex:1 1 140px}
+}
