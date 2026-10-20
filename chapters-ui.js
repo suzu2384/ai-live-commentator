@@ -5,11 +5,21 @@
   const names={scene:'場面',progress:'進行',battle:'戦闘',result:'結果',menu:'メニュー',other:'その他'};
   class ChapterUI{
     constructor({log,onGenerate,onSelectTab,onSync,onResync,onUnlink}){
-      this.log=log;this.onSelectTab=onSelectTab;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.warnedObservation=false;this.imageDialogUrl=null;this.imageRetentionSessions=10;this.pendingImageSaves=new Set();this.thumbnailReferenceUrls=[];this.thumbnailPickerUrls=[];this.thumbnailRenderToken=0;this.thumbnailTextTouched=false;
+      this.log=log;this.onSelectTab=onSelectTab;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.page=0;this.generationId=null;this.view='chapters';this.warnedObservation=false;this.imageDialogUrl=null;this.imageRetentionSessions=10;this.pendingImageSaves=new Set();this.thumbnailReferenceUrls=[];this.thumbnailPickerUrls=[];this.thumbnailRenderToken=0;this.thumbnailTextTouched=false;
       try{const stored=Number(localStorage.getItem('minkome-image-retention-sessions-v1'));if(Number.isInteger(stored)&&stored>=1&&stored<=100)this.imageRetentionSessions=stored;}catch{} $('chapterImageRetention').value=String(this.imageRetentionSessions);this.store=new H.Store(()=>{$('chapterStorageWarning').hidden=false;});
       this.ready=this.store.ready.then(async()=>{await this.store.pruneRepresentativeImages(this.imageRetentionSessions);this.selected=[...this.store.records.values()].sort((a,b)=>b.startedAtMs-a.startedAtMs)[0]?.id||null;$('chapterStatus').textContent=this.selected?'保存済みの記録を復元しました。生成・再生成できます。':'イベントを蓄積すると生成できます。';this.render();});
       try{$('chapterAuto').checked=localStorage.getItem('minkome-chapter-auto-v1')!=='false';}catch{}
       $('chapterAuto').addEventListener('change',()=>{try{localStorage.setItem('minkome-chapter-auto-v1',String($('chapterAuto').checked));}catch{}});
+      const viewButtons=[...document.querySelectorAll('[data-chapter-view]')];
+      for(const button of viewButtons){
+        button.addEventListener('click',()=>this.selectView(button.dataset.chapterView));
+        button.addEventListener('keydown',event=>{
+          if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+          event.preventDefault();const current=viewButtons.indexOf(button);
+          const next=event.key==='Home'?0:event.key==='End'?viewButtons.length-1:(current+(event.key==='ArrowRight'?1:-1)+viewButtons.length)%viewButtons.length;
+          this.selectView(viewButtons[next].dataset.chapterView,true);
+        });
+      }
       $('chapterSession').addEventListener('change',()=>{this.selected=$('chapterSession').value;this.page=0;this.generationId=null;this.thumbnailTextTouched=false;$('chapterStatus').textContent='選択した記録から生成・再生成できます。';this.render();});
       $('chapterGeneration').addEventListener('change',()=>{this.generationId=$('chapterGeneration').value;this.thumbnailTextTouched=false;this.render();});
       $('youtubeSync').addEventListener('click',()=>onSync());
@@ -29,8 +39,20 @@
       this.editor=new root.LiveChapterEditorUI(this);
       $('chapterImageClose')?.addEventListener('click',()=>this.closeRepresentativeImage());
       $('chapterImageDialog')?.addEventListener('cancel',e=>{e.preventDefault();this.closeRepresentativeImage();});
+      this.selectView('chapters');
     }
     current(){return this.store.records.get(this.selected);}
+    selectView(view,focus=false){
+      const button=document.querySelector(`[data-chapter-view="${view}"]`);if(!button)return;
+      this.view=view;
+      for(const item of document.querySelectorAll('[data-chapter-view]')){
+        const selected=item===button;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;
+      }
+      for(const section of document.querySelectorAll('[data-chapter-section]'))section.hidden=section.dataset.chapterSection!==view;
+      if(focus)button.focus();
+      if(view==='records')this.renderEvents();
+      if(view==='thumbnail')void this.renderThumbnailPanel();
+    }
     imageRetentionCount(){
       const value=Math.max(1,Math.min(100,Math.trunc(Number($('chapterImageRetention').value)||10)));
       $('chapterImageRetention').value=String(value);return value;
@@ -199,7 +221,7 @@
     }
     async generate(key,signal,onRequest,sessionId=this.selected){
       const s=this.store.records.get(sessionId);if(!s)return;
-      this.selected=s.id;this.generating=true;this.render();this.onSelectTab();
+      this.selected=s.id;this.generating=true;this.selectView('chapters');this.render();this.onSelectTab();
       try{
         const generation=await H.generate(s,{signal,onProgress:text=>{$('chapterStatus').textContent=text;},request:async(payload,token)=>{
           onRequest();return C.deadline(t=>C.gemini(key,payload,t),120000,token,'チャプター生成がタイムアウトしました。記録は残っているので再生成できます。');
@@ -219,9 +241,9 @@
       }
       if(this.selected)select.value=this.selected;
       const s=this.current(),states={recording:this.active===s?.id?'記録中':'未終了の記録',finished:'終了',interrupted:'中断'};
-      $('chapterSessionInfo').textContent=s?`${states[s.status]||'保存済み'} · ${date(s.startedAtMs)} ～ ${date(s.endedAtMs)} · イベント ${s.events.length}件 · 代表画像 ${s.representativeImageIds?.length||0}枚`:'実況を開始すると、ここに記録が蓄積されます。';
+      $('chapterSessionInfo').textContent=s?`${states[s.status]||'保存済み'} · イベント ${s.events.length}件 · 画像 ${s.representativeImageIds?.length||0}枚`:'実況を開始すると、ここに記録が蓄積されます。';
       const sync=s?.youtubeSync;
-      $('youtubeSyncInfo').textContent=sync?`YouTube: ${sync.title} (${sync.videoId}) · ${Number.isFinite(sync.actualStartTimeMs)?'同期済み · 実際の開始 '+date(sync.actualStartTimeMs):'未同期 · 実際の開始時刻は未取得'} · 実際の終了 ${date(sync.actualEndTimeMs)}${sync.syncError?' · '+sync.syncError:''}`:'YouTube連携なし（絶対日時で表示）';
+      $('youtubeSyncInfo').textContent=sync?`${sync.title} · ${Number.isFinite(sync.actualStartTimeMs)?'同期済み / 開始 '+date(sync.actualStartTimeMs):'動画選択済み / 開始時刻未取得'}${sync.syncError?' · '+sync.syncError:''}`:'未同期。動画を選ぶと説明欄用の相対時刻を作成できます。';
       const genSelect=$('chapterGeneration');genSelect.replaceChildren();
       for(const g of [...s?.generations||[]].reverse()){
         const option=document.createElement('option');option.value=g.id;option.textContent=`${date(g.createdAtMs)} · ${g.chapters.length}件`;genSelect.append(option);
@@ -234,8 +256,8 @@
     }
     showEvent(id){
       const events=[...this.current()?.events||[]].reverse(),index=events.findIndex(e=>e.id===id);if(index<0)return;
-      this.page=Math.floor(index/100);this.renderEvents();$('chapterEventsSection').open=true;
-      const target=document.getElementById(`chapter-event-${id}`);target?.scrollIntoView({block:'nearest'});target?.focus({preventScroll:true});
+      this.page=Math.floor(index/100);this.selectView('records');this.renderEvents();$('chapterEventsSection').open=true;
+      requestAnimationFrame(()=>{const target=document.getElementById(`chapter-event-${id}`);target?.scrollIntoView({block:'nearest'});target?.focus({preventScroll:true});});
     }
     renderEvents(){
       const events=[...this.current()?.events||[]].reverse(),pages=Math.max(1,Math.ceil(events.length/100));this.page=Math.max(0,Math.min(this.page,pages-1));
