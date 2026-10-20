@@ -279,7 +279,7 @@ const results=[];
   assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#freeTier').isChecked(),false);
   await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/chapters-desktop.png')});
   await p.setViewportSize({width:390,height:844});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.locator('#chapterSession').scrollIntoViewIfNeeded();await p.screenshot({path:path.resolve(__dirname,'../../.browser-test/chapters-mobile.png')});
-  await chapterView(p,'records');p.once('dialog',d=>d.accept());await p.locator('#chapterImagesDelete').click();await p.waitForFunction(()=>document.getElementById('chapterSessionInfo').textContent.includes('代表画像 0枚'));records=await chapterRecords(p);record=records[0];assert.equal(record.events.length,1);assert.equal(record.generations.length,2);assert.equal(record.representativeImageIds.length,0);assert.equal(record.events[0].imageId,undefined);
+  await chapterView(p,'records');if(!(await p.locator('.chapter-storage-details').getAttribute('open')))await p.locator('.chapter-storage-details > summary').click();p.once('dialog',d=>d.accept());await p.locator('#chapterImagesDelete').click();await p.waitForFunction(()=>document.getElementById('chapterSessionInfo').textContent.includes('代表画像 0枚'));records=await chapterRecords(p);record=records[0];assert.equal(record.events.length,1);assert.equal(record.generations.length,2);assert.equal(record.representativeImageIds.length,0);assert.equal(record.events[0].imageId,undefined);
   await x.close();
  });
  await test('ChatGPT thumbnail materials auto-select, allow manual replacement, copy prompt and download ZIP',async()=>{
@@ -315,7 +315,7 @@ const results=[];
   assert.match(download.suggestedFilename(),/^minkome-chatgpt-thumbnail-materials-\d{8}\.zip$/);assert.match(await p.locator('#thumbnailStatus').textContent(),/ZIPに保存しました/);
   await p.locator('#thumbnailAutoSelect').click();await p.waitForFunction(()=>document.getElementById('thumbnailReferenceInfo').textContent.includes('自動選別で2枚'));
   saved=(await chapterRecords(p))[0];assert.equal(saved.thumbnailMaterialMode,'auto');
-  await chapterView(p,'records');p.once('dialog',d=>d.accept());await p.locator('#chapterImagesDelete').click();await p.waitForFunction(()=>document.getElementById('chapterSessionInfo').textContent.includes('代表画像 0枚'));
+  await chapterView(p,'records');if(!(await p.locator('.chapter-storage-details').getAttribute('open')))await p.locator('.chapter-storage-details > summary').click();p.once('dialog',d=>d.accept());await p.locator('#chapterImagesDelete').click();await p.waitForFunction(()=>document.getElementById('chapterSessionInfo').textContent.includes('代表画像 0枚'));
   saved=(await chapterRecords(p))[0];assert.deepEqual(saved.thumbnailMaterialImageIds,[]);assert.equal(saved.thumbnailMaterialMode,'auto');assert.equal(await p.locator('#thumbnailDownloadPackage').isDisabled(),true);
   await x.close();
  });
