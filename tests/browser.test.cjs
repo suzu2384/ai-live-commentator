@@ -161,7 +161,7 @@ const results=[];
  await test('chapter editor edits before synchronization without losing milliseconds or changing AI history',async()=>{
   const x=await recorded(),p=x.page,before=(await chapterRecords(p))[0];
   assert.equal(await p.locator('#chapterCopy').isDisabled(),true);
-  await p.locator('#chapterCandidates').getByRole('button',{name:'編集',exact:true}).click();
+  await chapterView(p,'chapters');await p.locator('#chapterCandidates').getByRole('button',{name:'編集',exact:true}).click();
   assert.equal(await p.locator('#chapterTimeMode').inputValue(),'absolute');assert.equal(await p.locator('#chapterTimeMode option[value=relative]').evaluate(el=>el.disabled),true);
   await p.locator('#chapterEditTitle').fill('   ');await p.locator('#chapterEditSave').click();assert.match(await p.locator('#chapterEditError').textContent(),/タイトル/);
   await p.locator('#chapterEditTitle').fill('キャンセルする名前');await p.locator('#chapterEditCancel').click();assert.deepEqual((await chapterRecords(p))[0],before);
