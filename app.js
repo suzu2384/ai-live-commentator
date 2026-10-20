@@ -1409,6 +1409,12 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('exportSettings').addEventListener('click',()=>{try{exportSettings();}catch(e){$('saveState').textContent=e.message;log(e.message,'warn');}});
   $('importSettings').addEventListener('click',()=>{$('importSettingsFile').click();});
   $('importSettingsFile').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';try{await importSettingsFile(file);}catch(error){$('saveState').textContent=error.message||'設定のインポートに失敗しました。';log(error.message||'設定のインポートに失敗しました。','warn');}});
+  $('driveClientId').addEventListener('input',driveControls);
+  $('driveConnect').addEventListener('click',()=>driveOperation(connectDrive));
+  $('driveSave').addEventListener('click',()=>driveOperation(saveDriveData));
+  $('driveRestore').addEventListener('click',()=>driveOperation(restoreDriveData));
+  $('driveDisconnect').addEventListener('click',()=>driveOperation(disconnectDrive));
+  $('driveDelete').addEventListener('click',()=>driveOperation(deleteDriveData));
   $('preset').addEventListener('click',()=>{for(const [id,value] of Object.entries({talkativeness:2,apiInterval:30,speechInterval:20,quietInterval:60}))$(id).value=value;updateSettingSummaries();log('よく話す設定を適用しました。「設定を保存」または「実況を開始」で保存します。');});
   $('clearLog').addEventListener('click',()=>$('log').replaceChildren());$('output').addEventListener('change',outputFields);$('obsOverlayEnabled').addEventListener('change',overlayFields);
   $('manageContents').addEventListener('click',openContentDialog);
@@ -1546,6 +1552,8 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   const selectedIds=storedSelected.length?storedSelected:Array.from({length:legacyCount},(_,i)=>`p${i+1}`);
   const profiles=Array.isArray(stored.profiles)?stored.profiles:[];
   if(!profiles.length)profiles.push({...defaultProfile(0),speaker:stored.speaker??3,bouyomiVoice:stored.bouyomiVoice??0});
-  buildProfiles(profiles);renderParticipantSelection(selectedIds);vaultState();outputFields();overlayFields();initSettingSections();updateStats();renderSpeakerStats();
+  buildProfiles(profiles);renderParticipantSelection(selectedIds);
+  try{$('driveClientId').value=localStorage.getItem(driveClientStorageKey)||'';}catch{}
+  vaultState();driveControls();outputFields();overlayFields();initSettingSections();updateStats();renderSpeakerStats();
   log('準備できました。映像確認と音声テストを済ませてから開始してください。');
 })();
