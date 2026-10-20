@@ -515,6 +515,105 @@
     if(!confirm('現在の通常設定を、選択した設定ファイルの内容で置き換えますか？\nAPIキーとOBSパスワードは変更しません。'))return;
     applyImportedBundle(bundle);
   }
+
+  let googleIdentityPromise=null;
+  function loadGoogleIdentity(){
+    if(globalThis.google?.accounts?.oauth2?.initTokenClient)return Promise.resolve();
+    if(googleIdentityPromise)return googleIdentityPromise;
+    googleIdentityPromise=new Promise((resolve,reject)=>{
+      const existing=document.querySelector('script[data-minkome-google-identity]');
+      if(existing){existing.addEventListener('load',resolve,{once:true});existing.addEventListener('error',()=>reject(new Error('Google認証ライブラリを読み込めませんでした。')),{once:true});return;}
+      const script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;script.defer=true;script.dataset.minkomeGoogleIdentity='1';
+      script.onload=()=>resolve();script.onerror=()=>reject(new Error('Google認証ライブラリを読み込めませんでした。ネット接続を確認してください。'));document.head.append(script);
+    });
+    return googleIdentityPromise;
+  }
+  function driveOriginAllowed(){return !!globalThis.LiveDriveSync?.availableOrigin(location);}
+  function driveSecretBundle(){
+    const apiKey=$('apiKey').value.trim(),youtubeApiKey=$('youtubeApiKey').value.trim(),obsPassword=$('obsPassword').value;
+    if(apiKey)C.normalizeKey(apiKey);
+    return {format:driveSecretsFormat,version:driveSecretsVersion,savedAt:new Date().toISOString(),apiKey,obsPassword,youtubeApiKey};
+  }
+  function normalizeDriveSecrets(value){
+    if(!plainObject(value)||value.format!==driveSecretsFormat||value.version!==driveSecretsVersion)throw new C.AppError('みんコメのキー・パスワード保存ファイルとして認識できません。');
+    const result={};
+    for(const id of ['apiKey','obsPassword','youtubeApiKey']){
+      if(value[id]!==undefined&&typeof value[id]!=='string')throw new C.AppError('Google Driveのキー・パスワード保存ファイルが不正です。');
+      result[id]=String(value[id]??'');
+      if(result[id].length>10000)throw new C.AppError('Google Driveのキー・パスワード保存ファイルが大きすぎます。');
+    }
+    if(result.apiKey)result.apiKey=C.normalizeKey(result.apiKey);
+    return result;
+  }
+  function applyDriveSecrets(credentials){
+    $('apiKey').value=credentials.apiKey||'';$('obsPassword').value=credentials.obsPassword||'';$('youtubeApiKey').value=credentials.youtubeApiKey||'';$('freeTier').checked=false;updateSettingSummaries();
+  }
+  function driveFileLabel(file){return file?.modifiedTime?new Date(file.modifiedTime).toLocaleString('ja-JP'):'なし';}
+  function driveControls(){
+    if(!$('driveConnect'))return;
+    const allowed=driveOriginAllowed(),valid=globalThis.LiveDriveSync?.validClientId($('driveClientId').value),connected=!!driveClient?.accessToken,locked=busy||vaultBusy||driveBusy;
+    $('driveConnect').disabled=locked||!allowed||!valid;
+    for(const id of ['driveSave','driveRestore','driveDisconnect','driveDelete'])$(id).disabled=locked||!connected;
+    $('driveOriginInfo').textContent=allowed
+      ?'現在の起動元: '+location.origin+'。Google CloudのWebアプリ用OAuth Client IDで、このオリジンを「承認済みのJavaScript生成元」に登録し、Drive APIを有効にしてください。'
+      :'現在は file:// などGoogle Web OAuthで使えない起動方法です。Drive連携だけはGitHub Pagesまたは http://localhost で開いてください。';
+    $('summary-drive').textContent=connected?'接続済み':'未接続';
+  }
+  async function configureDrive(){
+    if(!globalThis.LiveDriveSync)throw new C.AppError('Google Drive連携モジュールを読み込めませんでした。');
+    if(!driveOriginAllowed())throw new C.AppError('Google Drive連携はGitHub Pagesまたはhttp://localhostで開いた時に利用できます。');
+    const clientId=$('driveClientId').value.trim();
+    if(!LiveDriveSync.validClientId(clientId))throw new C.AppError('Google OAuth Client IDを確認してください。');
+    await loadGoogleIdentity();
+    driveClient ||= new LiveDriveSync.DriveClient();
+    driveClient.configure(clientId);
+    try{localStorage.setItem(driveClientStorageKey,clientId);}catch{}
+    return driveClient;
+  }
+  async function refreshDriveStatus(){
+    if(!driveClient?.accessToken){$('driveSettingsState').textContent='未確認';$('driveSecretsState').textContent='未確認';driveControls();return;}
+    const status=await driveClient.status();
+    $('driveSettingsState').textContent=driveFileLabel(status.settings);$('driveSecretsState').textContent=driveFileLabel(status.secrets);driveControls();
+  }
+  async function driveOperation(fn){
+    if(busy||vaultBusy||driveBusy)return;
+    driveBusy=true;setBusy(false);driveControls();
+    try{await fn();}
+    catch(e){$('driveState').textContent=e.message||'Google Drive操作に失敗しました。';log(e.message||'Google Drive操作に失敗しました。','warn');}
+    finally{driveBusy=false;setBusy(false);driveControls();updateSettingSummaries();}
+  }
+  async function connectDrive(){
+    const client=await configureDrive();await client.authorize({prompt:'consent'});
+    $('driveState').textContent='Google Driveに接続しました。設定とキー・パスワードはまだ自動では復元しません。';
+    await refreshDriveStatus();log('Google Driveのアプリ専用領域に接続しました。');
+  }
+  async function saveDriveData(){
+    const settingsData=settingsBundle(),secretsData=driveSecretBundle();
+    await Promise.all([driveClient.writeJson(LiveDriveSync.SETTINGS_FILE,settingsData),driveClient.writeJson(LiveDriveSync.SECRETS_FILE,secretsData)]);
+    save(settings());$('driveState').textContent='通常設定とキー・パスワードをGoogle Driveへ別ファイルで保存しました。';
+    await refreshDriveStatus();log('Google Driveへ通常設定とキー・パスワードを別ファイルで保存しました。');
+  }
+  async function restoreDriveData(){
+    const [settingsRecord,secretsRecord]=await Promise.all([driveClient.readJson(LiveDriveSync.SETTINGS_FILE),driveClient.readJson(LiveDriveSync.SECRETS_FILE)]);
+    if(!settingsRecord&&!secretsRecord)throw new C.AppError('Google Driveにみんコメの保存データがありません。');
+    const imported=settingsRecord?normalizeImportedBundle(settingsRecord.value):null;
+    const credentials=secretsRecord?normalizeDriveSecrets(secretsRecord.value):null;
+    const targets=[imported?'通常設定':'',credentials?'キー・パスワード':''].filter(Boolean).join('と');
+    if(!confirm('Google Driveの'+targets+'で現在の内容を置き換えますか？\nFree Tier確認状態は復元しません。'))return;
+    if(imported)applyImportedBundle(imported);
+    if(credentials)applyDriveSecrets(credentials);
+    $('driveState').textContent='Google Driveから'+targets+'を復元しました。Geminiを使う前にFree Tier確認を行ってください。';
+    log('Google Driveから'+targets+'を復元しました。');
+  }
+  async function deleteDriveData(){
+    if(!confirm('Google Driveに保存した通常設定とキー・パスワードの2ファイルを削除しますか？\nこの端末内の設定や暗号化保存は削除しません。'))return;
+    await Promise.all([driveClient.deleteJson(LiveDriveSync.SETTINGS_FILE),driveClient.deleteJson(LiveDriveSync.SECRETS_FILE)]);
+    $('driveState').textContent='Google Driveの保存データを削除しました。';await refreshDriveStatus();log('Google Driveの保存データを削除しました。');
+  }
+  async function disconnectDrive(){
+    if(driveClient)await driveClient.disconnect();
+    $('driveState').textContent='Google Driveとの接続を切りました。保存済みファイルは残っています。';await refreshDriveStatus();log('Google Driveとの接続を切りました。');
+  }
   function voicevoxSettingsLink(){
     try{$('voicevoxSettingsLink').href=C.localUrl($('voicevoxUrl').value,'http:')+'/setting';}
     catch{$('voicevoxSettingsLink').removeAttribute('href');}
