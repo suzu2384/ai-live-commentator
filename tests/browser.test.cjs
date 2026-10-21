@@ -441,7 +441,30 @@ const results=[];
   assert.equal(await p.locator('#theme').inputValue(),'midnight');assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'midnight');
   await x.close();
  });
- await test('page title is concise and content manager follows active theme colors',async()=>{
+ 
+  await test('chapter workspace theme surfaces match active theme',async()=>{
+    const x=await setup(),p=x.page;
+    await p.locator('#tab-chapters').click();
+    for(const theme of ['midnight','amber','mist','lavender','rose','sage','daylight','sand']){
+      await p.locator('#theme').selectOption(theme);
+      const colors=await p.evaluate(()=>{
+        const root=document.querySelector('#chapterSectionThumbnail');
+        const nodes=['thumbnail-reference-card','thumbnail-picker-card','thumbnail-picker-card selected'].map(name=>{
+          const element=document.createElement('div');element.className=name;root.append(element);return element;
+        });
+        const expected=document.createElement('div');expected.style.background='var(--surface-section)';root.append(expected);
+        const color=node=>getComputedStyle(node).backgroundColor;
+        const vals=[document.querySelector('.chapter-subtabs'),document.querySelector('.chapter-compact-details'),document.querySelector('#chapterSectionYoutube .chapter-export'),...nodes].map(color);
+        const result={expected:color(expected),preview:color(document.querySelector('.preview')),vals};
+        [...nodes,expected].forEach(node=>node.remove());return result;
+      });
+      for(const c of colors.vals.slice(0,5))assert.equal(c,colors.expected,theme+' should use the themed section background');
+      assert.notEqual(colors.vals[5],colors.preview,theme+' selected image card should not use the video background');
+      if(['mist','lavender','rose','sage','daylight','sand'].includes(theme))assert.notEqual(colors.expected,colors.preview);
+    }
+    await x.close();
+  });
+  await test('page title is concise and content manager follows active theme colors',async()=>{
   const x=await setup();const p=x.page;
   assert.equal(await p.title(),'みんコメAI');
   await p.locator('#manageContents').click();

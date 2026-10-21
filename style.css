@@ -664,14 +664,14 @@ html[data-theme="sand"]{
 .chapter-thumbnail{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:10px;min-width:0}
 .chapter-thumbnail h3{margin:0 0 8px}
 .thumbnail-references{display:flex;gap:8px;overflow-x:auto;padding:8px 0 4px}
-.thumbnail-reference-card{flex:0 0 148px;min-width:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--preview-bg)}
+.thumbnail-reference-card{flex:0 0 148px;min-width:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface-section)}
 .thumbnail-reference-card img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
 .thumbnail-reference-card span{display:block;padding:5px 7px;font-size:10px;line-height:1.35;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .thumbnail-picker-details{margin:10px 0 14px;padding-top:0;border-top:0}
 .thumbnail-picker-details>summary{margin:0;color:var(--accent)}
 .thumbnail-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:430px;overflow:auto;padding:8px 2px 2px}
-.thumbnail-picker-card{display:grid;grid-template-columns:18px 84px minmax(0,1fr);gap:7px;align-items:center;margin:0;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--preview-bg);cursor:pointer}
-.thumbnail-picker-card.selected{border-color:var(--accent);background:#4aa8ff12}
+.thumbnail-picker-card{display:grid;grid-template-columns:18px 84px minmax(0,1fr);gap:7px;align-items:center;margin:0;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--surface-section);cursor:pointer}
+.thumbnail-picker-card.selected{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface-section))}
 .thumbnail-picker-card input{width:16px;height:16px;margin:0;accent-color:var(--accent)}
 .thumbnail-picker-card img{display:block;width:84px;aspect-ratio:16/9;object-fit:cover;border-radius:5px}
 .thumbnail-picker-card span{min-width:0}
@@ -691,13 +691,13 @@ html[data-theme="sand"]{
 .chapter-export{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:10px;min-width:0}.chapter-export h3{margin:0 0 8px}.chapter-export .actions{margin-top:10px}.chapter-export-notes{padding-left:20px;font-size:12px;overflow-wrap:anywhere}.chapter-export-notes li{margin:6px 0;color:var(--warn)}#chapterOutput{width:100%;min-height:160px;resize:vertical;font-family:inherit;font-variant-numeric:tabular-nums;line-height:1.8}.chapter-edit-form{padding:18px;overflow:auto}.chapter-edit-form label{margin-bottom:12px}.chapter-edit-error{color:var(--warn)}#chapterEditDialog{max-height:90dvh;overflow:auto}.chapter-list .actions{gap:8px}.chapter-panel button{white-space:normal}.chapter-panel .hint{overflow-wrap:anywhere}@media(max-width:520px){.chapter-export{padding:12px}.chapter-edit-form{padding:12px}.chapter-edit-form input,.chapter-edit-form select,#chapterIntroTitle,#chapterOutput{font-size:16px}}
 
 
-/* v4.48 chapter workspace: one stream selector, four focused work areas. */
+/* Chapter controls use theme surfaces; dark --preview-bg is reserved for actual media previews. */
 .chapter-workspace-head{min-width:0}
 .chapter-workspace-head .card-head{margin-bottom:8px}
 .chapter-session-select{margin:0 0 5px}
 .chapter-session-select select{margin-top:4px}
 .chapter-session-info{margin:0 0 10px;color:var(--muted);font-size:11px;line-height:1.5;font-variant-numeric:tabular-nums}
-.chapter-subtabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:4px 0 0;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--preview-bg)}
+.chapter-subtabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:4px 0 0;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface-section)}
 .chapter-subtabs button{min-width:0;min-height:36px;padding:7px 5px;border:0;background:transparent;color:var(--muted);font-size:11px;white-space:nowrap}
 .chapter-subtabs button:hover{background:var(--surface-open);color:var(--text)}
 .chapter-subtabs button[aria-selected=true]{background:var(--surface-open);color:var(--accent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent)}
@@ -714,13 +714,13 @@ html[data-theme="sand"]{
 .chapter-section-head h3{margin:0;font-size:13px}
 .chapter-section-head .hint{margin:3px 0 0}
 .chapter-section-head>button{flex:0 0 auto}
-.chapter-compact-details{margin:10px 0;padding:0;border:1px solid var(--line);border-radius:9px;background:var(--preview-bg);overflow:hidden}
+.chapter-compact-details{margin:10px 0;padding:0;border:1px solid var(--line);border-radius:9px;background:var(--surface-section);overflow:hidden}
 .chapter-compact-details>summary{margin:0;padding:9px 10px;color:var(--muted);font-size:11px}
 .chapter-compact-details[open]>summary{color:var(--text);background:var(--surface-open)}
 .chapter-detail-body{padding:10px 10px 3px;border-top:1px solid var(--line)}
 .chapter-detail-body>label:last-of-type{margin-bottom:7px}
 .chapter-youtube-actions{margin:4px 0 12px}
-#chapterSectionYoutube .chapter-export{margin:0;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--preview-bg)}
+#chapterSectionYoutube .chapter-export{margin:0;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--surface-section)}
 #chapterSectionYoutube .chapter-export h3{font-size:12px;margin:0 0 10px}
 #chapterSectionYoutube #chapterOutput{min-height:135px}
 #chapterSectionThumbnail .chapter-thumbnail{margin:0;padding:0;border:0;border-radius:0}
