@@ -1,10 +1,6 @@
-## v4.49.3 更新内容
+## v4.49.4 更新内容
 
-- Google OAuth Client IDの管理方式をKonDateと同様にGitHub ActionsのRepository Variableへ変更しました。
-- Repository Variable名は `GOOGLE_OAUTH_CLIENT_ID` です。
-- KonDateのClient IDは流用しません。みんコメAI専用のWeb OAuth Client IDを設定してください。
-- `Sync Google OAuth config` ワークフローがRepository Variableから公開用 `google-config.js` を生成してmainへ同期します。
-- 同期後はGitHub Pagesの再ビルドを明示的に要求するため、変数設定後に同期ワークフローを1回実行すれば公開版へ反映できます。
-- Client ID入力欄は引き続き表示しません。
-- `GOOGLE_OAUTH_CLIENT_ID` が未設定の場合はGoogle Drive接続だけを無効化します。
-- Drive上の通常設定と秘密情報の2ファイル分離、保存・復元・削除の仕様は変更していません。
+- ChatGPTサムネ素材の依頼文で、メインカット1枚＋補助カット2枚の主従関係は維持しつつ、画像の配置をより自由にしました。
+- 画像の位置・向き・比率・形・重なり方を固定せず、全面背景、小窓、非対称構図などをゲーム画面に合わせて選べるようにしました。
+- 斜め分割や枠線は必須とせず、いつも同じ3分割構成になる誘導を抑えました。2枚の画像の場合も固定分割を避けます。
+- タイトルの配置とデザイン、素材選別、コピー、ZIP保存などの既存機能は変更していません。

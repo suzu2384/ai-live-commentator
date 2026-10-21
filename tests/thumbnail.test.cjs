@@ -36,9 +36,10 @@ test('ChatGPT prompt uses stream context, selected image descriptions and option
   assert(withText.includes('16:9'));assert(withText.includes('ボス戦！'));assert(withText.includes('新エリアへ'));assert(withText.includes('ボス戦開始'));assert(withText.includes('画像1:'));
   assert.match(withText,/メインカット1枚/);
   assert.match(withText,/補助カット2枚/);
-  assert.match(withText,/配置・大きさ・形/);
-  assert.match(withText,/位置や固定比率には縛られない/);
-  assert.match(withText,/少し斜め/);
+  assert.match(withText,/位置、向き、比率、形状、重なり方は指定せず/);
+  assert.match(withText,/同じ配置パターンを繰り返す必要はありません/);
+  assert.match(withText,/斜めの境界線や明確な枠線は必須ではありません/);
+  assert.match(withText,/メインを全面の背景として見せる/);
   assert.doesNotMatch(withText,/画面左側|中央左|右側約35%|上下2枚|約65%/);
   assert.match(withText,/タイトル背景の装飾/);
   assert.match(withText,/公式のプロモーション画像/);
@@ -50,7 +51,8 @@ test('prompt adapts to one or two images without inventing scenes',()=>{
   const s=session();
   const two=T.buildPrompt(s,{generationId:'g1',referenceImageIds:['i2','i3'],includeText:true,caption:'ふたりの旅'});
   assert.match(two,/素材は2枚なので/);assert.match(two,/存在しない3枚目の場面は創作しない/);
-  assert.match(two,/主従が分かるように自由に配置/);
+  assert.match(two,/位置・向き・比率・重なり方は被写体に合わせて自由に決めて/);
+  assert.match(two,/斜め分割や枠線は必須ではありません/);
   assert.doesNotMatch(two,/約70%|画面左側|画面右側/);
   assert(!two.includes('右側約35%'));
   const one=T.buildPrompt(s,{generationId:'g1',referenceImageIds:['i2'],includeText:false,caption:'表示しない'});
