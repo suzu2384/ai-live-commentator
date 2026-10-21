@@ -13,7 +13,7 @@ Drive上ではデータを2ファイルに分離します。
 
 「Google Driveに接続」しただけでは設定を変更せず、「Driveへ保存」「Driveから復元」を押した時だけ2ファイルを読み書きします。「Driveの保存を削除」はDrive上の2ファイルだけを削除し、端末内の通常設定・暗号化Vaultには触れません。
 
-Drive APIには `https://www.googleapis.com/auth/drive.appdata` の限定スコープだけを使用します。Google OAuth Client IDはユーザー入力ではなく、みんコメAI専用の公開Client IDをアプリへ組み込む方式です。KonDateのClient IDは流用しません。専用IDが未設定のビルドではDrive接続を無効化します。Google Web OAuthの制約により `file://` ではDrive認証を利用できないため、Drive連携時はGitHub Pagesまたは `http://localhost` で開きます。
+Drive APIには `https://www.googleapis.com/auth/drive.appdata` の限定スコープだけを使用します。Google OAuth Client IDはユーザー入力ではなく、GitHub Actions の Repository Variable `GOOGLE_OAUTH_CLIENT_ID` を正本にします。`Sync Google OAuth config` ワークフローがその値から公開用 `google-config.js` を生成して main に同期し、続けてPages再ビルドを要求します。KonDateのClient IDは流用しません。変数が未設定ならDrive接続は無効です。Google Web OAuthの制約により `file://` ではDrive認証を利用できないため、Drive連携時はGitHub Pagesまたは `http://localhost` で開きます。
 
 ## v4.48.0 チャプターUI整理
 
