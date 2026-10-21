@@ -1,0 +1,73 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build static site
+        shell: bash
+        run: |
+          set -euo pipefail
+          client_id="${GOOGLE_OAUTH_CLIENT_ID:-}"
+          if [ -n "$client_id" ] && ! [[ "$client_id" =~ ^[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$ ]]; then
+            echo "GOOGLE_OAUTH_CLIENT_ID must be a Web OAuth client ID." >&2
+            exit 1
+          fi
+
+          rm -rf _site
+          mkdir _site
+
+          rsync -a ./ _site/ \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '_site/' \
+            --exclude 'tests/' \
+            --exclude 'test-screenshots/' \
+            --exclude 'node_modules/'
+
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          client_id=os.environ.get('GOOGLE_OAUTH_CLIENT_ID','').strip()
+          Path('_site/google-config.js').write_text(
+              "/* Public Google OAuth client identifier for みんコメAI. OAuth client IDs are not secrets. */\n"
+              "globalThis.MINKOME_GOOGLE_OAUTH_CLIENT_ID="+json.dumps(client_id, ensure_ascii=False)+";\n",
+              encoding='utf-8'
+          )
+          PY
+
+          if [ -n "$client_id" ]; then
+            echo "Google OAuth client ID configured for Pages."
+          else
+            echo "GOOGLE_OAUTH_CLIENT_ID is not configured; Google Drive login will remain disabled."
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
