@@ -21,7 +21,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: sudo apt-get install -y fonts-noto-cjk
       - name: Data and API regression tests
-        run: node --test tests/core.test.cjs tests/chapters.test.cjs tests/thumbnail.test.cjs tests/youtube.test.cjs tests/chapter-editor.test.cjs tests/drive-sync.test.cjs tests/google-auth.test.cjs
+        run: node --test tests/core.test.cjs tests/chapters.test.cjs tests/thumbnail.test.cjs tests/youtube.test.cjs tests/chapter-editor.test.cjs tests/drive-sync.test.cjs tests/google-auth.test.cjs tests/sync-google-config.test.cjs
       - name: Chapter and related browser scenarios
         env:
           TEST_FILTER: 'chapter editor|YouTube|chapters record|ChatGPT thumbnail materials|chapter workspace theme surfaces|immediate stop keeps|chapter recording preserves|tabs group|stop cancels pending analysis|encrypted credentials|settings export and import|Google Drive'

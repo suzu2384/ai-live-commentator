@@ -29,35 +29,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          client_id="${GOOGLE_OAUTH_CLIENT_ID:-}"
-          if [ -n "$client_id" ] && ! [[ "$client_id" =~ ^[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$ ]]; then
-            echo "GOOGLE_OAUTH_CLIENT_ID must be a Web OAuth client ID." >&2
-            exit 1
-          fi
-
-          CLIENT_ID="$client_id" python - <<'PY'
-          import json, os
-          from pathlib import Path
-          client_id=os.environ.get('CLIENT_ID','').strip()
-          Path('google-config.js').write_text(
-              "/* Generated from the GitHub Repository Variable GOOGLE_OAUTH_CLIENT_ID. OAuth client IDs are public. */\n"
-              "globalThis.MINKOME_GOOGLE_OAUTH_CLIENT_ID="+json.dumps(client_id, ensure_ascii=False)+";\n",
-              encoding='utf-8'
-          )
-          PY
+          python tools/sync-google-config.py
 
       - name: Commit generated config when changed
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- google-config.js; then
+          if git diff --quiet -- google-config.js index.html; then
             echo "google-config.js is already synchronized."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add google-config.js
-          git commit -m "chore: sync Google OAuth client config"
+          git add google-config.js index.html
+          git commit -m "chore: sync Google OAuth client config and cache key"
           git push origin HEAD:main
 
       - name: Request Pages rebuild
