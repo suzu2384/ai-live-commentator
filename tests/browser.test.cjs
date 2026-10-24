@@ -414,8 +414,16 @@ const results=[];
   assert.ok(!settingsFile.body.includes('fake.test-key')&&!settingsFile.body.includes('obs-secret')&&!settingsFile.body.includes('youtube-test-key')&&!settingsFile.body.includes('123456789-test.apps.googleusercontent.com'));
   assert.equal(secretsBundle.format,'minkome-secrets');assert.equal(secretsBundle.apiKey,'fake.test-key');assert.equal(secretsBundle.obsPassword,'obs-secret');assert.equal(secretsBundle.youtubeApiKey,'youtube-test-key');
   assert.ok(!secretsFile.body.includes('Drive保存前の雰囲気'));
-  // A new page has no in-memory tokens or plaintext keys. One reconnect should
-  // restore both settings and credentials without a confirmation dialog.
+  // Valid access tokens should survive reload and restore Drive settings automatically.
+  await p.reload();
+  await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('自動復元しました'));
+  await openConnect(p);
+  assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');
+  assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');
+  assert.equal(await p.locator('#youtubeApiKey').inputValue(),'youtube-test-key');
+  assert.equal(await p.locator('#freeTier').isChecked(),false);
+  // Expired or deliberately cleared tokens cannot be renewed without a user click.
+  await p.evaluate(()=>{sessionStorage.removeItem('minkome-google-session-v1');localStorage.removeItem('minkome-google-persistent-token-v1');});
   await p.reload();
   await openConnect(p);
   assert.equal(await p.locator('#apiKey').inputValue(),'');

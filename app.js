@@ -552,7 +552,7 @@
   }
   function driveFileLabel(file){return file?.modifiedTime?new Date(file.modifiedTime).toLocaleString('ja-JP'):'なし';}
   function driveControls(){
-    const allowed=driveOriginAllowed(),valid=LiveGoogleAuth.valid(googleAuth.clientId),connected=!!googleAuth.token('drive'),locked=busy||vaultBusy||driveBusy||googleAuth.pending,ready=allowed&&valid&&googleReady&&!locked;
+    const allowed=driveOriginAllowed(),valid=LiveGoogleAuth.valid(googleAuth.clientId),connected=!!googleAuth.token('drive')&&!!driveClient?.accessToken,locked=busy||vaultBusy||driveBusy||googleAuth.pending,ready=allowed&&valid&&googleReady&&!locked;
     $('driveConnect').disabled=!ready||googleAuth.isLinked('drive');
     for(const id of ['driveSave','driveRestore','driveDelete'])$(id).disabled=locked||!connected;
     $('driveDisconnect').disabled=locked||!googleAuth.isLinked('drive');
@@ -565,6 +565,7 @@
     $('youtubeConnect').disabled=!ready||googleAuth.isLinked('youtube');
     $('youtubeDisconnect').disabled=locked||!googleAuth.isLinked('youtube');
     $('googleReauth').disabled=!ready||!googleAuth.services().length;
+    $('googleKeepConnected').checked=googleAuth.keepConnected;
     const suffix=googleAuth.email?'（'+googleAuth.email+'）':'';
     $('youtubeAuthState').textContent=googleAuth.token('youtube')?'接続済み'+suffix:googleAuth.isLinked('youtube')?'再認証が必要です。':'OAuth未接続。従来のAPIキー方式も利用できます。';
     $('googleAccountState').textContent=googleError||(!valid?'GitHubのGOOGLE_OAUTH_CLIENT_IDが未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':googleAuth.services().length?'連携中: '+googleAuth.services().map(s=>s==='youtube'?'YouTube':'Drive').join('・')+suffix:'YouTubeとDriveは個別に接続できます。');
@@ -576,6 +577,23 @@
     const key=$('youtubeApiKey').value.trim();
     if(!key)throw new C.AppError('YouTubeにGoogleで接続するかAPIキーを入力してください。');
     return key;
+  }
+  async function resumeGoogleSession(){
+    // A valid access token is reusable without an OAuth popup. Expired tokens
+    // cannot be renewed silently by the browser-only Google token client.
+    if(!driveOriginAllowed()||!googleAuth.token('drive'))return;
+    driveBusy=true;setBusy(false);googleControls();
+    try{
+      const client=await configureDrive();
+      if(!googleAuth.token('drive'))return;
+      client.accessToken=googleAuth.token('drive');
+      await restoreDriveData({automatic:true});
+      await refreshDriveStatus();
+      log('Google Driveの有効な認証を自動復帰し、保存設定を読み込みました。');
+    }catch(error){
+      $('driveState').textContent='Google Driveの自動復帰に失敗しました: '+(error.message||'詳細不明')+'。必要ならGoogleに再接続してください。';
+      log($('driveState').textContent,'warn');
+    }finally{driveBusy=false;setBusy(false);googleControls();}
   }
   function authorizeGoogle(services){
     if(busy||vaultBusy||driveBusy)return;
@@ -1458,6 +1476,11 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('driveConnect').addEventListener('click',()=>authorizeGoogle(['drive']));
   $('youtubeConnect').addEventListener('click',()=>authorizeGoogle(['youtube']));
   $('googleReauth').addEventListener('click',()=>authorizeGoogle(googleAuth.services()));
+  $('googleKeepConnected').addEventListener('change',()=>{
+    try{googleAuth.setKeepConnected($('googleKeepConnected').checked);googleError='';}
+    catch(error){googleError=error.message;}
+    googleControls();
+  });
   $('youtubeDisconnect').addEventListener('click',()=>{googleAuth.disconnect('youtube');googleControls();log('YouTubeのGoogle接続を解除しました。');});
   $('driveSave').addEventListener('click',()=>driveOperation(saveDriveData));
   $('driveRestore').addEventListener('click',()=>driveOperation(restoreDriveData));
@@ -1603,5 +1626,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   buildProfiles(profiles);renderParticipantSelection(selectedIds);
   vaultState();googleControls();outputFields();overlayFields();initSettingSections();updateStats();renderSpeakerStats();
   if(driveOriginAllowed()&&!googleReady)void loadGoogleIdentity().then(()=>{googleReady=true;googleControls();}).catch(e=>{$('googleAccountState').textContent=e.message||'Google認証を読み込めませんでした。';});
+  // Restore Drive settings automatically when a still-valid token survived reload.
+  void resumeGoogleSession();
   log('準備できました。映像確認と音声テストを済ませてから開始してください。');
 })();
