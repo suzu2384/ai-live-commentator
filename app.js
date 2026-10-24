@@ -1584,6 +1584,6 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   if(!profiles.length)profiles.push({...defaultProfile(0),speaker:stored.speaker??3,bouyomiVoice:stored.bouyomiVoice??0});
   buildProfiles(profiles);renderParticipantSelection(selectedIds);
   vaultState();googleControls();outputFields();overlayFields();initSettingSections();updateStats();renderSpeakerStats();
-  if(!googleReady)void loadGoogleIdentity().then(()=>{googleReady=true;googleControls();}).catch(e=>{$('googleAccountState').textContent=e.message||'Google認証を読み込めませんでした。';});
+  if(driveOriginAllowed()&&!googleReady)void loadGoogleIdentity().then(()=>{googleReady=true;googleControls();}).catch(e=>{$('googleAccountState').textContent=e.message||'Google認証を読み込めませんでした。';});
   log('準備できました。映像確認と音声テストを済ませてから開始してください。');
 })();
