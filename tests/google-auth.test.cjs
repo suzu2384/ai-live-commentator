@@ -1,83 +1,87 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {GoogleAuth,SCOPES}=require('../google-auth.js');
+const CLIENT='123-abc.apps.googleusercontent.com';
 function mock(){
- const records=new Map(),sessions=new Map(),requests=[];
+ const records=new Map(),sessions=new Map(),requests=[],calls=[];
+ let email='first@example.com',channel='UC'+'x'.repeat(22);
  globalThis.localStorage={getItem:k=>records.get(k)||null,setItem:(k,v)=>records.set(k,v),removeItem:k=>records.delete(k)};
  globalThis.sessionStorage={getItem:k=>sessions.get(k)||null,setItem:(k,v)=>sessions.set(k,v),removeItem:k=>sessions.delete(k)};
- requests.records=records;requests.sessions=sessions;
- globalThis.fetch=async()=>({ok:true,json:async()=>({email:'minkome-test@example.com'})});
+ globalThis.fetch=async(url,options)=>{
+  calls.push(url);
+  if(url.includes('/youtube/v3/channels'))return {ok:true,json:async()=>({items:[{id:channel,snippet:{title:'ブランド配信チャンネル'}}]})};
+  throw Error('Unexpected endpoint (email retrieval is not required): '+url);
+ };
  globalThis.google={accounts:{oauth2:{
-  initTokenClient:config=>({requestAccessToken:()=>{
-   requests.push(config.scope.split(' '));
+  initTokenClient:config=>({requestAccessToken:options=>{
+   requests.push({scopes:config.scope.split(' '),prompt:options.prompt,includeGranted:config.include_granted_scopes});
    config.callback({access_token:'token-'+requests.length,expires_in:3600,scope:config.scope});
   }}),
-  hasGrantedAllScopes:(response,...scopes)=>scopes.every(s=>response.scope.split(' ').includes(s))
+  hasGrantedAllScopes:(r,...scopes)=>scopes.every(s=>r.scope.split(' ').includes(s))
  }}};
- return requests;
+ return {records,sessions,requests,calls,setChannel:value=>channel=value,setEmail:value=>email=value};
 }
-test('YouTube and Drive can be connected separately and renewed together',async()=>{
- const requests=mock(),auth=new GoogleAuth('123-abc.apps.googleusercontent.com');
+test('brand account connects without email or Drive permission',async()=>{
+ const m=mock(),auth=new GoogleAuth(CLIENT);
  await auth.authorize(['youtube']);
+ assert.deepEqual(m.requests[0].scopes,[SCOPES.youtube]);
+ assert.equal(m.requests[0].includeGranted,false);
+ assert.equal(m.requests[0].prompt,'select_account');
+ assert.equal(auth.channel.id,'UC'+'x'.repeat(22));
+ assert.equal(auth.channel.title,'ブランド配信チャンネル');
  assert.ok(auth.token('youtube'));
- assert.equal(auth.isLinked('drive'),false);
- assert.ok(!requests[0].includes(SCOPES.drive));
+ assert.ok(m.calls.every(url=>url.includes('/youtube/v3/channels')));
+});
+test('Drive does not retrieve or compare email even after YouTube auth',async()=>{
+ const m=mock(),auth=new GoogleAuth(CLIENT);
+ await auth.authorize(['youtube']);
  await auth.authorize(['drive']);
+ assert.deepEqual(m.requests[1].scopes,[SCOPES.drive]);
+ assert.equal(m.calls.length,1);
  assert.deepEqual(auth.services().sort(),['drive','youtube']);
- assert.ok(!requests[1].includes(SCOPES.youtube));
- await auth.authorize(auth.services());
- assert.ok(requests[2].includes(SCOPES.drive)&&requests[2].includes(SCOPES.youtube));
- assert.equal(auth.token('drive'),auth.token('youtube'));
- auth.disconnect('drive');
- assert.ok(auth.token('youtube'));
- await auth.authorize(auth.services());
- assert.ok(!requests[3].includes(SCOPES.drive));
+ const refreshed=new GoogleAuth(CLIENT);
+ assert.ok(refreshed.token('drive')&&refreshed.token('youtube'));
+ assert.equal(refreshed.channel.id,auth.channel.id);
+ assert.equal(m.requests.length,2);
 });
-test('still-valid OAuth sessions survive page reload without another Google authorization',async()=>{
- const requests=mock(),auth=new GoogleAuth('123-abc.apps.googleusercontent.com');
+test('expired services are independently reauthorized, no mixed permission request',async()=>{
+ const m=mock(),auth=new GoogleAuth(CLIENT);
  await auth.authorize(['youtube','drive']);
- const next=new GoogleAuth('123-abc.apps.googleusercontent.com');
- assert.deepEqual(next.services().sort(),['drive','youtube']);
- assert.ok(next.token('drive')&&next.token('youtube'));
- assert.equal(requests.length,1);
- assert.equal(requests.records.has('minkome-google-persistent-token-v1'),false);
- next.disconnect('drive');
- const third=new GoogleAuth('123-abc.apps.googleusercontent.com');
- assert.equal(third.token('drive'),'');
- assert.ok(third.token('youtube'));
-});
-test('opt-in keeps valid tokens after closing a tab; expiry requires user action',async()=>{
- const requests=mock(),auth=new GoogleAuth('123-abc.apps.googleusercontent.com');
+ assert.deepEqual(m.requests.map(r=>r.scopes),[[SCOPES.youtube],[SCOPES.drive]]);
+ auth.tokens.youtube.expires=Date.now()-1;
  await auth.authorize(['youtube','drive']);
- auth.setKeepConnected(true);
- assert.equal(auth.keepConnected,true);
- requests.sessions.clear();
- const reopened=new GoogleAuth('123-abc.apps.googleusercontent.com');
- assert.ok(reopened.token('drive')&&reopened.token('youtube'));
- assert.equal(requests.length,1);
- reopened.tokens.drive.expires=Date.now()-1;
- reopened.tokens.youtube.expires=Date.now()-1;
- reopened.saveTokens();
- const expired=new GoogleAuth('123-abc.apps.googleusercontent.com');
- assert.equal(expired.token('drive'),'');
- assert.equal(expired.token('youtube'),'');
- assert.deepEqual(expired.services().sort(),['drive','youtube']);
- expired.setKeepConnected(false);
- assert.equal(expired.keepConnected,false);
- assert.equal(requests.records.has('minkome-google-persistent-token-v1'),false);
+ assert.deepEqual(m.requests[2].scopes,[SCOPES.youtube]);
+ auth.tokens.youtube.expires=Date.now()-1;auth.tokens.drive.expires=Date.now()-1;
+ await auth.authorize(['youtube','drive']);
+ assert.deepEqual(m.requests.slice(-2).map(r=>r.scopes),[[SCOPES.youtube],[SCOPES.drive]]);
+ assert.notEqual(auth.token('youtube'),auth.token('drive'));
 });
-test('token persistence is never reused under a different OAuth client',async()=>{
- const requests=mock(),auth=new GoogleAuth('123-abc.apps.googleusercontent.com');
- await auth.authorize(['youtube']);
- auth.setKeepConnected(true);
- const changed=new GoogleAuth('555-changed.apps.googleusercontent.com');
- assert.equal(changed.token('youtube'),'');
+test('different YouTube channel requires disconnection, Drive remains active',async()=>{
+ const m=mock(),auth=new GoogleAuth(CLIENT);
+ await auth.authorize(['youtube','drive']);
+ m.setChannel('UC'+'y'.repeat(22));auth.tokens.youtube.expires=Date.now()-1;
+ await assert.rejects(auth.authorize(['youtube']),/異なるYouTubeチャンネル/);
+ assert.ok(auth.token('drive'));
+ auth.disconnect('youtube');await auth.authorize(['youtube']);
+ assert.equal(auth.channel.id,'UC'+'y'.repeat(22));
+ assert.ok(auth.token('drive'));
 });
-test('a different Google account cannot be used when another service is linked',async()=>{
- const requests=mock(),auth=new GoogleAuth('123-abc.apps.googleusercontent.com');
- await auth.authorize(['youtube']);
- globalThis.fetch=async()=>({ok:true,json:async()=>({email:'wrong@example.com'})});
- await assert.rejects(auth.authorize(['drive']),/別のGoogleアカウント/);
- assert.equal(auth.isLinked('drive'),false);
- assert.equal(requests.length,2);
+test('opted-in session resumes both scoped tokens but not old unverified YouTube tokens',async()=>{
+ const m=mock(),auth=new GoogleAuth(CLIENT);
+ await auth.authorize(['youtube','drive']);
+ auth.setKeepConnected(true);m.sessions.clear();
+ let restored=new GoogleAuth(CLIENT);
+ assert.ok(restored.token('youtube')&&restored.token('drive'));
+ restored.tokens.youtube.expires=Date.now()-1;restored.tokens.drive.expires=Date.now()-1;
+ restored.saveTokens();
+ restored=new GoogleAuth(CLIENT);
+ assert.equal(restored.token('youtube'),'');
+ assert.equal(restored.token('drive'),'');
+ m.sessions.set('minkome-google-session-v1',JSON.stringify({version:1,clientId:CLIENT,email:'old@example.com',tokens:{
+  youtube:{value:'old-youtube',expires:Date.now()+900000,scope:SCOPES.youtube},
+  drive:{value:'old-drive',expires:Date.now()+900000,scope:SCOPES.drive}
+ }}));
+ restored=new GoogleAuth(CLIENT);
+ assert.equal(restored.token('youtube'),''); // old authorization may target a personal channel
+ assert.equal(restored.token('drive'),'old-drive'); // avoid another Drive prompt
 });

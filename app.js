@@ -566,9 +566,10 @@
     $('youtubeDisconnect').disabled=locked||!googleAuth.isLinked('youtube');
     $('googleReauth').disabled=!ready||!googleAuth.services().length;
     $('googleKeepConnected').checked=googleAuth.keepConnected;
-    const suffix=googleAuth.email?'（'+googleAuth.email+'）':'';
-    $('youtubeAuthState').textContent=googleAuth.token('youtube')?'接続済み'+suffix:googleAuth.isLinked('youtube')?'再認証が必要です。':'OAuth未接続。従来のAPIキー方式も利用できます。';
-    $('googleAccountState').textContent=googleError||(!valid?'GitHubのGOOGLE_OAUTH_CLIENT_IDが未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':googleAuth.services().length?'連携中: '+googleAuth.services().map(s=>s==='youtube'?'YouTube':'Drive').join('・')+suffix:'YouTubeとDriveは個別に接続できます。');
+    const channel=googleAuth.channel?.title||'';
+    $('youtubeAuthState').textContent=googleAuth.token('youtube')?'接続済み: '+channel:googleAuth.isLinked('youtube')?'再認証が必要です'+(channel?'（'+channel+'）':''):'OAuth未接続。従来のAPIキー方式も利用できます。';
+    const connections=googleAuth.services().map(s=>s==='youtube'?'YouTube: '+(channel||'チャンネル'):'Google Drive').join(' / ');
+    $('googleAccountState').textContent=googleError||(!valid?'GitHubのGOOGLE_OAUTH_CLIENT_IDが未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':connections?'連携中: '+connections:'YouTubeとDriveは個別に接続できます。');
     updateSettingSummaries();
   }
   function youtubeCredential(){
@@ -617,7 +618,17 @@
       }
       if(granted.includes('youtube'))$('youtubeAuthState').textContent='YouTubeに接続しました。';
       log('Google認証を更新しました: '+granted.join('・'));
-    }).catch(e=>{googleError=e.message;log(e.message,'warn');}).finally(()=>{driveBusy=false;setBusy(false);googleControls();});
+    }).catch(async e=>{
+      googleError=e.message;log(e.message,'warn');
+      // A second browser popup can be blocked; a completed Drive grant must
+      // still restore credentials even when YouTube authorization did not finish.
+      if(googleAuth.token('drive')&&!driveClient?.accessToken){
+        try{
+          const client=await configureDrive();client.accessToken=googleAuth.token('drive');
+          await restoreDriveData({automatic:true});await refreshDriveStatus();
+        }catch(error){$('driveState').textContent='Driveの自動復元に失敗しました: '+(error.message||'詳細不明');}
+      }
+    }).finally(()=>{driveBusy=false;setBusy(false);googleControls();});
   }
   async function configureDrive(){
     if(!globalThis.LiveDriveSync)throw new C.AppError('Google Drive連携モジュールを読み込めませんでした。');

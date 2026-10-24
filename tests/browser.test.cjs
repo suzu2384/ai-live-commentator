@@ -51,8 +51,13 @@ const results=[];
    }
    if(r.request().url().startsWith('https://i.ytimg.com/'))return r.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="#346675"/><path d="M65 25L100 45L65 65Z" fill="white"/></svg>'});
    if(r.request().url().startsWith('https://www.googleapis.com/youtube/v3/')){
-    events.youtube=(events.youtube||0)+1;assert.equal(r.request().headers()['x-goog-api-key'],'youtube-test-key');
+    events.youtube=(events.youtube||0)+1;
     const u=new URL(r.request().url());
+    if(u.pathname.endsWith('/channels')&&u.searchParams.get('mine')==='true'){
+     assert.equal(r.request().headers().authorization,'Bearer drive-token');
+     return r.fulfill({contentType:'application/json',body:JSON.stringify({items:[{id:'UC'+'a'.repeat(22),snippet:{title:'ブランド配信チャンネル'}}]})});
+    }
+    assert.equal(r.request().headers()['x-goog-api-key'],'youtube-test-key');
     if(config.holdYouTube){held=r;return;}
     if(config.youtubeError)return r.fulfill({status:403,body:'{}'});
     const videos=config.youtubeVideos||[];
@@ -434,6 +439,7 @@ const results=[];
   const driveCallsBeforeYouTube=x.events.drive;
   await p.locator('#youtubeConnect').click();
   await p.waitForFunction(()=>document.getElementById('youtubeAuthState').textContent.includes('接続済み'));
+  assert.match(await p.locator('#youtubeAuthState').textContent(),/ブランド配信チャンネル/);
   assert.equal(x.events.drive,driveCallsBeforeYouTube);
   await p.locator('#googleReauth').click();
   await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('自動復元しました'));
