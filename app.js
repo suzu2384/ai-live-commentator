@@ -586,8 +586,16 @@
     void task.then(async granted=>{
       if(granted.includes('drive')){
         const client=await configureDrive();client.accessToken=googleAuth.token('drive');
-        $('driveState').textContent='Google Driveに接続しました。保存・復元は手動で行います。';
-        await refreshDriveStatus();
+        // Reconnecting Drive should also restore its saved settings and credentials.
+        // The user has already consented to Drive access; no second restore action is needed.
+        try{
+          await restoreDriveData({automatic:true});
+          await refreshDriveStatus();
+        }catch(error){
+          $('driveState').textContent='Driveへの接続は成功しましたが、自動復元に失敗しました: '+(error.message||'詳細不明');
+          log('Google Drive自動復元エラー: '+(error.message||'詳細不明'),'warn');
+          try{await refreshDriveStatus();}catch{}
+        }
       }
       if(granted.includes('youtube'))$('youtubeAuthState').textContent='YouTubeに接続しました。';
       log('Google認証を更新しました: '+granted.join('・'));
@@ -621,17 +629,27 @@
     save(settings());$('driveState').textContent='通常設定とキー・パスワードをGoogle Driveへ別ファイルで保存しました。';
     await refreshDriveStatus();log('Google Driveへ通常設定とキー・パスワードを別ファイルで保存しました。');
   }
-  async function restoreDriveData(){
+  async function restoreDriveData({automatic=false}={}){
     const [settingsRecord,secretsRecord]=await Promise.all([driveClient.readJson(LiveDriveSync.SETTINGS_FILE),driveClient.readJson(LiveDriveSync.SECRETS_FILE)]);
-    if(!settingsRecord&&!secretsRecord)throw new C.AppError('Google Driveにみんコメの保存データがありません。');
+    if(!settingsRecord&&!secretsRecord){
+      if(!automatic)throw new C.AppError('Google Driveにみんコメの保存データがありません。');
+      // First-time connection: never erase locally entered settings or keys.
+      $('driveState').textContent='Google Driveに接続しました。保存済みの設定・キーはありません。必要なら「Driveへ保存」で登録できます。';
+      return false;
+    }
+    // Validate both files before applying either one, so invalid files cannot
+    // leave a partially restored profile or credentials.
     const imported=settingsRecord?normalizeImportedBundle(settingsRecord.value):null;
     const credentials=secretsRecord?normalizeDriveSecrets(secretsRecord.value):null;
     const targets=[imported?'通常設定':'',credentials?'キー・パスワード':''].filter(Boolean).join('と');
-    if(!confirm('Google Driveの'+targets+'で現在の内容を置き換えますか？\nFree Tier確認状態は復元しません。'))return;
+    if(!automatic&&!confirm('Google Driveの'+targets+'で現在の内容を置き換えますか？\nFree Tier確認状態は復元しません。'))return false;
     if(imported)applyImportedBundle(imported);
     if(credentials)applyDriveSecrets(credentials);
-    $('driveState').textContent='Google Driveから'+targets+'を復元しました。Geminiを使う前にFree Tier確認を行ってください。';
-    log('Google Driveから'+targets+'を復元しました。');
+    $('driveState').textContent=automatic
+      ?'Google Driveへの接続後、'+targets+'を自動復元しました。Geminiを使う前にFree Tier確認を行ってください。'
+      :'Google Driveから'+targets+'を復元しました。Geminiを使う前にFree Tier確認を行ってください。';
+    log('Google Driveから'+targets+'を'+(automatic?'自動':'手動')+'復元しました。');
+    return true;
   }
   async function deleteDriveData(){
     if(!confirm('Google Driveに保存した通常設定とキー・パスワードの2ファイルを削除しますか？\nこの端末内の設定や暗号化保存は削除しません。'))return;

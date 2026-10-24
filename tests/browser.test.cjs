@@ -414,6 +414,28 @@ const results=[];
   assert.ok(!settingsFile.body.includes('fake.test-key')&&!settingsFile.body.includes('obs-secret')&&!settingsFile.body.includes('youtube-test-key')&&!settingsFile.body.includes('123456789-test.apps.googleusercontent.com'));
   assert.equal(secretsBundle.format,'minkome-secrets');assert.equal(secretsBundle.apiKey,'fake.test-key');assert.equal(secretsBundle.obsPassword,'obs-secret');assert.equal(secretsBundle.youtubeApiKey,'youtube-test-key');
   assert.ok(!secretsFile.body.includes('Drive保存前の雰囲気'));
+  // A new page has no in-memory tokens or plaintext keys. One reconnect should
+  // restore both settings and credentials without a confirmation dialog.
+  await p.reload();
+  await p.locator('#tab-connect').click();
+  assert.equal(await p.locator('#apiKey').inputValue(),'');
+  assert.equal(await p.locator('#obsPassword').inputValue(),'');
+  assert.equal(await p.locator('#youtubeApiKey').inputValue(),'');
+  assert.equal(await p.locator('#driveConnect').isDisabled(),true);
+  // YouTube may be linked independently; its connection must not restore Drive data.
+  const driveCallsBeforeYouTube=x.events.drive;
+  await p.locator('#youtubeConnect').click();
+  await p.waitForFunction(()=>document.getElementById('youtubeAuthState').textContent.includes('接続済み'));
+  assert.equal(x.events.drive,driveCallsBeforeYouTube);
+  await p.locator('#googleReauth').click();
+  await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('自動復元しました'));
+  assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');
+  assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');
+  assert.equal(await p.locator('#youtubeApiKey').inputValue(),'youtube-test-key');
+  assert.equal(await p.locator('#freeTier').isChecked(),false);
+  await p.locator('#tab-live').click();
+  assert.equal(await p.locator('#persona').inputValue(),'Drive保存前の雰囲気');
+  await p.locator('#tab-connect').click();
   await p.locator('#apiKey').fill('changed-key');await p.locator('#obsPassword').fill('changed-obs');await p.locator('#youtubeApiKey').fill('changed-youtube');
   await p.locator('#tab-live').click();await p.locator('#persona').fill('変更後');await p.locator('#theme').selectOption('rose');
   await p.locator('#tab-connect').click();p.once('dialog',d=>d.accept());await p.locator('#driveRestore').click();
