@@ -439,7 +439,7 @@ const results=[];
   await p.locator('#apiKey').fill('changed-key');await p.locator('#obsPassword').fill('changed-obs');await p.locator('#youtubeApiKey').fill('changed-youtube');
   await p.locator('#tab-live').click();await p.locator('#persona').fill('変更後');await p.locator('#theme').selectOption('rose');
   await p.locator('#tab-connect').click();p.once('dialog',d=>d.accept());await p.locator('#driveRestore').click();
-  await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('復元しました'));
+  await p.waitForFunction(()=>document.getElementById('driveState').textContent.startsWith('Google Driveから')&&document.getElementById('apiKey').value==='fake.test-key');
   assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');assert.equal(await p.locator('#youtubeApiKey').inputValue(),'youtube-test-key');assert.equal(await p.locator('#freeTier').isChecked(),false);
   await p.locator('#tab-live').click();assert.equal(await p.locator('#persona').inputValue(),'Drive保存前の雰囲気');assert.equal(await p.locator('#theme').inputValue(),'sage');
   await p.locator('#tab-connect').click();p.once('dialog',d=>d.accept());await p.locator('#driveDelete').click();await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('削除しました'));
