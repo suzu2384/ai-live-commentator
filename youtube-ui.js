@@ -33,7 +33,7 @@
       const cancel=e=>{e?.preventDefault();done(null);};
       const perform=async(fn)=>{
         if(loading||settled)return;loading=true;controls();list.querySelectorAll('input').forEach(el=>el.disabled=true);
-        try{if(!key.trim())throw new Error('接続設定でYouTube APIキーを入力・解除してください。');await fn();}
+        try{if(!(key&&typeof key==='object'&&key.accessToken)&&!String(key||'').trim())throw new Error('YouTubeにGoogleで接続するかAPIキーを入力してください。');await fn();}
         catch(e){if(!settled&&!token.aborted)state('取得失敗: '+e.message+' 元のチャプターと同期先は変更していません。','error');}
         finally{loading=false;if(!settled){controls();list.querySelectorAll('input').forEach(el=>el.disabled=false);setStatus('YouTube同期先の選択待ち');}}
       };
@@ -56,7 +56,7 @@
       });};
       confirm.addEventListener('click',pick);$('youtubeCancel').addEventListener('click',cancel);retry.addEventListener('click',reload);more.addEventListener('click',next);lookupButton.addEventListener('click',find);dialog.addEventListener('cancel',cancel);signal.addEventListener('abort',abort,{once:true});
       controls();dialog.showModal();
-      if(channelId.trim())reload();else state('候補検索にはチャンネルIDを設定してください。URL／動画IDの直接指定はチャンネルIDなしでも利用できます。');
+      if(channelId.trim()||(key&&typeof key==='object'&&key.accessToken))reload();else state('APIキー方式の候補検索にはチャンネルIDが必要です。URL直接指定はIDなしで利用できます。');
     });
   }
   root.LiveYouTubeUI={choose};

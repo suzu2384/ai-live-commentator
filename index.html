@@ -14,16 +14,16 @@ try{
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="みんコメAI">
-<link rel="icon" href="assets/favicon.ico?v=4.49.5" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.49.5">
-<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.49.5">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.49.5">
-<link rel="manifest" href="manifest.webmanifest?v=4.49.5">
-<link rel="stylesheet" href="style.css?v=4.49.5">
-<script src="core.js?v=4.49.5" defer></script><script src="vault.js?v=4.49.5" defer></script><script src="google-config.js?v=4.49.5" defer></script><script src="drive-sync.js?v=4.49.5" defer></script><script src="youtube.js?v=4.49.5" defer></script><script src="youtube-ui.js?v=4.49.5" defer></script><script src="chapters.js?v=4.49.5" defer></script><script src="thumbnail.js?v=4.49.5" defer></script><script src="chapter-editor.js?v=4.49.5" defer></script><script src="chapter-editor-ui.js?v=4.49.5" defer></script><script src="chapters-ui.js?v=4.49.5" defer></script><script src="app.js?v=4.49.5" defer></script>
+<link rel="icon" href="assets/favicon.ico?v=4.50.0" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.50.0">
+<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.50.0">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.50.0">
+<link rel="manifest" href="manifest.webmanifest?v=4.50.0">
+<link rel="stylesheet" href="style.css?v=4.50.0">
+<script src="core.js?v=4.50.0" defer></script><script src="vault.js?v=4.50.0" defer></script><script src="google-config.js?v=4.50.0" defer></script><script src="drive-sync.js?v=4.50.0" defer></script><script src="google-auth.js?v=4.50.0" defer></script><script src="youtube.js?v=4.50.0" defer></script><script src="youtube-ui.js?v=4.50.0" defer></script><script src="chapters.js?v=4.50.0" defer></script><script src="thumbnail.js?v=4.50.0" defer></script><script src="chapter-editor.js?v=4.50.0" defer></script><script src="chapter-editor-ui.js?v=4.50.0" defer></script><script src="chapters-ui.js?v=4.50.0" defer></script><script src="app.js?v=4.50.0" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.49.5" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.49.5</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.50.0" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.50.0</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -108,6 +108,7 @@ try{
 
 <div id="panel-connect" role="tabpanel" aria-labelledby="tab-connect" hidden>
 <section class="panel-intro"><h2>接続</h2><p class="hint">OBS・Gemini・読み上げ先など、一度決めたら頻繁には変えない接続情報をまとめています。</p></section>
+<section class="card"><div class="card-head"><h2>Googleアカウント</h2></div><p class="hint compact-hint">YouTubeとDriveは個別に接続し、再認証は連携済みのサービスを一度に更新します。</p><div class="actions wrap"><button id="googleReauth" type="button" disabled>Googleに再接続</button></div><p id="googleAccountState" class="hint" role="status">準備中</p></section>
 <details class="card setting-section" id="settings-video"><summary class="setting-summary"><span>OBS・映像</span><span id="summary-video" class="setting-summary-value">PS Remote Play</span></summary><div class="setting-body">
 <label>接続先<input id="obsUrl" type="url" value="ws://127.0.0.1:4455" required></label>
 <div class="fields"><label>OBSパスワード<input id="obsPassword" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます"></label><label>映像ソース名<input id="sourceName" value="PS Remote Play" required maxlength="200"></label></div>
@@ -134,9 +135,10 @@ try{
 <div class="setting-action"><button type="button" id="testText">文章だけで接続テスト</button><span class="hint">API送信1回を使用</span></div>
 </div></details>
 <details class="card setting-section" id="settings-youtube"><summary class="setting-summary"><span>YouTube</span><span class="setting-summary-value">配信選択・時刻同期</span></summary><div class="setting-body">
-<label>YouTube Data API v3 APIキー<input id="youtubeApiKey" type="password" autocomplete="new-password" placeholder="任意・既存の合言葉で暗号化保存できます"></label>
+<div class="actions wrap"><button id="youtubeConnect" type="button" disabled>GoogleでYouTubeに接続</button><button id="youtubeDisconnect" type="button" class="subtle" disabled>接続解除</button></div><p id="youtubeAuthState" class="hint" role="status">未接続</p>
+<label>YouTube Data API v3 APIキー（従来方式）<input id="youtubeApiKey" type="password" autocomplete="new-password" placeholder="任意・既存の合言葉で暗号化保存できます"></label>
 <label>チャンネルID<input id="youtubeChannelId" type="text" placeholder="UCで始まるチャンネルID" maxlength="24"></label>
-<p class="hint">チャプター生成後の「YouTubeと同期」で終了済み配信を取得します。実況開始・終了時には通信しません。URL／動画IDの直接指定はチャンネルIDなしでも利用できます。非公開動画は対象外です。検索はYouTube APIの利用枠を使います。</p>
+<p class="hint">OAuthなら自分の終了済み配信をチャンネルIDなしでも検索できます。ID入力で候補を絞れます。既存のAPIキー方式も引き続き利用できます。実況開始・終了時には通信しません。</p>
 </div></details>
 <details class="card setting-section" id="settings-voice"><summary class="setting-summary"><span>読み上げ</span><span id="summary-voice" class="setting-summary-value">棒読みちゃん</span></summary><div class="setting-body">
 <label>出力先<select id="output"><option value="bouyomi">棒読みちゃん（PC側で再生）</option><option value="voicevox">VOICEVOX直接（ブラウザで再生）</option></select></label>

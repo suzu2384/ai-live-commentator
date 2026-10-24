@@ -57,6 +57,8 @@
   const stats = { used:0, stale:0 };
   let resumeAction=null, finishAction=null, streaming=false, vaultBusy=false, driveBusy=false, pageEpoch=0;
   let driveClient=null;
+  const googleAuth=new LiveGoogleAuth.GoogleAuth(globalThis.MINKOME_GOOGLE_OAUTH_CLIENT_ID);
+  let googleReady=!!globalThis.google?.accounts?.oauth2?.initTokenClient;
   let obsSourceFailurePending=false,obsSourceRecoveryReady=false;
   const speakerSessionCounts=Object.fromEntries(Array.from({length:6},(_,i)=>[`p${i+1}`,0]));
   let activeSpeakerId=null,lastSpeakerId=null,activeSpeakerMode='';
@@ -140,7 +142,7 @@
     $('summary-voice').textContent=$('output').value==='voicevox'?'VOICEVOX':'棒読みちゃん';
     try{$('summary-vault').textContent=localStorage.getItem('ai-live-commentator-vault-v1')?'保存あり':'保存なし';}
     catch{$('summary-vault').textContent='保存状態不明';}
-    if($('summary-drive'))$('summary-drive').textContent=driveClient?.accessToken?'接続済み':'未接続';
+    if($('summary-drive'))$('summary-drive').textContent=googleAuth.token('drive')?'接続済み':googleAuth.isLinked('drive')?'再認証が必要':'未接続';
   }
   function initSettingSections(){
     for(const section of document.querySelectorAll('details.setting-section'))section.open=section.id==='settings-vault';
@@ -549,14 +551,46 @@
   }
   function driveFileLabel(file){return file?.modifiedTime?new Date(file.modifiedTime).toLocaleString('ja-JP'):'なし';}
   function driveControls(){
-    if(!$('driveConnect'))return;
-    const clientId=String(globalThis.MINKOME_GOOGLE_OAUTH_CLIENT_ID||'').trim(),allowed=driveOriginAllowed(),valid=globalThis.LiveDriveSync?.validClientId(clientId),connected=!!driveClient?.accessToken,locked=busy||vaultBusy||driveBusy;
-    $('driveConnect').disabled=locked||!allowed||!valid;
-    for(const id of ['driveSave','driveRestore','driveDisconnect','driveDelete'])$(id).disabled=locked||!connected;
-    $('driveOriginInfo').textContent=allowed
-      ?(valid?'Google認証設定はアプリに組み込み済みです。現在の起動元: '+location.origin:'アプリのGoogle認証設定を読み込めませんでした。')
-      :'現在は file:// などGoogle Web OAuthで使えない起動方法です。Drive連携だけはGitHub Pagesまたは http://localhost で開いてください。';
-    $('summary-drive').textContent=connected?'接続済み':'未接続';
+    const allowed=driveOriginAllowed(),valid=LiveGoogleAuth.valid(googleAuth.clientId),connected=!!googleAuth.token('drive'),locked=busy||vaultBusy||driveBusy||googleAuth.pending,ready=allowed&&valid&&googleReady&&!locked;
+    $('driveConnect').disabled=!ready||connected;
+    for(const id of ['driveSave','driveRestore','driveDelete'])$(id).disabled=locked||!connected;
+    $('driveDisconnect').disabled=locked||!googleAuth.isLinked('drive');
+    $('driveOriginInfo').textContent=allowed?(valid?'Google認証設定はアプリに組み込み済みです。現在の起動元: '+location.origin:'GitHubのGOOGLE_OAUTH_CLIENT_IDを設定してください。'):'Google認証はGitHub Pagesまたはlocalhostから利用できます。';
+    $('summary-drive').textContent=connected?'接続済み':googleAuth.isLinked('drive')?'再認証が必要':'未接続';
+  }
+  function googleControls(){
+    driveControls();
+    const valid=LiveGoogleAuth.valid(googleAuth.clientId),locked=busy||vaultBusy||driveBusy||googleAuth.pending,ready=driveOriginAllowed()&&valid&&googleReady&&!locked;
+    $('youtubeConnect').disabled=!ready||!!googleAuth.token('youtube');
+    $('youtubeDisconnect').disabled=locked||!googleAuth.isLinked('youtube');
+    $('googleReauth').disabled=!ready||!googleAuth.services().length;
+    const suffix=googleAuth.email?'（'+googleAuth.email+'）':'';
+    $('youtubeAuthState').textContent=googleAuth.token('youtube')?'接続済み'+suffix:googleAuth.isLinked('youtube')?'再認証が必要です。':'OAuth未接続。従来のAPIキー方式も利用できます。';
+    $('googleAccountState').textContent=!valid?'GitHubのGOOGLE_OAUTH_CLIENT_IDが未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':googleAuth.services().length?'連携中: '+googleAuth.services().map(s=>s==='youtube'?'YouTube':'Drive').join('・')+suffix:'YouTubeとDriveは個別に接続できます。';
+    updateSettingSummaries();
+  }
+  function youtubeCredential(){
+    const token=googleAuth.token('youtube');if(token)return {accessToken:token};
+    if(googleAuth.isLinked('youtube'))throw new C.AppError('YouTubeの認証期限が切れました。Googleに再接続してください。');
+    const key=$('youtubeApiKey').value.trim();
+    if(!key)throw new C.AppError('YouTubeにGoogleで接続するかAPIキーを入力してください。');
+    return key;
+  }
+  function authorizeGoogle(services){
+    if(busy||vaultBusy||driveBusy)return;
+    driveBusy=true;setBusy(false);
+    let task;
+    try{task=googleAuth.authorize(services);}catch(e){driveBusy=false;$('googleAccountState').textContent=e.message;googleControls();return;}
+    googleControls();
+    void task.then(async granted=>{
+      if(granted.includes('drive')){
+        const client=await configureDrive();client.accessToken=googleAuth.token('drive');
+        $('driveState').textContent='Google Driveに接続しました。保存・復元は手動で行います。';
+        await refreshDriveStatus();
+      }
+      if(granted.includes('youtube'))$('youtubeAuthState').textContent='YouTubeに接続しました。';
+      log('Google認証を更新しました: '+granted.join('・'));
+    }).catch(e=>{$('googleAccountState').textContent=e.message;log(e.message,'warn');}).finally(()=>{driveBusy=false;setBusy(false);googleControls();});
   }
   async function configureDrive(){
     if(!globalThis.LiveDriveSync)throw new C.AppError('Google Drive連携モジュールを読み込めませんでした。');
@@ -579,11 +613,6 @@
     try{await fn();}
     catch(e){$('driveState').textContent=e.message||'Google Drive操作に失敗しました。';log(e.message||'Google Drive操作に失敗しました。','warn');}
     finally{driveBusy=false;setBusy(false);driveControls();updateSettingSummaries();}
-  }
-  async function connectDrive(){
-    const client=await configureDrive();await client.authorize({prompt:'consent'});
-    $('driveState').textContent='Google Driveに接続しました。設定とキー・パスワードはまだ自動では復元しません。';
-    await refreshDriveStatus();log('Google Driveのアプリ専用領域に接続しました。');
   }
   async function saveDriveData(){
     const settingsData=settingsBundle(),secretsData=driveSecretBundle();
@@ -609,7 +638,7 @@
     $('driveState').textContent='Google Driveの保存データを削除しました。';await refreshDriveStatus();log('Google Driveの保存データを削除しました。');
   }
   async function disconnectDrive(){
-    if(driveClient)await driveClient.disconnect();
+    googleAuth.disconnect('drive');if(driveClient)driveClient.accessToken='';
     $('driveState').textContent='Google Driveとの接続を切りました。保存済みファイルは残っています。';await refreshDriveStatus();log('Google Driveとの接続を切りました。');
   }
   function voicevoxSettingsLink(){
@@ -1407,7 +1436,10 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('exportSettings').addEventListener('click',()=>{try{exportSettings();}catch(e){$('saveState').textContent=e.message;log(e.message,'warn');}});
   $('importSettings').addEventListener('click',()=>{$('importSettingsFile').click();});
   $('importSettingsFile').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';try{await importSettingsFile(file);}catch(error){$('saveState').textContent=error.message||'設定のインポートに失敗しました。';log(error.message||'設定のインポートに失敗しました。','warn');}});
-  $('driveConnect').addEventListener('click',()=>driveOperation(connectDrive));
+  $('driveConnect').addEventListener('click',()=>authorizeGoogle(['drive']));
+  $('youtubeConnect').addEventListener('click',()=>authorizeGoogle(['youtube']));
+  $('googleReauth').addEventListener('click',()=>authorizeGoogle(googleAuth.services()));
+  $('youtubeDisconnect').addEventListener('click',()=>{googleAuth.disconnect('youtube');googleControls();log('YouTubeのGoogle接続を解除しました。');});
   $('driveSave').addEventListener('click',()=>driveOperation(saveDriveData));
   $('driveRestore').addEventListener('click',()=>driveOperation(restoreDriveData));
   $('driveDisconnect').addEventListener('click',()=>driveOperation(disconnectDrive));
@@ -1533,7 +1565,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   }));
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
-  chapterUI=new LiveChapterUI({log,onSync:()=>operation(async signal=>{await chapterUI.linkYouTube($('youtubeApiKey').value.trim(),$('youtubeChannelId').value.trim(),signal,setStatus);}),onResync:()=>operation(async signal=>{setStatus('YouTube開始時刻を取得中');await chapterUI.syncYouTube($('youtubeApiKey').value.trim(),signal);}),onUnlink:()=>operation(async signal=>{await chapterUI.unlinkYouTube(signal);}),onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);})});
+  chapterUI=new LiveChapterUI({log,onSync:()=>operation(async signal=>{await chapterUI.linkYouTube(youtubeCredential(),$('youtubeChannelId').value.trim(),signal,setStatus);}),onResync:()=>operation(async signal=>{setStatus('YouTube開始時刻を取得中');await chapterUI.syncYouTube(youtubeCredential(),signal);}),onUnlink:()=>operation(async signal=>{await chapterUI.unlinkYouTube(signal);}),onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);})});
   contentLibrary=loadContentLibrary();contentKnowledge=loadContentKnowledge();renderContentOptions('');
   fontLibrary=loadFontLibrary();
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};}catch{}
@@ -1550,6 +1582,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   const profiles=Array.isArray(stored.profiles)?stored.profiles:[];
   if(!profiles.length)profiles.push({...defaultProfile(0),speaker:stored.speaker??3,bouyomiVoice:stored.bouyomiVoice??0});
   buildProfiles(profiles);renderParticipantSelection(selectedIds);
-  vaultState();driveControls();outputFields();overlayFields();initSettingSections();updateStats();renderSpeakerStats();
+  vaultState();googleControls();outputFields();overlayFields();initSettingSections();updateStats();renderSpeakerStats();
+  if(!googleReady)void loadGoogleIdentity().then(()=>{googleReady=true;googleControls();}).catch(e=>{$('googleAccountState').textContent=e.message||'Google認証を読み込めませんでした。';});
   log('準備できました。映像確認と音声テストを済ませてから開始してください。');
 })();

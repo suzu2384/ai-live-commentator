@@ -1,16 +1,17 @@
-/* Public YouTube lookup only. No OAuth or writes. */
+/* YouTube read-only lookup using OAuth or the legacy API key; no writes. */
 (function(root){
   'use strict';
   const C=root.LiveCore;
   const validId=id=>typeof id==='string'&&/^[\w-]{11}$/.test(id);
   const timestamp=value=>typeof value==='string'&&/^\d{4}-\d\d-\d\dT/.test(value)&&Number.isFinite(Date.parse(value))?Date.parse(value):null;
   async function request(resource,params,key,signal,fetcher=fetch){
-    C.check(signal);key=C.normalizeKey(key);
+    C.check(signal);const oauth=key&&typeof key==='object'&&typeof key.accessToken==='string';
+    const headers=oauth?{Authorization:'Bearer '+key.accessToken}:{'X-Goog-Api-Key':C.normalizeKey(key)};
     const url=new URL(`https://www.googleapis.com/youtube/v3/${resource}`);
     for(const [name,value] of Object.entries(params))url.searchParams.set(name,value);
     let response;
-    try{response=await fetcher(url.href,{headers:{'X-Goog-Api-Key':key},signal,credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',cache:'no-store'});}catch{C.check(signal);throw new Error('YouTubeへ接続できません。通信・APIキーの利用制限を確認してください。');}
-    if(!response.ok)throw new Error(`YouTube API HTTP ${response.status}。${response.status===403?'APIの有効化・キーの制限・利用上限を確認してください。':'接続設定やサービスの状態を確認してください。'}`);
+    try{response=await fetcher(url.href,{headers,signal,credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',cache:'no-store'});}catch{C.check(signal);throw new Error('YouTubeへ接続できません。通信・APIキーの利用制限を確認してください。');}
+    if(!response.ok)throw new Error(`YouTube API HTTP ${response.status}。${response.status===401?'Googleの再認証が必要です。':response.status===403?'APIの有効化・権限・利用上限を確認してください。':'接続設定やサービスの状態を確認してください。'}`);
     let body;try{body=await response.json();}catch{throw new Error('YouTubeの応答形式が不正です。');}
     C.check(signal);if(!Array.isArray(body?.items))throw new Error('YouTubeの応答に候補一覧がありません。');return body;
   }
@@ -29,14 +30,15 @@
   }
   // One page per explicit action: do not consume quota scanning the channel's entire history.
   async function candidates(key,channelId,signal,fetcher,{pageToken=''}={}){
-    if(!/^UC[\w-]{22}$/.test(channelId))throw new Error('候補検索には UC で始まる24文字のチャンネルIDを設定してください。URL直接指定では不要です。');
-    const params={part:'snippet',channelId,eventType:'completed',type:'video',order:'date',maxResults:'50'};
+    const oauth=key&&typeof key==='object'&&typeof key.accessToken==='string';
+    if(!oauth&&!/^UC[\w-]{22}$/.test(channelId))throw new Error('APIキーでの候補検索にはチャンネルIDを設定してください。');
+    const params={part:'snippet',...(oauth?{forMine:'true'}:{channelId}),eventType:'completed',type:'video',order:'date',maxResults:'50'};
     if(pageToken)params.pageToken=pageToken;
     const body=await request('search',params,key,signal,fetcher),ids=new Set();
     for(const item of body.items){if(!validId(item?.id?.videoId))throw new Error('YouTubeの候補IDが不正です。');ids.add(item.id.videoId);}
     const items=ids.size?await details([...ids],key,signal,fetcher):[];
     if(items.length!==ids.size)throw new Error('一部のYouTube配信情報を取得できませんでした。再取得またはURL直接指定をお試しください。');
-    return {items:items.filter(v=>v.channelId===channelId&&v.isLiveBroadcast),nextPageToken:typeof body.nextPageToken==='string'?body.nextPageToken:''};
+    return {items:items.filter(v=>(!channelId||v.channelId===channelId)&&v.isLiveBroadcast),nextPageToken:typeof body.nextPageToken==='string'?body.nextPageToken:''};
   }
   function parseVideoId(value){
     const input=String(value||'').trim();if(validId(input))return input;
