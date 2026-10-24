@@ -59,6 +59,7 @@
   let driveClient=null;
   const googleAuth=new LiveGoogleAuth.GoogleAuth(globalThis.MINKOME_GOOGLE_OAUTH_CLIENT_ID);
   let googleReady=!!globalThis.google?.accounts?.oauth2?.initTokenClient;
+  let googleError='';
   let obsSourceFailurePending=false,obsSourceRecoveryReady=false;
   const speakerSessionCounts=Object.fromEntries(Array.from({length:6},(_,i)=>[`p${i+1}`,0]));
   let activeSpeakerId=null,lastSpeakerId=null,activeSpeakerMode='';
@@ -552,7 +553,7 @@
   function driveFileLabel(file){return file?.modifiedTime?new Date(file.modifiedTime).toLocaleString('ja-JP'):'なし';}
   function driveControls(){
     const allowed=driveOriginAllowed(),valid=LiveGoogleAuth.valid(googleAuth.clientId),connected=!!googleAuth.token('drive'),locked=busy||vaultBusy||driveBusy||googleAuth.pending,ready=allowed&&valid&&googleReady&&!locked;
-    $('driveConnect').disabled=!ready||connected;
+    $('driveConnect').disabled=!ready||googleAuth.isLinked('drive');
     for(const id of ['driveSave','driveRestore','driveDelete'])$(id).disabled=locked||!connected;
     $('driveDisconnect').disabled=locked||!googleAuth.isLinked('drive');
     $('driveOriginInfo').textContent=allowed?(valid?'Google認証設定はアプリに組み込み済みです。現在の起動元: '+location.origin:'GitHubのGOOGLE_OAUTH_CLIENT_IDを設定してください。'):'Google認証はGitHub Pagesまたはlocalhostから利用できます。';
@@ -561,12 +562,12 @@
   function googleControls(){
     driveControls();
     const valid=LiveGoogleAuth.valid(googleAuth.clientId),locked=busy||vaultBusy||driveBusy||googleAuth.pending,ready=driveOriginAllowed()&&valid&&googleReady&&!locked;
-    $('youtubeConnect').disabled=!ready||!!googleAuth.token('youtube');
+    $('youtubeConnect').disabled=!ready||googleAuth.isLinked('youtube');
     $('youtubeDisconnect').disabled=locked||!googleAuth.isLinked('youtube');
     $('googleReauth').disabled=!ready||!googleAuth.services().length;
     const suffix=googleAuth.email?'（'+googleAuth.email+'）':'';
     $('youtubeAuthState').textContent=googleAuth.token('youtube')?'接続済み'+suffix:googleAuth.isLinked('youtube')?'再認証が必要です。':'OAuth未接続。従来のAPIキー方式も利用できます。';
-    $('googleAccountState').textContent=!valid?'GitHubのGOOGLE_OAUTH_CLIENT_IDが未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':googleAuth.services().length?'連携中: '+googleAuth.services().map(s=>s==='youtube'?'YouTube':'Drive').join('・')+suffix:'YouTubeとDriveは個別に接続できます。';
+    $('googleAccountState').textContent=googleError||(!valid?'GitHubのGOOGLE_OAUTH_CLIENT_IDが未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':googleAuth.services().length?'連携中: '+googleAuth.services().map(s=>s==='youtube'?'YouTube':'Drive').join('・')+suffix:'YouTubeとDriveは個別に接続できます。');
     updateSettingSummaries();
   }
   function youtubeCredential(){
@@ -578,9 +579,9 @@
   }
   function authorizeGoogle(services){
     if(busy||vaultBusy||driveBusy)return;
-    driveBusy=true;setBusy(false);
+    driveBusy=true;googleError='';setBusy(false);
     let task;
-    try{task=googleAuth.authorize(services);}catch(e){driveBusy=false;$('googleAccountState').textContent=e.message;googleControls();return;}
+    try{task=googleAuth.authorize(services);}catch(e){driveBusy=false;googleError=e.message;googleControls();return;}
     googleControls();
     void task.then(async granted=>{
       if(granted.includes('drive')){
@@ -590,7 +591,7 @@
       }
       if(granted.includes('youtube'))$('youtubeAuthState').textContent='YouTubeに接続しました。';
       log('Google認証を更新しました: '+granted.join('・'));
-    }).catch(e=>{$('googleAccountState').textContent=e.message;log(e.message,'warn');}).finally(()=>{driveBusy=false;setBusy(false);googleControls();});
+    }).catch(e=>{googleError=e.message;log(e.message,'warn');}).finally(()=>{driveBusy=false;setBusy(false);googleControls();});
   }
   async function configureDrive(){
     if(!globalThis.LiveDriveSync)throw new C.AppError('Google Drive連携モジュールを読み込めませんでした。');
@@ -639,7 +640,7 @@
   }
   async function disconnectDrive(){
     googleAuth.disconnect('drive');if(driveClient)driveClient.accessToken='';
-    $('driveState').textContent='Google Driveとの接続を切りました。保存済みファイルは残っています。';await refreshDriveStatus();log('Google Driveとの接続を切りました。');
+    $('driveState').textContent='Google Driveとの接続を切りました。保存済みファイルは残っています。';await refreshDriveStatus();googleControls();log('Google Driveとの接続を切りました。');
   }
   function voicevoxSettingsLink(){
     try{$('voicevoxSettingsLink').href=C.localUrl($('voicevoxUrl').value,'http:')+'/setting';}
