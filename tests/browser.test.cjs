@@ -417,7 +417,7 @@ const results=[];
   // A new page has no in-memory tokens or plaintext keys. One reconnect should
   // restore both settings and credentials without a confirmation dialog.
   await p.reload();
-  await p.locator('#tab-connect').click();
+  await openConnect(p);
   assert.equal(await p.locator('#apiKey').inputValue(),'');
   assert.equal(await p.locator('#obsPassword').inputValue(),'');
   assert.equal(await p.locator('#youtubeApiKey').inputValue(),'');
