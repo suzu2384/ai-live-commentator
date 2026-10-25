@@ -565,11 +565,11 @@
       log($('driveState').textContent,'warn');
     }finally{driveBusy=false;setBusy(false);googleControls();}
   }
-  function authorizeGoogle(services){
+  function authorizeGoogle(services,{force=false}={}){
     if(busy||vaultBusy||driveBusy)return;
     driveBusy=true;googleError='';setBusy(false);
     let task;
-    try{task=googleAuth.authorize(services);}catch(e){driveBusy=false;googleError=e.message;googleControls();return;}
+    try{task=googleAuth.authorize(services,{force});}catch(e){driveBusy=false;googleError=e.message;googleControls();return;}
     googleControls();
     void task.then(async granted=>{
       if(granted.includes('drive')){
@@ -1458,7 +1458,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('importSettingsFile').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';try{await importSettingsFile(file);}catch(error){$('saveState').textContent=error.message||'設定のインポートに失敗しました。';log(error.message||'設定のインポートに失敗しました。','warn');}});
   $('driveConnect').addEventListener('click',()=>authorizeGoogle(['drive']));
   $('youtubeConnect').addEventListener('click',()=>authorizeGoogle(['youtube']));
-  $('googleReauth').addEventListener('click',()=>authorizeGoogle(googleAuth.services()));
+  $('googleReauth').addEventListener('click',()=>authorizeGoogle(googleAuth.services(),{force:true}));
   $('googleKeepConnected').addEventListener('change',()=>{
     try{googleAuth.setKeepConnected($('googleKeepConnected').checked);googleError='';}
     catch(error){googleError=error.message;}

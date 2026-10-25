@@ -14,16 +14,16 @@ try{
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="みんコメAI">
-<link rel="icon" href="assets/favicon.ico?v=4.54.5" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.54.5">
-<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.54.5">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.54.5">
-<link rel="manifest" href="manifest.webmanifest?v=4.54.5">
-<link rel="stylesheet" href="style.css?v=4.54.5&amp;rev=3">
-<script src="core.js?v=4.54.5" defer></script><script src="ai-config.js?v=4.54.5&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.54.5" defer></script><script src="vault.js?v=4.54.5" defer></script><script src="google-config.js?v=4.54.5&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.54.5" defer></script><script src="google-auth.js?v=4.54.5" defer></script><script src="youtube.js?v=4.54.5" defer></script><script src="youtube-ui.js?v=4.54.5" defer></script><script src="chapters.js?v=4.54.5" defer></script><script src="thumbnail.js?v=4.54.5" defer></script><script src="chapter-editor.js?v=4.54.5" defer></script><script src="chapter-editor-ui.js?v=4.54.5" defer></script><script src="chapters-ui.js?v=4.54.5" defer></script><script src="app.js?v=4.54.5&amp;rev=3" defer></script>
+<link rel="icon" href="assets/favicon.ico?v=4.54.6" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.54.6">
+<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.54.6">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.54.6">
+<link rel="manifest" href="manifest.webmanifest?v=4.54.6">
+<link rel="stylesheet" href="style.css?v=4.54.6">
+<script src="core.js?v=4.54.6" defer></script><script src="ai-config.js?v=4.54.6&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.54.6" defer></script><script src="vault.js?v=4.54.6" defer></script><script src="google-config.js?v=4.54.6&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.54.6" defer></script><script src="google-auth.js?v=4.54.6" defer></script><script src="youtube.js?v=4.54.6" defer></script><script src="youtube-ui.js?v=4.54.6" defer></script><script src="chapters.js?v=4.54.6" defer></script><script src="thumbnail.js?v=4.54.6" defer></script><script src="chapter-editor.js?v=4.54.6" defer></script><script src="chapter-editor-ui.js?v=4.54.6" defer></script><script src="chapters-ui.js?v=4.54.6" defer></script><script src="app.js?v=4.54.6" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.54.5" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.54.5</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.54.6" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.54.6</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -119,7 +119,7 @@ try{
 
 <div id="panel-connect" role="tabpanel" aria-labelledby="tab-connect" hidden>
 <section class="panel-intro"><h2>設定</h2><p class="hint">OBS・Gemini・読み上げ先など、一度決めたら頻繁には変えない接続情報をまとめています。</p></section>
-<section class="card"><div class="card-head"><h2>Googleアカウント</h2></div><p class="hint compact-hint">YouTubeとDriveは個別に接続し、再認証は連携済みのサービスを一度に更新します。</p><div class="actions wrap"><button id="googleReauth" type="button" disabled>Googleに再接続</button></div><label class="check"><input type="checkbox" id="googleKeepConnected">この端末で接続を保持する</label><p class="hint compact-hint">認証期限内はページを開き直しても自動復帰します。チェックを入れるとブラウザを閉じた後も、この端末に有効期限付きの認証情報を保存します。共有端末ではOFFにしてください。期限切れ後はGoogleの再認証が必要です。</p><p id="googleAccountState" class="hint" role="status">準備中</p></section>
+<section class="card"><div class="card-head"><h2>Googleアカウント</h2></div><p class="hint compact-hint">YouTubeとDriveは個別に接続し、再接続では有効期限内でも両サービスの認証を更新します。</p><div class="actions wrap"><button id="googleReauth" type="button" disabled>Googleに再接続</button></div><label class="check"><input type="checkbox" id="googleKeepConnected">この端末で接続を保持する</label><p class="hint compact-hint">認証期限内はページを開き直しても自動復帰します。チェックを入れるとブラウザを閉じた後も、この端末に有効期限付きの認証情報を保存します。共有端末ではOFFにしてください。期限切れ後はGoogleの再認証が必要です。</p><p id="googleAccountState" class="hint" role="status">準備中</p></section>
 <details class="card setting-section" id="settings-video"><summary class="setting-summary"><span>OBS・映像</span><span id="summary-video" class="setting-summary-value">PS Remote Play</span></summary><div class="setting-body">
 <label>接続先<input id="obsUrl" type="url" value="ws://127.0.0.1:4455" required></label>
 <div class="fields"><label>OBSパスワード<input id="obsPassword" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます"></label><label>映像ソース名<input id="sourceName" value="PS Remote Play" required maxlength="200"></label></div>

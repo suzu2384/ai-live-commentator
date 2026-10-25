@@ -1,10 +1,51 @@
-/* YouTube Brand Channel authorization and Google Drive authorization are independent.
-   Do not require or compare email addresses. */
+/* YouTube Brand Channel and Google Drive authorization are independent.
+   Remember only the preferred Google login account per service. */
 (function(root){
  'use strict';
- const SCOPES={drive:'https://www.googleapis.com/auth/drive.appdata',youtube:'https://www.googleapis.com/auth/youtube.readonly'};
+ const SCOPES={drive:'https://www.googleapis.com/auth/drive.appdata',youtube:'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/userinfo.email'};
  const LINKED='minkome-google-linked-v1',CHANNEL='minkome-youtube-channel-v1';
  const LEGACY_EMAIL='minkome-google-account-v1';
+ const ACCOUNT_HINTS='minkome-google-account-hints-v1';
+ const EMAIL=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+ const validEmail=v=>typeof v==='string'&&v.length<=254&&EMAIL.test(v)?v:'';
+ function storedHints(clientId){
+  try{
+   const saved=JSON.parse(root.localStorage?.getItem(ACCOUNT_HINTS)||'null');
+   if(saved?.clientId!==clientId||!saved.hints||typeof saved.hints!=='object')return {};
+   return Object.fromEntries(Object.entries(saved.hints).filter(([s,e])=>SCOPES[s]&&validEmail(e)));
+  }catch{return {};}
+ }
+ function preferredAccount(clientId,service){
+  const hints=storedHints(clientId);
+  return hints[service]||hints[service==='youtube'?'drive':'youtube']||'';
+ }
+ function rememberAccount(clientId,service,email){
+  email=validEmail(email);
+  if(!clientId||!SCOPES[service]||!email)return false;
+  try{
+   root.localStorage?.setItem(ACCOUNT_HINTS,JSON.stringify({clientId,hints:{...storedHints(clientId),[service]:email}}));
+   return true;
+  }catch{return false;}
+ }
+ function forgetAccount(clientId,service){
+  if(!SCOPES[service])return;
+  try{
+   const hints=storedHints(clientId);delete hints[service];
+   if(Object.keys(hints).length)root.localStorage?.setItem(ACCOUNT_HINTS,JSON.stringify({clientId,hints}));
+   else root.localStorage?.removeItem(ACCOUNT_HINTS);
+  }catch{}
+ }
+ async function accountForToken(service,token){
+  const url=service==='drive'?'https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)':'https://www.googleapis.com/oauth2/v3/userinfo';
+  try{
+   const opts={headers:{Authorization:'Bearer '+token},credentials:'omit',cache:'no-store'};
+   if(typeof root.AbortSignal?.timeout==='function')opts.signal=root.AbortSignal.timeout(8000);
+   const r=await root.fetch(url,opts);
+   if(!r.ok)return '';
+   const data=await r.json();
+   return validEmail(service==='drive'?data?.user?.emailAddress:data?.email);
+  }catch{return '';}
+ }
  const SESSION='minkome-google-session-v1',PERSIST='minkome-google-persistent-token-v1',KEEP='minkome-google-keep-connected-v1';
  const valid=id=>/^\d+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/.test(String(id||'').trim());
  class GoogleAuth{
@@ -69,16 +110,20 @@
    if(!SCOPES[service])throw Error('不明なGoogleサービスです。');
    this.linked[service]=false;this.tokens[service]=null;
    if(service==='youtube')this.channel=null;
+   forgetAccount(this.clientId,service);
    if(!this.services().length)this.setKeepConnected(false);
    this.save();this.saveTokens();
   }
-  async authorize(names){
+  async authorize(names,{force=false}={}){
    const selected=[...new Set(names)];
    if(!selected.length||selected.some(s=>!SCOPES[s]))throw Error('認証対象がありません。');
    if(!valid(this.clientId))throw Error('GitHubのGOOGLE_OAUTH_CLIENT_IDを設定してください。');
    if(this.pending)throw Error('Google認証の処理中です。');
-   const needed=selected.filter(service=>!this.token(service));
+   // Explicit reconnect renews valid tokens too. YouTube must never be skipped.
+   const needed=force?selected:selected.filter(service=>!this.token(service));
    if(!needed.length)return [];
+   // The first popup keeps the originating click's user activation.
+   if(force&&needed.includes('youtube'))needed.sort((a,b)=>(a==='youtube'?0:1)-(b==='youtube'?0:1));
    this.pending=true;const completed=[];
    try{
     // Separate Brand Channel and Drive grants. Never combine their scopes.
@@ -97,13 +142,15 @@
     let settled=false;
     const fail=e=>{if(settled)return;settled=true;reject(e);};
     try{
-     const client=oauth.initTokenClient({
+     const preferred=preferredAccount(this.clientId,service);
+    const client=oauth.initTokenClient({
       client_id:this.clientId,scope:SCOPES[service],include_granted_scopes:false,
+      ...(preferred?{login_hint:preferred}:{}),
       callback:async response=>{
        if(settled)return;
        try{
         if(response?.error)throw Error('Google認証に失敗しました（'+response.error+'）。');
-        if(!response?.access_token||!oauth.hasGrantedAllScopes(response,SCOPES[service]))
+        if(!response?.access_token||!oauth.hasGrantedAllScopes(response,...SCOPES[service].split(' ')))
          throw Error('必要な'+(service==='youtube'?'YouTube':'Drive')+'権限を許可してください。');
         const expires=Date.now()+Math.max(0,Number(response.expires_in||0)-60)*1000;
         if(expires<=Date.now())throw Error('有効なGoogle認証情報を取得できませんでした。');
@@ -119,17 +166,21 @@
          this.channel={id:channel.id,title:String(channel.snippet?.title||channel.id).slice(0,100)};
         }
         this.linked[service]=true;this.tokens[service]={value:response.access_token,expires};
-        this.save();this.saveTokens();settled=true;resolve(service);
+        this.save();this.saveTokens();
+        // Email is a best-effort account hint; channel verification above stays authoritative.
+        const email=await accountForToken(service,response.access_token);
+        if(email)rememberAccount(this.clientId,service,email);
+        settled=true;resolve(service);
        }catch(e){fail(e);}
       },
       error_callback:error=>fail(Error(error?.type==='popup_closed'?'Google認証画面を閉じました。':'Googleの認証画面を開けませんでした。ポップアップを許可し、再度接続してください。'))
      });
      // Called synchronously from the original click (for the first service).
-     client.requestAccessToken({prompt:service==='youtube'?'select_account':''});
+     client.requestAccessToken({prompt:service==='youtube'&&!preferred?'select_account':''});
     }catch(e){fail(e);}
    });
   }
  }
- root.LiveGoogleAuth={GoogleAuth,valid,SCOPES};
+ root.LiveGoogleAuth={GoogleAuth,valid,SCOPES,preferredAccount,rememberAccount,forgetAccount};
  if(typeof module!=='undefined'&&module.exports)module.exports=root.LiveGoogleAuth;
 })(globalThis);
