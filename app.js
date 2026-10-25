@@ -1624,7 +1624,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   }
   $('vaultSave').addEventListener('click',()=>vaultOperation(async()=>{
     if($('vaultPass').value!==$('vaultConfirm').value)throw new Error('確認用の合言葉が一致しません。');
-    const apiKey=C.normalizeKey($('apiKey').value);
+    const apiKey=$('geminiProvider').value==='shared'&&!$('apiKey').value.trim()?'':C.normalizeKey($('apiKey').value);
     const epoch=pageEpoch;
     const data=await LiveVault.seal({apiKey,obsPassword:$('obsPassword').value,youtubeApiKey:$('youtubeApiKey').value.trim()},$('vaultPass').value);
     if(epoch!==pageEpoch)return;
