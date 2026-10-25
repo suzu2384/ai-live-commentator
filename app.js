@@ -63,8 +63,6 @@
   let googleReady=!!globalThis.google?.accounts?.oauth2?.initTokenClient;
   let googleError='';
   let obsSourceFailurePending=false,obsSourceRecoveryReady=false;
-  const speakerSessionCounts=Object.fromEntries(Array.from({length:6},(_,i)=>[`p${i+1}`,0]));
-  let activeSpeakerId=null,lastSpeakerId=null,activeSpeakerMode='';
   function log(message, kind='') {
     const li = document.createElement('li'), time = document.createElement('time');
     time.textContent = new Date().toLocaleTimeString('ja-JP'); li.className = kind;
@@ -73,55 +71,6 @@
   }
   function setStatus(text, error=false) { $('status').textContent = text; phaseAt = performance.now(); $('stateDot').className = 'dot' + (error ? ' error' : busy ? ' running' : ''); }
   function updateStats() { $('usage').textContent = `${stats.used} 回`; $('staleCount').textContent = stats.stale; }
-  function speakerProfilesForDisplay(){
-    if(streaming&&Array.isArray(lastSettings?.profiles)&&lastSettings.profiles.length)return lastSettings.profiles.map(({id,name})=>({id,name}));
-    const selected=new Set(selectedProfileIds());
-    return Array.from({length:6},(_,i)=>{const id=`p${i+1}`;return {id,name:$(`${id}-name`)?.value.trim()||`友達${i+1}`};}).filter(p=>selected.has(p.id));
-  }
-  function renderSpeakerStats(){
-    const root=$('speakerStatsList'),donut=$('speakerStatsDonut');if(!root||!donut)return;
-    const profiles=speakerProfilesForDisplay(),total=profiles.reduce((sum,p)=>sum+(speakerSessionCounts[p.id]||0),0);
-    $('speakerStatsTotal').textContent=String(total);
-    root.classList.toggle('two-columns',profiles.length>3);
-    root.replaceChildren();
-    const segments=[];let angle=0;
-    for(const profile of profiles){
-      const count=speakerSessionCounts[profile.id]||0,percent=total?Math.round(count*100/total):0;
-      const index=Math.max(0,Math.min(5,Number(profile.id.slice(1))-1)),color=`var(--friend-${index+1})`;
-      if(total&&count){
-        const next=angle+count/total*360;segments.push(`${color} ${angle.toFixed(2)}deg ${next.toFixed(2)}deg`);angle=next;
-      }
-      const row=document.createElement('div');row.className='speaker-stat-row';row.dataset.speakerId=profile.id;row.style.setProperty('--speaker-color',color);
-      if(activeSpeakerId===profile.id)row.classList.add('active');
-      else if(lastSpeakerId===profile.id&&count>0)row.classList.add('recent');
-      const main=document.createElement('div');main.className='speaker-stat-main';
-      const dot=document.createElement('span');dot.className='speaker-stat-dot';dot.setAttribute('aria-hidden','true');
-      const name=document.createElement('strong');name.className='speaker-stat-name';name.textContent=profile.name;
-      const state=document.createElement('span');state.className='speaker-stat-state';
-      state.textContent=activeSpeakerId===profile.id?(activeSpeakerMode||'発話中'):(lastSpeakerId===profile.id&&count>0?'直近':'待機');
-      main.append(dot,name,state);
-      const value=document.createElement('span');value.className='speaker-stat-value';value.textContent=`${count}回 · ${percent}%`;
-      row.append(main,value);root.append(row);
-    }
-    donut.style.background=total?`conic-gradient(${segments.join(',')})`:'var(--line)';
-    donut.setAttribute('aria-label',total
-      ?`今回 ${total}発言。 ${profiles.map(p=>{const count=speakerSessionCounts[p.id]||0;return `${p.name} ${count}回 ${Math.round(count*100/total)}%`;}).join('、')}`
-      :'今回の発言はまだありません');
-  }
-  function resetSpeakerStats(){
-    for(const id of Object.keys(speakerSessionCounts))speakerSessionCounts[id]=0;
-    activeSpeakerId=null;lastSpeakerId=null;activeSpeakerMode='';renderSpeakerStats();
-  }
-  function setSpeakerActivity(profile,mode){
-    activeSpeakerId=profile?.id||null;activeSpeakerMode=mode||'発話中';renderSpeakerStats();
-  }
-  function clearSpeakerActivity(id){
-    if(activeSpeakerId===id){activeSpeakerId=null;activeSpeakerMode='';renderSpeakerStats();}
-  }
-  function recordSpeaker(profile){
-    if(!profile?.id||!Object.hasOwn(speakerSessionCounts,profile.id))return;
-    speakerSessionCounts[profile.id]++;lastSpeakerId=profile.id;renderSpeakerStats();
-  }
   function updateObsRefreshButton(){
     $('resetObsSource').disabled=vaultBusy||(busy&&!streaming);
   }
@@ -396,14 +345,14 @@
   }
   function syncParticipantCount(){
     $('participantCount').value=String(selectedProfileIds().length);
-    updateSettingSummaries();renderSpeakerStats();
+    updateSettingSummaries();
   }
   function updateParticipantNames(){
     for(let i=0;i<6;i++){
       const id=`p${i+1}`,label=document.querySelector(`[data-participant-name="${id}"]`);
       if(label)label.textContent=$(`${id}-name`)?.value.trim()||`友達${i+1}`;
     }
-    renderSpeakerStats();
+    
   }
   function renderParticipantSelection(selectedIds){
     const valid=new Set(Array.isArray(selectedIds)?selectedIds.filter(id=>/^p[1-6]$/.test(id)):[]);
@@ -746,7 +695,6 @@
     const ctx = canvas.getContext('2d', {willReadFrequently:true}); ctx.drawImage(im,0,0,32,18);
     const pixels = ctx.getImageData(0,0,32,18).data;
     $('preview').src = data; $('preview').hidden = false; $('placeholder').hidden = true;
-    $('imageInfo').textContent = `${im.naturalWidth} × ${im.naturalHeight} · ${new Date().toLocaleTimeString('ja-JP')}`;
     lastCaptureAt=performance.now();
     return { data, capturedAt, capturedAtMs, pixels, width:im.naturalWidth, height:im.naturalHeight };
   }
@@ -1069,7 +1017,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   async function playGreetingTurns(turns,s,signal,label){
     const items=turns.map(turn=>({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)})).filter(x=>x.profile);
     const delivered=({turn,profile})=>{
-      recordSpeaker(profile);
+      
       $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
       log(`${label}・${profile.name}: ${turn.text}`,'spoken');
     };
@@ -1080,19 +1028,19 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
         const item=items[i],next=items[i+1];
         setStatus(next?`${label}を再生中・次の音声を先読み中`:`${label}を再生中`);
         const overlayEpoch=await showObsOverlay(item.profile,item.turn,s,signal);
-        setSpeakerActivity(item.profile,'発話中');const playback=playVoicevoxAudio(audio,{...s,...item.profile},null,signal,()=>{showLatestComment(item.profile,item.turn);$('delivery').textContent='このブラウザで再生中';});
+        const playback=playVoicevoxAudio(audio,{...s,...item.profile},null,signal,()=>{showLatestComment(item.profile,item.turn);$('delivery').textContent='このブラウザで再生中';});
         let prefetch=null,prefetchController=null,unlink=null;
         if(next){
           prefetchController=new AbortController();
           const abort=()=>prefetchController.abort();signal.addEventListener('abort',abort,{once:true});unlink=()=>signal.removeEventListener('abort',abort);
           prefetch=generateVoicevoxAudio(spokenText(next.turn),{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
         }
-        try{await playback;}catch(e){prefetchController?.abort();unlink?.();if(overlayEpoch===obsOverlayEpoch)clearObsOverlayNow();throw e;}finally{clearSpeakerActivity(item.profile.id);}
+        try{await playback;}catch(e){prefetchController?.abort();unlink?.();if(overlayEpoch===obsOverlayEpoch)clearObsOverlayNow();throw e;}finally{}
         delivered(item);scheduleObsOverlayHide(s,overlayEpoch);
         if(prefetch){const prepared=await prefetch;unlink?.();if(prepared.error)throw prepared.error;audio=prepared.value;}
       }
     }else{
-      for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);setSpeakerActivity(item.profile,'送信中');let sent=false;try{sent=await speak(spokenText(item.turn),{...s,...item.profile},null,signal,true);}finally{clearSpeakerActivity(item.profile.id);}if(!sent)throw new C.AppError(`${label}を読み上げ先へ送信できませんでした。`,'VOICE');showLatestComment(item.profile,item.turn);$('delivery').textContent='棒読みちゃんへ送信済み（PC側の再生開始は未確認）';const overlayEpoch=await showObsOverlay(item.profile,item.turn,s,signal);delivered(item);scheduleObsOverlayHide(s,overlayEpoch);}
+      for(let i=0;i<items.length;i++){const item=items[i];setStatus(`${label}を送信中`);let sent=false;try{sent=await speak(spokenText(item.turn),{...s,...item.profile},null,signal,true);}finally{}if(!sent)throw new C.AppError(`${label}を読み上げ先へ送信できませんでした。`,'VOICE');showLatestComment(item.profile,item.turn);$('delivery').textContent='棒読みちゃんへ送信済み（PC側の再生開始は未確認）';const overlayEpoch=await showObsOverlay(item.profile,item.turn,s,signal);delivered(item);scheduleObsOverlayHide(s,overlayEpoch);}
     }
   }
   function fallbackGreetingTurns(kind,s,turnCount){
@@ -1319,7 +1267,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     const delivered=(turn,profile)=>{
       conversationStarted=true;state.lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>20)spoken.shift();
       speakerHistory.push(turn.speakerId);if(speakerHistory.length>20)speakerHistory.shift();
-      recordSpeaker(profile);
+      
       $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
       log(`${profile.name}: ${turn.text}`,'spoken');
     };
@@ -1334,21 +1282,21 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
           const suffix=state.analysisInFlight?'・裏でGemini解析中':'';
           setStatus((next?'VOICEVOX再生中・次の音声を先読み中':'VOICEVOXの音声再生中')+suffix);
           const overlayEpoch=await showObsOverlay(item.profile,item.turn,s,signal);
-          setSpeakerActivity(item.profile,'発話中');const playback=playVoicevoxAudio(audio,{...s,...item.profile},i===0?current:null,signal,()=>{showLatestComment(item.profile,item.turn);$('delivery').textContent='このブラウザで再生中';});
+          const playback=playVoicevoxAudio(audio,{...s,...item.profile},i===0?current:null,signal,()=>{showLatestComment(item.profile,item.turn);$('delivery').textContent='このブラウザで再生中';});
           let prefetch=null,prefetchController=null,unlink=null;
           if(next){
             prefetchController=new AbortController();
             const abort=()=>prefetchController.abort();signal.addEventListener('abort',abort,{once:true});unlink=()=>signal.removeEventListener('abort',abort);
             prefetch=generateVoicevoxAudio(spokenText(next.turn),{...s,...next.profile},null,prefetchController.signal).then(value=>({value}),error=>({error}));
           }
-          try{await playback;}catch(e){prefetchController?.abort();unlink?.();if(overlayEpoch===obsOverlayEpoch)clearObsOverlayNow();throw e;}finally{clearSpeakerActivity(item.profile.id);}
+          try{await playback;}catch(e){prefetchController?.abort();unlink?.();if(overlayEpoch===obsOverlayEpoch)clearObsOverlayNow();throw e;}finally{}
           delivered(item.turn,item.profile);scheduleObsOverlayHide(s,overlayEpoch);
           if(prefetch){const prepared=await prefetch;unlink?.();if(prepared.error)throw prepared.error;audio=prepared.value;}
         }
       }else{
         for(const {turn,profile} of turns){
           C.check(signal);setStatus(state.analysisInFlight?'棒読みちゃんへ送信中・裏でGemini解析中':'棒読みちゃんへ送信中');
-          setSpeakerActivity(profile,'送信中');let sent=false;try{sent=await speak(spokenText(turn),{...s,...profile},conversationStarted?null:current,signal,conversationStarted);}finally{clearSpeakerActivity(profile.id);}if(!sent)break;
+          let sent=false;try{sent=await speak(spokenText(turn),{...s,...profile},conversationStarted?null:current,signal,conversationStarted);}finally{}if(!sent)break;
           if(!conversationStarted)state.lastConversationStart=performance.now();
           showLatestComment(profile,turn);$('delivery').textContent='棒読みちゃんへ送信済み（PC側の再生開始は未確認）';
           const overlayEpoch=await showObsOverlay(profile,turn,s,signal);
@@ -1357,7 +1305,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
       }
       return conversationStarted;
     } finally {
-      activeSpeakerId=null;activeSpeakerMode='';renderSpeakerStats();state.speaking=false;state.activeTurnTexts=[];state.activeSpeakerIds=[];
+      state.speaking=false;state.activeTurnTexts=[];state.activeSpeakerIds=[];
     }
   }
   async function speechLoop(s,state,spoken,speakerHistory,signal) {
@@ -1433,7 +1381,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   }
   $('start').addEventListener('click',()=>operation(async signal=>{
     lastCaptureAt=null;const s=settings(),key=requireKey();validateEndpoints(s);
-    await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();resetSpeakerStats();$('latency').textContent='—';
+    await unlockAudio(s);save(s);lastSettings=s;stats.used=0;stats.stale=0;updateStats();$('latency').textContent='—';
     const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,speechEpoch:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],rateLimitStreak:0,quietSceneStreak:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
     await chapterUI.begin(s.contentName);C.check(signal);
     streaming=true;$('finish').disabled=true;updateObsRefreshButton();
@@ -1647,7 +1595,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   const profiles=Array.isArray(stored.profiles)?stored.profiles:[];
   if(!profiles.length)profiles.push({...defaultProfile(0),speaker:stored.speaker??3,bouyomiVoice:stored.bouyomiVoice??0});
   buildProfiles(profiles);renderParticipantSelection(selectedIds);
-  vaultState();googleControls();outputFields();overlayFields();updateGeminiProviderFields();initSettingSections();updateStats();renderSpeakerStats();
+  vaultState();googleControls();outputFields();overlayFields();updateGeminiProviderFields();initSettingSections();updateStats();
   if(driveOriginAllowed()&&!googleReady)void loadGoogleIdentity().then(()=>{googleReady=true;googleControls();}).catch(e=>{$('googleAccountState').textContent=e.message||'Google認証を読み込めませんでした。';});
   // Restore Drive settings automatically when a still-valid token survived reload.
   void resumeGoogleSession();
