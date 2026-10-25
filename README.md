@@ -1,6 +1,25 @@
-# みんコメAI — ブラウザ版 v4.50.6
+# みんコメAI — ブラウザ版 v4.51.0
 
 OBSの映像をGemini 3.1 Flash-Liteが見て、AIの仲間たちが同じ場所に集まっているような短い感想・掛け合いを添えます。サーバー・インストール・ビルドは不要です。
+
+## v4.51.0 Gemini接続方式の選択（組み込みAI）
+
+「接続 → Gemini」で、既存の「個人APIキー（従来方式）」と「組み込みAI（Firebase）」を切り替えられます。既存利用者の選択はAPIキー方式のままで、既存の暗号化保存・Google Driveバックアップ・挨拶・実況・チャプター生成・音声読み上げを引き続き使用できます。Firebase公開設定の整った新規利用者は組み込みAIが既定となります。組み込み版が安定した後には個人APIキー版を廃止できるよう、AIリクエストを分岐させる接続アダプターを分離しています。
+
+APIキー方式はモデル `gemini-3.1-flash-lite` を固定して従来どおり利用します。組み込み方式はKonDateに準拠したFirebase AI LogicとApp Check（reCAPTCHA Enterprise）で、標準モデルは `gemini-3.5-flash-lite` です。画像・システム指示・JSON出力スキーマ・思考量指定は、両方式で従来の実況処理を共通利用します。組み込み版では個人APIキーやFree Tier確認は不要です。
+
+### Firebase AI Logicの公開設定（GitHub Repository Variables）
+
+みんコメ専用のFirebase Sparkプロジェクト（請求先なし）とFirebase AI LogicのGemini Developer APIを設定し、App Check用reCAPTCHA Enterpriseのサイトキーに公開GitHub Pagesドメインを登録します。KonDateのFirebase設定は流用しません。GitHubリポジトリの **Settings → Secrets and variables → Actions → Variables** に、以下の公開可能な変数を設定してください。
+
+- `MINKOME_AI_FIREBASE_CONFIG` : Firebase Webアプリ設定のJSON（`apiKey`, `appId`, `projectId` など）
+- `MINKOME_AI_APP_CHECK_SITE_KEY` : reCAPTCHA Enterpriseのサイトキー
+- `MINKOME_AI_SPARK_VERIFIED` : 請求なしSparkプランと無料モデルを確認した場合のみ `true`
+- `MINKOME_AI_MODEL` : 任意。既定 `gemini-3.5-flash-lite`。互換の `gemini-3.1-flash-lite` にも切替可能
+
+`Sync Embedded AI config` ワークフローが `ai-config.js` とキャッシュ識別子を更新します。設定が未登録なら組み込みAIは実行不可のままとなり、既存APIキー方式への影響はありません。部分的な変数設定がある場合は安全のためワークフローが失敗し、組み込み版を公開しません。Firebase Web APIキーは公開用識別情報ですが、秘密鍵やサービスアカウント鍵を埋め込んではいけません。
+
+Firebaseの共有利用枠は全ユーザーで共用します。App Checkは不正利用の抑制策であり、利用者ごとの厳密なクォータや費用上限の代わりにはなりません。課金を有効にしない運用を前提とします。
 
 ## v4.50.6 ブランドチャンネル対応・メールアドレス照合廃止
 
