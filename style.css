@@ -797,3 +797,14 @@ html[data-theme="sand"]{
  .tabs button,.tabs .help-tab-button{font-size:10px;padding-inline:0}
  .tabs button svg{width:19px;height:19px}
 }
+
+/* Keep controls inside the uncovered viewport when fixed video/toolbar
+   and fixed bottom tabs coexist on narrow screens. This changes only
+   scroll-to-target positioning; it does not rearrange the workspace. */
+@media(max-width:900px){
+ html,body{
+  scroll-padding-top:calc(var(--toolbar-height,132px) + var(--preview-sticky-height,0px) + 12px);
+  scroll-padding-bottom:calc(68px + env(safe-area-inset-bottom));
+ }
+ .settings-column{scroll-margin-top:0}
+}
