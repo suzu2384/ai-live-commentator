@@ -153,6 +153,9 @@ const results=[];
   jpeg=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=640;c.height=360;const x=c.getContext('2d');x.fillStyle='#345a4b';x.fillRect(0,0,640,360);return c.toDataURL('image/jpeg');});
   await page.locator('#sampleInterval').fill('4');
   await page.locator('#tab-connect').click();
+  // Firebase is now configured in production. Legacy test fixtures explicitly
+  // select the personal-key provider rather than depending on a blank config.
+  if(!config.embeddedFirebase)await page.locator('#geminiProvider').selectOption('personal');
   if(!config.embeddedFirebase){await page.locator('#apiKey').fill('fake.test-key');await page.locator('#freeTier').check();}await page.locator('#obsPassword').fill('obs-secret');
   if(config.host){await page.locator('#output').selectOption('voicevox');await page.locator('#voicevoxUrl').fill(`http://${host}:50021`);await page.locator('#output').selectOption('bouyomi');for(const [id,port,proto] of [['obsUrl',4455,'ws'],['bouyomiUrl',50080,'http']])await page.locator('#'+id).fill(`${proto}://${host}:${port}`);}
   await page.locator('#tab-live').click();
