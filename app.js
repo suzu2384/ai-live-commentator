@@ -960,7 +960,6 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   function showLatestComment(profile,turn){
     $('lastComment').textContent=profile.name+'：'+turn.text;
     $('lastSpeechText').querySelector('strong').textContent=speechSourceText(turn)||'—';
-    $('commentTime').textContent=new Date().toLocaleTimeString('ja-JP');
   }
   function greetingHistory(){
     try{
