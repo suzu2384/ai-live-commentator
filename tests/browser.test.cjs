@@ -24,10 +24,24 @@ const results=[];
   if(config.httpEntry)await page.route('http://localhost:9876/**',async r=>{
    const u=new URL(r.request().url()),rel=u.pathname==='/'?'index.html':u.pathname.slice(1),file=path.resolve(__dirname,'..',rel),root=path.resolve(__dirname,'..');
    if(rel==='google-config.js')return r.fulfill({status:200,contentType:'text/javascript',body:"globalThis.MINKOME_GOOGLE_OAUTH_CLIENT_ID='123456789-test.apps.googleusercontent.com';"});
+   if(rel==='ai-config.js'&&config.embeddedFirebase)return r.fulfill({status:200,contentType:'text/javascript',body:"globalThis.MINKOME_AI_CONFIG={mode:'shared-firebase',firebase:{apiKey:'public',appId:'test',projectId:'test'},appCheckSiteKey:'site-key',model:'gemini-3.5-flash-lite'};"});
    if(!file.startsWith(root)||!fs.existsSync(file)||fs.statSync(file).isDirectory())return r.fulfill({status:404,body:'not found'});
    const ext=path.extname(file),types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.webmanifest':'application/manifest+json','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'};
    return r.fulfill({status:200,contentType:types[ext]||'application/octet-stream',body:fs.readFileSync(file)});
   });
+  if(config.embeddedFirebase){
+   const prefix='https://www.gstatic.com/firebasejs/12.19.0/';
+   const modules={
+    'firebase-app.js':"export function initializeApp(){return {};}",
+    'firebase-app-check.js':"export class ReCaptchaEnterpriseProvider{constructor(key){if(key!=='site-key')throw Error('bad key');}} export function initializeAppCheck(){return {};} export async function getToken(){return {token:'ok'};}",
+    'firebase-ai.js':"export class GoogleAIBackend{} export function getAI(){return {};} export function getGenerativeModel(_service,options){return {async generateContent(contents){globalThis.__embeddedCalls=(globalThis.__embeddedCalls||[]);globalThis.__embeddedCalls.push({model:options.model,contents});return {response:{candidates:[{content:{parts:[{text:'接続できました'}]}}]}};}};}"
+   };
+   await page.route(prefix+'**',async r=>{
+    const module=modules[r.request().url().slice(prefix.length)];
+    if(!module)return r.abort();
+    return r.fulfill({status:200,contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:module});
+   });
+  }
   await page.route('https://**/*',async r=>{
    if(r.request().url().startsWith('https://accounts.google.com/gsi/client')&&config.httpEntry)return r.fulfill({contentType:'text/javascript',body:`globalThis.google={accounts:{oauth2:{initTokenClient:(opts)=>({callback:opts.callback,requestAccessToken(){setTimeout(()=>this.callback({access_token:'drive-token',expires_in:3600,scope:opts.scope}),0);}}),hasGrantedAllScopes:()=>true,revoke:(_token,cb)=>cb&&cb()}}};`});
    if(r.request().url().startsWith('https://www.googleapis.com/oauth2/v3/userinfo'))return r.fulfill({contentType:'application/json',body:'{"email":"minkome-test@example.com"}'});
@@ -401,6 +415,25 @@ const results=[];
   await p.locator('#tab-connect').click();assert.equal(await p.locator('#obsOverlayFont').inputValue(),'BIZ UDPGothic');assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');
   const saved=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1')));assert.equal(saved.persona,'インポート後の雰囲気');assert.deepEqual(saved.selectedProfileIds,['p1','p5']);assert.equal(saved.profiles[4].personality,'冷静に状況を整理して予想する。');assert.ok(!JSON.stringify(saved).includes('fake.test-key')&&!JSON.stringify(saved).includes('obs-secret'));
   assert.deepEqual(JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-content-library-v1'))),['配信','配信：新作']);assert.deepEqual(JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-content-knowledge-v1'))),{'配信：新作':'主人公はテスト太郎。固有技はテストブレイク。'});assert.deepEqual(JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-font-library-v1'))),['BIZ UDPGothic']);
+  await x.close();
+ });
+ await test('embedded Gemini uses Firebase without a personal key and legacy key mode remains usable',async()=>{
+  const x=await setup({httpEntry:true,embeddedFirebase:true}),p=x.page;
+  await openConnect(p);
+  assert.equal(await p.locator('#geminiProvider').inputValue(),'shared');
+  await p.locator('#apiKey').fill('');await p.locator('#freeTier').uncheck();
+  await p.locator('#testText').click();
+  await p.waitForFunction(()=>document.getElementById('latency').textContent.includes('秒'));
+  assert.equal(await p.evaluate(()=>(globalThis.__embeddedCalls||[]).length),1);
+  assert.equal(x.events.api,0);
+  await p.locator('#save').click();
+  await p.reload();await openConnect(p);
+  assert.equal(await p.locator('#geminiProvider').inputValue(),'shared');
+  await p.locator('#geminiProvider').selectOption('personal');
+  await p.locator('#apiKey').fill('fake.test-key');await p.locator('#freeTier').check();
+  await p.locator('#testText').click();
+  await p.waitForFunction(()=>document.getElementById('latency').textContent.includes('秒'));
+  assert.equal(x.events.api,1);
   await x.close();
  });
  await test('Google Drive saves normal settings and plaintext secrets as separate files, restores both and deletes both',async()=>{
