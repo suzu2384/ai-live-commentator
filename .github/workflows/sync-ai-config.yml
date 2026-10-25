@@ -1,0 +1,44 @@
+name: Sync Embedded AI config
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+env:
+  MINKOME_AI_FIREBASE_CONFIG: ${{ vars.MINKOME_AI_FIREBASE_CONFIG }}
+  MINKOME_AI_APP_CHECK_SITE_KEY: ${{ vars.MINKOME_AI_APP_CHECK_SITE_KEY }}
+  MINKOME_AI_SPARK_VERIFIED: ${{ vars.MINKOME_AI_SPARK_VERIFIED }}
+  MINKOME_AI_MODEL: ${{ vars.MINKOME_AI_MODEL }}
+concurrency:
+  group: sync-minkome-ai-config
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Generate public Firebase AI config
+        run: python3 tools/sync-ai-config.py
+      - name: Commit public config when changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- ai-config.js index.html; then
+            echo "AI config already synchronized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ai-config.js index.html
+          git commit -m "chore: sync public Firebase AI config"
+          git push origin HEAD:main
+      - name: Request Pages rebuild
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null
