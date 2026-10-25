@@ -625,8 +625,9 @@ const results=[];
   const box=await p.locator('.tabs').boundingBox();assert.ok(Math.abs(box.y+box.height-900)<2);
   await p.locator('#tab-connect').click();assert.equal(await p.locator('#panel-connect').isVisible(),true);
   const s=p.locator('#settings-video > .setting-summary');
-  assert.ok((await s.evaluate(e=>getComputedStyle(e,'::after').content)).includes('▶'));
-  await s.click();assert.ok((await s.evaluate(e=>getComputedStyle(e,'::after').content)).includes('▼'));
+  const previous=await p.locator('#settings-video').evaluate(e=>e.open);
+  await s.click();
+  assert.notEqual(await p.locator('#settings-video').evaluate(e=>e.open),previous);
   await x.close();
  });
  await test('phone footer remains accessible and leaves room for settings',async()=>{
