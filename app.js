@@ -70,7 +70,7 @@
     while ($('log').children.length > 160) $('log').lastElementChild.remove();
   }
   function setStatus(text, error=false) { $('status').textContent = text; phaseAt = performance.now(); $('stateDot').className = 'dot' + (error ? ' error' : busy ? ' running' : ''); }
-  function updateStats() { $('usage').textContent = `${stats.used} 回`; $('staleCount').textContent = stats.stale; }
+  function updateStats() { $('usage').textContent = `${stats.used} 回`; $('staleCount').textContent = `${stats.stale} 回`; }
   function updateObsRefreshButton(){
     $('resetObsSource').disabled=vaultBusy||(busy&&!streaming);
   }
