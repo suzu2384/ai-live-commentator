@@ -427,7 +427,7 @@ const results=[];
   await p.waitForFunction(()=>document.getElementById('latency').textContent.includes('秒'));
   assert.equal(await p.evaluate(()=>(globalThis.__embeddedCalls||[]).length),1);
   assert.equal(x.events.api,0);
-  await p.locator('#save').click();
+  await p.locator('#tab-live').click();await p.locator('#save').click();
   await p.reload();await openConnect(p);
   assert.equal(await p.locator('#geminiProvider').inputValue(),'shared');
   await p.locator('#geminiProvider').selectOption('personal');
