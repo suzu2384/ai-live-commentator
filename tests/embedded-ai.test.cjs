@@ -12,7 +12,10 @@ function mock(){
    initializeAppCheck:(_app,options)=>{assert.equal(options.isTokenAutoRefreshEnabled,true);return {};},
    getToken:async()=>{info.attestations++;return {token:'checked'};}
   },
-  ai:{GoogleAIBackend:class{},getAI:()=>({}),
+  ai:{GoogleAIBackend:class{},getAI:(_firebase,options)=>{
+    assert.equal(options.useLimitedUseAppCheckTokens,true,'Replay monitoring requires limited-use tokens');
+    return {};
+   },
    getGenerativeModel:(_service,options)=>{
     info.models.push(options);
     return {generateContent:async contents=>{
@@ -65,4 +68,14 @@ test('cancelled requests do not accept late SDK responses',async()=>{
  ac.abort();
  await assert.rejects(result,e=>e.name==='AbortError');
  complete({response:{candidates:[]}});
+});
+
+test('an App Check 403 identifies the baseline protection setting',async()=>{
+ const {sdk}=mock();
+ sdk.ai.getGenerativeModel=()=>({generateContent:async()=>{
+  throw Error('403 PERMISSION_DENIED: To access this model, you must enforce Firebase App Check.');
+ }});
+ const client=Embedded.createClient(config,{sdkLoader:async()=>sdk});
+ await assert.rejects(client.generate({contents:[{role:'user',parts:[{text:'hello'}]}]}),
+   error=>error.code==='AUTH'&&error.message.includes('ベースライン保護'));
 });

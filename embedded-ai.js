@@ -36,8 +36,12 @@
    return new root.LiveCore.AppError('組み込みGeminiが一時的に利用できません（HTTP 503）。','503');
   if(/500|502|504|internal/i.test(reason))
    return new root.LiveCore.AppError('組み込みGeminiで一時的なエラーが発生しました（HTTP 500）。','500');
-  if(/app.?check|recaptcha|403|permission|unauthentic|unauthoriz|401|api.key/i.test(reason))
-   return new root.LiveCore.AppError('組み込みAIの認証・App Checkに失敗しました。Firebase設定を確認してください。','AUTH');
+  if(/must enforce firebase app check|firebase ai logic has been deactivated/i.test(reason))
+   return new root.LiveCore.AppError('Firebase AI LogicのApp Check適用が必要です。ベースライン保護が「適用」か確認してください。リプレイ保護がモニタリング中でも限定使用トークンを使用します。','AUTH');
+  if(/app.?check|recaptcha|attestation/i.test(reason))
+   return new root.LiveCore.AppError('App Checkの検証に失敗しました。reCAPTCHAのサイトキー、登録ドメイン、Firebaseのアプリ登録を確認してください。','AUTH');
+  if(/403|permission|unauthentic|unauthoriz|401|api.key/i.test(reason))
+   return new root.LiveCore.AppError('Firebase AI Logicの認証・権限エラーです。App Checkの適用、APIの有効化、Firebase Web設定のAPIキー制限を確認してください。','AUTH');
   if(/404|not.found|model/i.test(reason))
    return new root.LiveCore.AppError('組み込みAIのモデルが利用できません。FirebaseのAI設定を確認してください。','404');
   return new root.LiveCore.AppError('組み込みGeminiへの接続に失敗しました。通信やFirebase設定を確認してください。','NETWORK');
@@ -55,7 +59,11 @@
      isTokenAutoRefreshEnabled:true
     });
     await check.getToken(appCheck);
-    return {service:ai.getAI(firebase,{backend:new ai.GoogleAIBackend()}),ai};
+    // Replay monitoring can require limited-use App Check tokens for AI calls.
+    return {service:ai.getAI(firebase,{
+      backend:new ai.GoogleAIBackend(),
+      useLimitedUseAppCheckTokens:true
+    }),ai};
    })().catch(error=>{initialized=null;throw error;});
    return initialized;
   }

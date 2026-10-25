@@ -1,6 +1,12 @@
-# みんコメAI — ブラウザ版 v4.51.0
+# みんコメAI — ブラウザ版 v4.51.1
 
 OBSの映像をGemini 3.1 Flash-Liteが見て、AIの仲間たちが同じ場所に集まっているような短い感想・掛け合いを添えます。サーバー・インストール・ビルドは不要です。
+
+## v4.51.1 Firebase App Check・リプレイ保護のモニタリング対応
+
+Firebase AI Logicの組み込みAIでは、`useLimitedUseAppCheckTokens: true` により限定使用App Checkトークンを各リクエストで利用します。リプレイ保護が「モニタリングのみ」でも、Firebaseが通常トークンを無効と判断する403エラーへの対応です。ベースライン保護は「適用」を維持してください。KonDate本体や個人APIキー方式は変更していません。
+
+認証失敗時はApp Check未適用、reCAPTCHA認証の失敗、API権限を分けて表示します。Firebase側で状態の再評価が必要となる場合があります。
 
 ## v4.51.0 Gemini接続方式の選択（組み込みAI）
 
