@@ -1020,7 +1020,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     const items=turns.map(turn=>({turn,profile:s.profiles.find(p=>p.id===turn.speakerId)})).filter(x=>x.profile);
     const delivered=({turn,profile})=>{
       
-      $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
+      $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'';
       log(`${label}・${profile.name}: ${turn.text}`,'spoken');
     };
     if(!items.length)return;
@@ -1270,7 +1270,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
       conversationStarted=true;state.lastSpeech=performance.now();spoken.push(turn.text);if(spoken.length>20)spoken.shift();
       speakerHistory.push(turn.speakerId);if(speakerHistory.length>20)speakerHistory.shift();
       
-      $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'このブラウザで再生しました';
+      $('delivery').textContent=s.output==='bouyomi'?'棒読みちゃんへ順番に送信済み（PC側の再生完了は未確認）':'';
       log(`${profile.name}: ${turn.text}`,'spoken');
     };
     state.speaking=true;
