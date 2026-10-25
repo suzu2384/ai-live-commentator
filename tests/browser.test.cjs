@@ -609,6 +609,40 @@ const results=[];
   await p.locator('#tab-chapters').click();assert.equal(await p.locator('#panel-chapters').isVisible(),true);
   await x.close();
  });
+ await test('KonDate-size status bar sits above footer and frees the top toolbar',async()=>{
+  const x=await setup(),p=x.page;
+  await p.setViewportSize({width:1280,height:800});
+  const pc=await p.evaluate(()=>{
+   const statusBar=document.querySelector('#status-bar'),bar=statusBar.getBoundingClientRect(),nav=document.querySelector('.tabs').getBoundingClientRect(),
+     toolbar=document.querySelector('.toolbar'),settings=document.querySelector('.settings-column'),monitor=document.querySelector('.monitor-column');
+   return {height:bar.height,adjacent:Math.abs(bar.bottom-nav.top),bottom:bar.bottom,toolbarHeight:toolbar.getBoundingClientRect().height,
+     statusOutsideToolbar:!toolbar.contains(document.querySelector('#status')),
+     statusText:document.querySelector('#status').textContent.trim(),
+     statusRole:document.querySelector('#status').getAttribute('role'),
+     statusPosition:getComputedStyle(statusBar).position,
+     monitorBesideSettings:monitor.getBoundingClientRect().right<=settings.getBoundingClientRect().left};
+  });
+  assert.equal(pc.height,22);assert.ok(pc.adjacent<2);assert.ok(pc.toolbarHeight<=46);
+  assert.equal(pc.statusOutsideToolbar,true);assert.equal(pc.statusText,'停止中');assert.equal(pc.statusRole,'status');
+  assert.notEqual(pc.statusPosition,'fixed');assert.equal(pc.monitorBesideSettings,true);
+  await p.setViewportSize({width:390,height:844});
+  const mobile=await p.evaluate(()=>{
+   const statusBar=document.querySelector('#status-bar').getBoundingClientRect(),nav=document.querySelector('.tabs').getBoundingClientRect(),
+     body=getComputedStyle(document.body),monitor=document.querySelector('.monitor-column'),settings=document.querySelector('.settings-column');
+   return {height:statusBar.height,adjacent:Math.abs(statusBar.bottom-nav.top),fixed:getComputedStyle(document.querySelector('#status-bar')).position,
+     reserve:parseFloat(body.paddingBottom),needed:statusBar.height+nav.height,
+     vertical:monitor.getBoundingClientRect().top<=settings.getBoundingClientRect().top,
+     overflow:document.documentElement.scrollWidth>innerWidth+1};
+  });
+  assert.equal(mobile.height,24);assert.ok(mobile.adjacent<2);assert.equal(mobile.fixed,'fixed');
+  assert.ok(mobile.reserve>=mobile.needed-3);assert.equal(mobile.vertical,true);assert.equal(mobile.overflow,false);
+  await p.locator('#tab-history').click();
+  assert.equal(await p.locator('#status').textContent(),'停止中');
+  const after=await p.locator('#status-bar').boundingBox();
+  const footer=await p.locator('.tabs').boundingBox();
+  assert.ok(Math.abs(after.y+after.height-footer.y)<2);
+  await x.close();
+ });
  await test('narrow layout preserves preview stack and fixed footer while scrolling',async()=>{
   const x=await setup(),p=x.page;await p.setViewportSize({width:800,height:900});
   await p.waitForFunction(()=>['--toolbar-height','--preview-sticky-height'].every(key=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue(key))>0));
