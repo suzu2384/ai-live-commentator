@@ -554,8 +554,7 @@
   function driveControls(){
     const allowed=driveOriginAllowed(),valid=LiveGoogleAuth.valid(googleAuth.clientId),connected=!!googleAuth.token('drive')&&!!driveClient?.accessToken,locked=busy||vaultBusy||driveBusy||googleAuth.pending,ready=allowed&&valid&&googleReady&&!locked;
     $('driveConnect').disabled=!ready||googleAuth.isLinked('drive');
-    for(const id of ['driveSave','driveRestore'])$(id).disabled=locked||!googleAuth.isLinked('drive');
-    $('driveDelete').disabled=locked||!connected;
+    for(const id of ['driveSave','driveRestore','driveDelete'])$(id).disabled=locked||!connected;
     $('driveDisconnect').disabled=locked||!googleAuth.isLinked('drive');
     $('driveOriginInfo').textContent=allowed?(valid?'Google認証設定はアプリに組み込み済みです。現在の起動元: '+location.origin:'GitHubのGOOGLE_OAUTH_CLIENT_IDを設定してください。'):'Google認証はGitHub Pagesまたはlocalhostから利用できます。';
     $('summary-drive').textContent=connected?'接続済み':googleAuth.isLinked('drive')?'再認証が必要':'未接続';
@@ -572,20 +571,6 @@
     const connections=googleAuth.services().map(s=>s==='youtube'?'YouTube: '+(channel||'チャンネル'):'Google Drive').join(' / ');
     $('googleAccountState').textContent=googleError||(!valid?'GitHubのGOOGLE_OAUTH_CLIENT_IDが未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':connections?'連携中: '+connections:'YouTubeとDriveは個別に接続できます。');
     updateSettingSummaries();
-  }
-  async function ensureYouTubeAuthorizationForAction(){
-    if(!googleAuth.isLinked('youtube')||googleAuth.token('youtube'))return;
-    // Invoked synchronously from "YouTubeと同期" click before the first await.
-    // GIS requires user activation, so never start this from a timer.
-    try{
-      await googleAuth.authorize(['youtube']);
-      googleError='';googleControls();
-      log('YouTubeの期限切れ認証を同期操作から更新しました。');
-    }catch(error){
-      googleError=error.message||'YouTubeの再認証に失敗しました。';
-      googleControls();
-      throw new C.AppError(googleError);
-    }
   }
   function youtubeCredential(){
     const token=googleAuth.token('youtube');if(token)return {accessToken:token};
@@ -662,19 +647,10 @@
   }
   async function driveOperation(fn){
     if(busy||vaultBusy||driveBusy)return;
-    driveBusy=true;setBusy(false);googleControls();
-    try{
-      if((fn===saveDriveData||fn===restoreDriveData)&&googleAuth.isLinked('drive')&&!googleAuth.token('drive')){
-        // Start OAuth immediately in the user's Drive button click (before await).
-        await googleAuth.authorize(['drive']);
-        const client=await configureDrive();client.accessToken=googleAuth.token('drive');
-        // Restore action already expresses the user's intent; don't ask again.
-        if(fn===restoreDriveData){await restoreDriveData({automatic:true});await refreshDriveStatus();return;}
-      }
-      await fn();
-    }
+    driveBusy=true;setBusy(false);driveControls();
+    try{await fn();}
     catch(e){$('driveState').textContent=e.message||'Google Drive操作に失敗しました。';log(e.message||'Google Drive操作に失敗しました。','warn');}
-    finally{driveBusy=false;setBusy(false);googleControls();updateSettingSummaries();}
+    finally{driveBusy=false;setBusy(false);driveControls();updateSettingSummaries();}
   }
   async function saveDriveData(){
     const settingsData=settingsBundle(),secretsData=driveSecretBundle();
@@ -1642,7 +1618,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   }));
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
-  chapterUI=new LiveChapterUI({log,onSync:()=>operation(async signal=>{await ensureYouTubeAuthorizationForAction();await chapterUI.linkYouTube(youtubeCredential(),$('youtubeChannelId').value.trim(),signal,setStatus);}),onResync:()=>operation(async signal=>{await ensureYouTubeAuthorizationForAction();setStatus('YouTube開始時刻を取得中');await chapterUI.syncYouTube(youtubeCredential(),signal);}),onUnlink:()=>operation(async signal=>{await chapterUI.unlinkYouTube(signal);}),onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);})});
+  chapterUI=new LiveChapterUI({log,onSync:()=>operation(async signal=>{await chapterUI.linkYouTube(youtubeCredential(),$('youtubeChannelId').value.trim(),signal,setStatus);}),onResync:()=>operation(async signal=>{setStatus('YouTube開始時刻を取得中');await chapterUI.syncYouTube(youtubeCredential(),signal);}),onUnlink:()=>operation(async signal=>{await chapterUI.unlinkYouTube(signal);}),onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);})});
   contentLibrary=loadContentLibrary();contentKnowledge=loadContentKnowledge();renderContentOptions('');
   fontLibrary=loadFontLibrary();
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};}catch{}

@@ -456,15 +456,6 @@ const results=[];
   await p.waitForFunction(()=>document.getElementById('driveState').textContent.startsWith('Google Driveから')&&document.getElementById('apiKey').value==='fake.test-key');
   assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');assert.equal(await p.locator('#youtubeApiKey').inputValue(),'youtube-test-key');assert.equal(await p.locator('#freeTier').isChecked(),false);
   await p.locator('#tab-live').click();assert.equal(await p.locator('#persona').inputValue(),'Drive保存前の雰囲気');assert.equal(await p.locator('#theme').inputValue(),'sage');
-  // Restore via its ordinary button also renews an expired Drive token.
-  await p.evaluate(()=>{sessionStorage.removeItem('minkome-google-session-v1');localStorage.removeItem('minkome-google-persistent-token-v1');});
-  await p.reload();await openConnect(p);
-  assert.equal(await p.locator('#driveRestore').isEnabled(),true);
-  assert.equal(await p.locator('#driveDelete').isDisabled(),true);
-  await p.locator('#driveRestore').click();
-  await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('自動復元しました'));
-  assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');
-  assert.equal(await p.locator('#driveDelete').isEnabled(),true);
   await p.locator('#tab-connect').click();p.once('dialog',d=>d.accept());await p.locator('#driveDelete').click();await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('削除しました'));
   assert.equal(x.driveFiles.size,0);assert.equal(await p.locator('#driveSettingsState').textContent(),'なし');assert.equal(await p.locator('#driveSecretsState').textContent(),'なし');
   await p.locator('#driveDisconnect').click();await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('接続を切りました'));assert.equal(await p.locator('#summary-drive').textContent(),'未接続');
