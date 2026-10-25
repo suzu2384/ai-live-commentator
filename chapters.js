@@ -51,7 +51,7 @@
       seen.add(x.eventId);return {...allowed.get(x.eventId),title:x.title.trim()};
     }).sort((a,b)=>a.observedAtMs-b.observedAtMs);
   }
-  async function generate(s,{request,signal,onProgress=()=>{}}){
+  async function generate(s,{request,signal,onProgress=()=>{},model=root.LiveCore.MODEL}){
     const C=root.LiveCore;C.check(signal);
     // Snapshot the input so later observations or UI selections cannot change this job.
     const events=copy(s.events).sort((a,b)=>a.observedAtMs-b.observedAtMs);
@@ -68,7 +68,7 @@
       items=reduced;if(!items.length)break;
     }
     const candidates=items.length?await call(items,true):[];C.check(signal);
-    return {schemaVersion:VERSION,id:uid(),createdAtMs:Date.now(),model:C.MODEL,sourceEventIds:events.map(e=>e.id),requestCount:requests,
+    return {schemaVersion:VERSION,id:uid(),createdAtMs:Date.now(),model,sourceEventIds:events.map(e=>e.id),requestCount:requests,
       chapters:candidates.map(e=>({id:uid(),sourceEventId:e.eventId,observedAtMs:e.observedAtMs,title:e.title,editedAtMs:null}))};
   }
   class Store{
