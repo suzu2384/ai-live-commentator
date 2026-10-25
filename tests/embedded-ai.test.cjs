@@ -17,7 +17,7 @@ function mock(){
     info.models.push(options);
     return {generateContent:async contents=>{
      info.contents.push(contents);
-     return {response:{candidates:[{content:{parts:[{text:'{"speak":true}'}]}}]}};
+     return {response:{candidates:[{finishReason:'STOP',content:{parts:[{text:'{"speak":true}'}]}}]}};
     }};
    }}
  };
@@ -47,7 +47,7 @@ test('missing config fails closed without calling the Firebase SDK',async()=>{
  const missing=Embedded.createClient({mode:'disabled'});
  assert.equal(missing.available,false);
  await assert.rejects(missing.generate({contents:[]}),/未設定/);
- await assert.rejects(C.gemini(C.EMBEDDED_CREDENTIAL,{contents:[]}),/未設定/);
+ await assert.rejects(C.gemini(C.EMBEDDED_CREDENTIAL,{contents:[]}),/設定されていません/);
 });
 test('Firebase quota errors use the existing 429 handling',async()=>{
  const {sdk}=mock();
