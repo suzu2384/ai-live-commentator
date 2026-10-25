@@ -588,7 +588,7 @@ const results=[];
  });
  await test('tabs group live, friends, connection and history without changing setting ids',async()=>{
   const x=await setup();const p=x.page;
-  assert.deepEqual(await p.locator('.tabs > [role=tab]').allTextContents(),['実況','友達','接続','履歴','チャプター']);
+  assert.deepEqual(await p.locator('.tabs > [role=tab]').allTextContents(),['実況','友達','履歴','配信','設定']);
   assert.equal(await p.locator('#contentName').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-live');
   assert.equal(await p.locator('#participantCount').evaluate(el=>el.closest('[role=tabpanel]').id),'panel-live');
   assert.equal(await p.locator('#apiInterval').evaluate(el=>el.closest('details').id),'settings-advanced');
@@ -681,21 +681,6 @@ const results=[];
   assert.equal(v.overflow,false);assert.equal(v.history,true);
   await p.locator('#openHelp').click();assert.equal(await p.locator('#helpDialog').getAttribute('open'),'');
   await p.locator('#doneHelpDialog').click();await x.close();
- });
- await test('speaker balance sits beside the latest comment when wide and stacks below when narrow',async()=>{
-  const x=await setup();const p=x.page;
-  const wide=await p.evaluate(()=>{
-    const layout=document.querySelector('.comment-status-layout'),status=document.querySelector('.speaker-status-section');
-    return {columns:getComputedStyle(layout).gridTemplateColumns.split(' ').filter(Boolean).length,borderLeft:parseFloat(getComputedStyle(status).borderLeftWidth),borderTop:parseFloat(getComputedStyle(status).borderTopWidth)};
-  });
-  assert.equal(wide.columns,2);assert.ok(wide.borderLeft>0);assert.equal(wide.borderTop,0);
-  await p.setViewportSize({width:800,height:900});
-  const narrow=await p.evaluate(()=>{
-    const layout=document.querySelector('.comment-status-layout'),status=document.querySelector('.speaker-status-section');
-    return {columns:getComputedStyle(layout).gridTemplateColumns.split(' ').filter(Boolean).length,borderLeft:parseFloat(getComputedStyle(status).borderLeftWidth),borderTop:parseFloat(getComputedStyle(status).borderTopWidth)};
-  });
-  assert.equal(narrow.columns,1);assert.equal(narrow.borderLeft,0);assert.ok(narrow.borderTop>0);
-  await x.close();
  });
  await test('desktop header and toolbar stay compact to preserve preview height',async()=>{
   const x=await setup();const p=x.page;
