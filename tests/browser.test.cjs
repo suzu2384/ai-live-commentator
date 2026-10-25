@@ -48,6 +48,8 @@ const results=[];
    if(r.request().url().startsWith('https://www.googleapis.com/oauth2/v3/userinfo'))return r.fulfill({contentType:'application/json',body:'{"email":"minkome-test@example.com"}'});
    if(r.request().url().startsWith('https://www.googleapis.com/drive/v3/')||r.request().url().startsWith('https://www.googleapis.com/upload/drive/v3/')){
     events.drive++;assert.equal(r.request().headers().authorization,'Bearer drive-token');const u=new URL(r.request().url()),method=r.request().method();
+    // Account-hint lookup mirrors KonDate: Drive about returns the chosen email.
+    if(u.pathname==='/drive/v3/about'&&method==='GET')return r.fulfill({contentType:'application/json',body:'{"user":{"emailAddress":"drive-test@example.com"}}'});
     if(u.pathname==='/drive/v3/files'&&method==='GET'){
       const q=u.searchParams.get('q')||'',match=q.match(/name='([^']+)'/),name=match?.[1]?.replaceAll("\\'","'")||'';
       const files=[...driveFiles.values()].filter(f=>f.name===name).map(f=>({id:f.id,name:f.name,modifiedTime:f.modifiedTime,size:String(Buffer.byteLength(f.body||''))}));
