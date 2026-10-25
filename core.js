@@ -136,8 +136,17 @@
       throw new AppError('Geminiの同一話者が1回の掛け合い内で重複しました。今回は読み上げません。','RESPONSE');
     return { speak:forceSpeak?true:a.speak, summary:a.summary.slice(0,1000), turns };
   }
+  // A distinct sentinel keeps the existing API-key implementation unchanged.
+  const EMBEDDED_CREDENTIAL=Symbol('minkome-embedded-gemini');
+  let embeddedRequest=null;
+  function setEmbeddedRequest(handler){embeddedRequest=typeof handler==='function'?handler:null;}
   async function gemini(key, payload, signal, fetcher = fetch) {
-    check(signal); key = normalizeKey(key);
+    check(signal);
+    if(key===EMBEDDED_CREDENTIAL){
+      if(!embeddedRequest)throw new AppError('組み込みAIは設定されていません。','AUTH');
+      return embeddedRequest(payload,signal);
+    }
+    key = normalizeKey(key);
     let r;
     try { r = await fetcher(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(payload), signal,
@@ -268,6 +277,6 @@
     }
   }
   const api = { MODEL, AppError, abortError, check, sleep, deadline, normalizeKey, localUrl, speechGuidance, pickWeightedSpeakerCount, pickWeightedSpeakerLimit:pickWeightedSpeakerCount, makePayload, parseAnalysis, candidateText,
-    gemini, shouldAnalyze, fresh, skipReason, recoveryDelay, needsSettings, plainSpeech, sha64, ObsClient };
+    gemini, EMBEDDED_CREDENTIAL, setEmbeddedRequest, shouldAnalyze, fresh, skipReason, recoveryDelay, needsSettings, plainSpeech, sha64, ObsClient };
   root.LiveCore = api; if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(globalThis);
