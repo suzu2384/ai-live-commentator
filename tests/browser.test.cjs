@@ -624,6 +624,8 @@ const results=[];
   });
   assert.equal(pc.height,22);assert.ok(pc.adjacent<2);assert.ok(pc.toolbarHeight<=46);
   assert.equal(pc.statusOutsideToolbar,true);assert.equal(pc.statusText,'停止中');assert.equal(pc.statusRole,'status');
+  assert.equal(await p.locator('main > footer').count(),0); // No redundant old note consuming workspace height.
+  assert.ok((await p.locator('.workspace').evaluate(el=>el.getBoundingClientRect().height))>0);
   assert.notEqual(pc.statusPosition,'fixed');assert.equal(pc.monitorBesideSettings,true);
   await p.setViewportSize({width:390,height:844});
   const mobile=await p.evaluate(()=>{
