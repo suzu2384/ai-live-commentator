@@ -72,7 +72,7 @@
       ...(payload.systemInstruction?{systemInstruction:payload.systemInstruction}:{}),
       ...(payload.generationConfig?{generationConfig:payload.generationConfig}:{})
      });
-     const result=await abortAware(model.generateContent(payload.contents),signal);
+     const result=await abortAware(model.generateContent({contents:payload.contents}),signal);
      root.LiveCore.check(signal);
      if(!result?.response)throw new root.LiveCore.AppError('組み込みAIから応答を取得できませんでした。','RESPONSE');
      return result.response; // candidates[].content.parts[] is compatible with LiveCore
