@@ -34,7 +34,7 @@ const results=[];
    const modules={
     'firebase-app.js':"export function initializeApp(){return {};}",
     'firebase-app-check.js':"export class ReCaptchaEnterpriseProvider{constructor(key){if(key!=='site-key')throw Error('bad key');}} export function initializeAppCheck(){return {};} export async function getToken(){return {token:'ok'};}",
-    'firebase-ai.js':"export class GoogleAIBackend{} export function getAI(){return {};} export function getGenerativeModel(_service,options){return {async generateContent(contents){globalThis.__embeddedCalls=(globalThis.__embeddedCalls||[]);globalThis.__embeddedCalls.push({model:options.model,contents});return {response:{candidates:[{content:{parts:[{text:'接続できました'}]}}]}};}};}"
+    'firebase-ai.js':"export class GoogleAIBackend{} export function getAI(){return {};} export function getGenerativeModel(_service,options){return {async generateContent(contents){globalThis.__embeddedCalls=(globalThis.__embeddedCalls||[]);globalThis.__embeddedCalls.push({model:options.model,contents});return {response:{candidates:[{finishReason:'STOP',content:{parts:[{text:'接続できました'}]}}]}};}};}"
    };
    await page.route(prefix+'**',async r=>{
     const module=modules[r.request().url().slice(prefix.length)];
