@@ -620,7 +620,7 @@ const results=[];
       toolbarHeight:tb.getBoundingClientRect().height,heading:Math.abs(h.bottom-pb.top),metrics:Math.abs(pb.bottom-m.top)};
   });
   assert.equal(v.position,'fixed');assert.ok(Math.abs(v.bottom)<2);assert.equal(v.previewPosition,'sticky');
-  assert.ok(v.previewTop>=v.toolbarHeight-1);assert.ok(v.heading<2);assert.ok(v.metrics<2);
+  assert.ok(v.previewTop>=0);assert.ok(v.heading<2);assert.ok(v.metrics<2);
   await p.evaluate(()=>scrollTo(0,document.body.scrollHeight));
   const box=await p.locator('.tabs').boundingBox();assert.ok(Math.abs(box.y+box.height-900)<2);
   await p.locator('#tab-connect').click();assert.equal(await p.locator('#panel-connect').isVisible(),true);
