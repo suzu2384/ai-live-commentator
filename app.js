@@ -71,6 +71,9 @@
   }
   function setStatus(text, error=false) { $('status').textContent = text; phaseAt = performance.now(); $('stateDot').className = 'dot' + (error ? ' error' : busy ? ' running' : ''); }
   function updateStats() { $('usage').textContent = `${stats.used} 回`; $('staleCount').textContent = `${stats.stale} 回`; }
+  function formatResponseSeconds(seconds) {
+    return Number.isFinite(seconds) ? `${seconds.toFixed(1)} 秒` : '—';
+  }
   function updateObsRefreshButton(){
     $('resetObsSource').disabled=vaultBusy||(busy&&!streaming);
   }
@@ -1102,7 +1105,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     setStatus(state.speaking?'読み上げ中・裏でGemini解析中':'Geminiの応答待ち');
     log(`Geminiへ画像${frames.length}枚を送信（${stats.used}回・今回の発言人数${turnCount}人・${quietMode?'雑談モード':'通常実況'}・鮮度上限${s.freshness}秒）。`);
     const response=await C.deadline(token=>C.gemini(key,payload,token),Math.min(180000,remaining),signal,'鮮度上限に達したためGeminiの応答待ちを打ち切りました。','STALE');
-    const duration=(performance.now()-began)/1000;$('latency').textContent=duration.toFixed(1)+' 秒';log(`Gemini応答 ${duration.toFixed(1)}秒。`);
+    const duration=(performance.now()-began)/1000;$('latency').textContent=formatResponseSeconds(duration);log(`Gemini応答 ${duration.toFixed(1)}秒。`);
     chapterUI.observe(response,frames,s.contentName);
     checkFresh(current,s);return C.parseAnalysis(response,s.profiles,turnCount);
   }
@@ -1447,7 +1450,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('testText').addEventListener('click',()=>operation(async signal=>{
     const s=settings(),key=requireKey();reserve(s);setStatus('Gemini接続テスト中');const began=performance.now();log(`文章だけの接続テストを送信（${stats.used}回）。`);
     const body=await C.deadline(token=>C.gemini(key,{contents:[{role:'user',parts:[{text:'日本語で「接続できました」とだけ答えて。'}]}],generationConfig:{maxOutputTokens:64,thinkingConfig:{thinkingLevel:'MINIMAL',includeThoughts:false}}},token),180000,signal,'Gemini接続テストが180秒でタイムアウトしました。');
-    C.candidateText(body);const seconds=(performance.now()-began)/1000;$('latency').textContent=seconds.toFixed(1)+' 秒';log(`文章だけの応答を受信: ${seconds.toFixed(1)}秒。画像解析・音声再生は行っていません。`);
+    C.candidateText(body);const seconds=(performance.now()-began)/1000;$('latency').textContent=formatResponseSeconds(seconds);log(`文章だけの応答を受信: ${seconds.toFixed(1)}秒。画像解析・音声再生は行っていません。`);
   }));
   $('save').addEventListener('click',()=>{try{const s=settings();save(s);updateStats();}catch(e){log(e.message,'warn');}});
   $('exportSettings').addEventListener('click',()=>{try{exportSettings();}catch(e){$('saveState').textContent=e.message;log(e.message,'warn');}});

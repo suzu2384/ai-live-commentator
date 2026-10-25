@@ -914,6 +914,12 @@ main>.toolbar .actions button.primary{padding:6px 15px}
   overflow:hidden;
   text-overflow:ellipsis;
 }
+/* 999.9 (3 integer digits, decimal point and 1 decimal) + " 秒". */
+.preview .preview-metrics #latency{
+  width:100%;
+  min-width:calc(6ch + 1em);
+  font-variant-numeric:tabular-nums;
+}
 .preview .preview-refresh-button{
   flex:0 0 auto;
   min-height:34px;

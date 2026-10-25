@@ -21,14 +21,28 @@ jobs:
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
-      - name: Create release when this version is new
+      - name: Create or explicitly republish this version
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         shell: bash
         run: |
           if gh release view "$VERSION" >/dev/null 2>&1; then
-            echo "$VERSION already exists; skipping."
+            # Only the explicitly requested v4.54.5 correction may update its
+            # existing tag. Ordinary pushes never move a published tag.
+            subject="$(git log -1 --format=%s)"
+            if [ "$VERSION" != "v4.54.5" ] || ! grep -Fq '[republish:v4.54.5]' <<<"$subject"; then
+              echo "$VERSION already exists; skipping."
+              exit 0
+            fi
+            current_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" --jq '.object.sha')"
+            if [ "$current_sha" != "5d1a4864b884958a686ae6e601e3baf29e10ce5e" ] && [ "$current_sha" != "$GITHUB_SHA" ]; then
+              echo "Release tag unexpectedly changed; refusing to overwrite it." >&2
+              exit 1
+            fi
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$VERSION" -f "sha=$GITHUB_SHA" -F force=true
+            gh release edit "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --notes-file RELEASE_NOTES.md
+            echo "$VERSION tag and release updated to $GITHUB_SHA"
             exit 0
           fi
           if [ -f RELEASE_NOTES.md ]; then
