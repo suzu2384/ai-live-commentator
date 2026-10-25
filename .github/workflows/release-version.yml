@@ -36,7 +36,7 @@ jobs:
               exit 0
             fi
             current_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" --jq '.object.sha')"
-            if [ "$current_sha" != "5d1a4864b884958a686ae6e601e3baf29e10ce5e" ] && [ "$current_sha" != "$GITHUB_SHA" ]; then
+            if [ "$current_sha" != "810b09294cc64abf78407f9c2217658e5dc3cf7c" ] && [ "$current_sha" != "$GITHUB_SHA" ]; then
               echo "Release tag unexpectedly changed; refusing to overwrite it." >&2
               exit 1
             fi
