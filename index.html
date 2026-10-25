@@ -14,16 +14,16 @@ try{
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="みんコメAI">
-<link rel="icon" href="assets/favicon.ico?v=4.51.2" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.51.2">
-<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.51.2">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.51.2">
-<link rel="manifest" href="manifest.webmanifest?v=4.51.2">
-<link rel="stylesheet" href="style.css?v=4.51.2">
-<script src="core.js?v=4.51.2" defer></script><script src="ai-config.js?v=4.51.2&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.51.2" defer></script><script src="vault.js?v=4.51.2" defer></script><script src="google-config.js?v=4.51.2&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.51.2" defer></script><script src="google-auth.js?v=4.51.2" defer></script><script src="youtube.js?v=4.51.2" defer></script><script src="youtube-ui.js?v=4.51.2" defer></script><script src="chapters.js?v=4.51.2" defer></script><script src="thumbnail.js?v=4.51.2" defer></script><script src="chapter-editor.js?v=4.51.2" defer></script><script src="chapter-editor-ui.js?v=4.51.2" defer></script><script src="chapters-ui.js?v=4.51.2" defer></script><script src="app.js?v=4.51.2" defer></script>
+<link rel="icon" href="assets/favicon.ico?v=4.52.0" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.52.0">
+<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.52.0">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.52.0">
+<link rel="manifest" href="manifest.webmanifest?v=4.52.0">
+<link rel="stylesheet" href="style.css?v=4.52.0">
+<script src="core.js?v=4.52.0" defer></script><script src="ai-config.js?v=4.52.0&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.52.0" defer></script><script src="vault.js?v=4.52.0" defer></script><script src="google-config.js?v=4.52.0&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.52.0" defer></script><script src="google-auth.js?v=4.52.0" defer></script><script src="youtube.js?v=4.52.0" defer></script><script src="youtube-ui.js?v=4.52.0" defer></script><script src="chapters.js?v=4.52.0" defer></script><script src="thumbnail.js?v=4.52.0" defer></script><script src="chapter-editor.js?v=4.52.0" defer></script><script src="chapter-editor-ui.js?v=4.52.0" defer></script><script src="chapters-ui.js?v=4.52.0" defer></script><script src="app.js?v=4.52.0" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.51.2" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.51.2</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.52.0" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.52.0</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div><span id="stateDot" class="dot"></span><strong id="status" role="status">停止中</strong><span id="elapsed"></span></div><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -32,14 +32,6 @@ try{
 <section class="card comment-card"><div class="comment-status-layout"><div class="latest-comment-pane"><div class="card-head"><h2>直近のコメント</h2><span id="commentTime">まだ発言していません</span></div><p id="lastComment" class="quote">相方のひとことが、ここに表示されます。</p><p id="lastSpeechText" class="speech-preview"><span>読み上げ</span><strong>まだありません</strong></p><p id="delivery" class="hint">棒読みちゃんはPC側、VOICEVOX直接はこのブラウザで再生します。</p></div><div class="speaker-status-section"><div class="speaker-status-head"><strong>発言状況</strong></div><div class="speaker-status-body"><div id="speakerStatsDonut" class="speaker-stats-donut" role="img" aria-label="今回の発言割合"><div class="speaker-stats-donut-center"><strong id="speakerStatsTotal">0</strong><span>発言</span></div></div><div id="speakerStatsList" class="speaker-stats-list" aria-label="参加中の友達の発言状況"></div></div></div></div></section>
 </div>
 <div class="settings-column">
-<nav class="tabs" role="tablist" aria-label="操作パネル">
-<button id="tab-live" role="tab" aria-controls="panel-live" aria-selected="true">実況</button>
-<button id="tab-friends" role="tab" aria-controls="panel-friends" aria-selected="false" tabindex="-1">友達</button>
-<button id="tab-connect" role="tab" aria-controls="panel-connect" aria-selected="false" tabindex="-1">接続</button>
-<button id="tab-history" role="tab" aria-controls="panel-history" aria-selected="false" tabindex="-1">履歴</button>
-<button id="tab-chapters" role="tab" aria-controls="panel-chapters" aria-selected="false" tabindex="-1">チャプター</button>
-<button id="openHelp" type="button" class="help-tab-button" aria-label="ヘルプを開く" title="ヘルプ">？</button>
-</nav>
 <div class="panel-scroll">
 <form id="settings" autocomplete="off">
 <div id="panel-live" role="tabpanel" aria-labelledby="tab-live">
@@ -265,7 +257,16 @@ try{
 </div>
 </div>
 <footer>ローカルで操作 · 画像解析はGemini API · 秘密情報は任意で端末内に暗号化保存</footer>
-</main><dialog id="chapterEditDialog" class="content-dialog" aria-labelledby="chapterEditDialogTitle">
+</main>
+<nav class="tabs" role="tablist" aria-label="操作パネル">
+<button id="tab-live" role="tab" aria-controls="panel-live" aria-selected="true"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4zM9 9l6 3-6 3z"/></svg><span>実況</span></button>
+<button id="tab-friends" role="tab" aria-controls="panel-friends" aria-selected="false" tabindex="-1"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m2-13a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 5"/></svg><span>友達</span></button>
+<button id="tab-connect" role="tab" aria-controls="panel-connect" aria-selected="false" tabindex="-1"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v6m8-6v6M7 9h10v3a5 5 0 0 1-5 5v4"/></svg><span>接続</span></button>
+<button id="tab-history" role="tab" aria-controls="panel-history" aria-selected="false" tabindex="-1"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11a9 9 0 1 1 3 7M3 4v7h7M12 7v5l3 2"/></svg><span>履歴</span></button>
+<button id="tab-chapters" role="tab" aria-controls="panel-chapters" aria-selected="false" tabindex="-1"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h16M8 3v4m8 3v4m-8 3v4"/></svg><span>チャプター</span></button>
+<button id="openHelp" type="button" class="help-tab-button" aria-label="ヘルプを開く" title="ヘルプ"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4M12 17h.01"/></svg><span>ヘルプ</span></button>
+</nav>
+<dialog id="chapterEditDialog" class="content-dialog" aria-labelledby="chapterEditDialogTitle">
 <div class="content-dialog-head"><h2 id="chapterEditDialogTitle">チャプターを編集</h2></div>
 <form id="chapterEditForm" class="chapter-edit-form">
 <label>タイトル<input id="chapterEditTitle" type="text" maxlength="80" required autocomplete="off"></label>

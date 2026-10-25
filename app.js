@@ -1554,24 +1554,9 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   document.addEventListener('visibilitychange',()=>{if(busy&&document.hidden)log('タブが非表示になりました。ブラウザの節電で間隔が延びる場合があります。','warn');});
   window.addEventListener('pagehide',()=>{pageEpoch++;lockSecrets();controller?.abort();obs?.close();try{activeAudio?.stop();}catch{}});
   const tabsBar=document.querySelector('.tabs');
-  let stickyTabsFrame=0;
-  function updateStickyTabsState(){
-    stickyTabsFrame=0;
-    if(innerWidth>900){tabsBar.classList.remove('is-stuck');return;}
-    const styles=getComputedStyle(document.documentElement);
-    const toolbarHeight=parseFloat(styles.getPropertyValue('--toolbar-height'))||0;
-    const previewHeight=parseFloat(styles.getPropertyValue('--preview-sticky-height'))||0;
-    tabsBar.classList.toggle('is-stuck',tabsBar.getBoundingClientRect().top<=toolbarHeight+previewHeight+1);
-  }
-  function scheduleStickyTabsState(){
-    if(stickyTabsFrame)return;
-    stickyTabsFrame=requestAnimationFrame(updateStickyTabsState);
-  }
-  new ResizeObserver(entries=>{document.documentElement.style.setProperty('--toolbar-height',`${entries[0].target.getBoundingClientRect().height}px`);scheduleStickyTabsState();}).observe(document.querySelector('.toolbar'));
-  new ResizeObserver(entries=>{document.documentElement.style.setProperty('--preview-sticky-height',`${entries[0].target.getBoundingClientRect().height}px`);scheduleStickyTabsState();}).observe(document.querySelector('.preview-sticky'));
-  addEventListener('scroll',scheduleStickyTabsState,{passive:true});
-  addEventListener('resize',scheduleStickyTabsState,{passive:true});
-  scheduleStickyTabsState();
+  // Keep the existing mobile toolbar and video sticky offsets.
+  new ResizeObserver(entries=>{document.documentElement.style.setProperty('--toolbar-height',`${entries[0].target.getBoundingClientRect().height}px`);}).observe(document.querySelector('.toolbar'));
+  new ResizeObserver(entries=>{document.documentElement.style.setProperty('--preview-sticky-height',`${entries[0].target.getBoundingClientRect().height}px`);}).observe(document.querySelector('.preview-sticky'));
   function mainTabs(){return [...tabsBar.querySelectorAll(':scope > [role=tab]')];}
   function selectTab(name,focus=false){
     for(const tab of mainTabs()){
@@ -1579,6 +1564,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
       $(tab.getAttribute('aria-controls')).hidden=!selected;if(selected&&focus)tab.focus();
     }
     document.querySelector('.panel-scroll').scrollTop=0;
+    if(innerWidth<=900)document.querySelector('.settings-column')?.scrollIntoView({block:'start',behavior:'auto'});
   }
   for(const tab of mainTabs()){
     tab.addEventListener('click',()=>selectTab(tab.id.slice(4)));

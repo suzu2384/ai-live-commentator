@@ -24,7 +24,7 @@ jobs:
         run: node --test tests/core.test.cjs tests/chapters.test.cjs tests/thumbnail.test.cjs tests/youtube.test.cjs tests/chapter-editor.test.cjs tests/drive-sync.test.cjs tests/google-auth.test.cjs tests/sync-google-config.test.cjs tests/embedded-ai.test.cjs tests/sync-ai-config.test.cjs
       - name: Chapter and related browser scenarios
         env:
-          TEST_FILTER: 'chapter editor|YouTube|chapters record|ChatGPT thumbnail materials|chapter workspace theme surfaces|immediate stop keeps|chapter recording preserves|tabs group|stop cancels pending analysis|encrypted credentials|settings export and import|Google Drive|embedded Gemini'
+          TEST_FILTER: 'chapter editor|YouTube|chapters record|ChatGPT thumbnail materials|chapter workspace theme surfaces|immediate stop keeps|chapter recording preserves|tabs group|desktop bottom navigation|narrow layout preserves|phone footer|stop cancels pending analysis|encrypted credentials|settings export and import|Google Drive|embedded Gemini'
         run: node tests/browser.test.cjs
       - name: Collect screenshots
         if: always()

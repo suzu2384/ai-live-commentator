@@ -597,85 +597,50 @@ const results=[];
   await p.locator('#openHelp').click();assert.equal(await p.locator('#helpDialog').getAttribute('open'),'');await p.locator('#doneHelpDialog').click();
   await x.close();
  });
- await test('narrow layout keeps the acquired preview stacked above sticky tabs and uses triangle disclosure icons',async()=>{
-  const x=await setup();const p=x.page;
-  await p.setViewportSize({width:800,height:900});
-  await p.waitForFunction(()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--preview-sticky-height'))>0);
-  const layout=await p.evaluate(()=>{
-    const workspace=document.querySelector('.workspace'),toolbar=document.querySelector('.toolbar'),preview=document.querySelector('.preview-sticky'),tabs=document.querySelector('.tabs');
-    const previewImage=preview.querySelector('.preview'),heading=document.querySelector('.preview-card>.card-head'),metrics=document.querySelector('.preview-card>.metrics');
-    const headingBox=heading.getBoundingClientRect(),previewBox=preview.getBoundingClientRect(),metricsBox=metrics.getBoundingClientRect();
-    return {
-      workspaceGap:parseFloat(getComputedStyle(workspace).gap),
-      previewPosition:getComputedStyle(preview).position,
-      previewTop:parseFloat(getComputedStyle(preview).top),
-      toolbarHeight:toolbar.getBoundingClientRect().height,
-      tabsTop:parseFloat(getComputedStyle(tabs).top),
-      tabsRadius:parseFloat(getComputedStyle(tabs).borderTopLeftRadius),
-      tabsBackground:getComputedStyle(tabs).backgroundColor,
-      tabsTopBorder:parseFloat(getComputedStyle(tabs).borderTopWidth),
-      tabsBottomBorder:parseFloat(getComputedStyle(tabs).borderBottomWidth),
-      tabsTransition:getComputedStyle(tabs).transitionDuration,
-      previewHeight:previewBox.height,
-      hasHeading:!!preview.querySelector('.card-head'),
-      hasMetrics:!!preview.querySelector('.metrics'),
-      hasImage:!!previewImage,
-      stickyBackground:getComputedStyle(preview).backgroundColor,
-      imageRadius:parseFloat(getComputedStyle(previewImage).borderTopLeftRadius),
-      headingToPreview:Math.abs(headingBox.bottom-previewBox.top),
-      previewToMetrics:Math.abs(previewBox.bottom-metricsBox.top)
-    };
+ await test('desktop bottom navigation preserves left monitor and right settings',async()=>{
+  const x=await setup(),p=x.page;await p.setViewportSize({width:1280,height:800});
+  const v=await p.evaluate(()=>{
+   const n=document.querySelector('.tabs'),m=document.querySelector('.monitor-column'),s=document.querySelector('.settings-column');
+   const b=n.getBoundingClientRect(),l=m.getBoundingClientRect(),r=s.getBoundingClientRect();
+   return {bottom:innerHeight-b.bottom,navParent:n.parentElement.tagName,
+      beside:l.right<=r.left,aligned:Math.abs(l.top-r.top)<2,tabCount:n.querySelectorAll('[role=tab]').length};
   });
-  assert.equal(layout.workspaceGap,0);
-  assert.equal(layout.previewPosition,'sticky');
-  assert.ok(layout.previewTop>=layout.toolbarHeight-1);
-  assert.ok(Math.abs(layout.tabsTop-(layout.toolbarHeight+layout.previewHeight))<=1);
-  assert.ok(layout.tabsRadius>0);
-  assert.notEqual(layout.tabsBackground,'rgba(0, 0, 0, 0)');
-  assert.equal(layout.tabsTopBorder,1);
-  assert.equal(layout.tabsBottomBorder,1);
-  assert.notEqual(layout.tabsTransition,'0s');
-  assert.equal(layout.hasHeading,false);
-  assert.equal(layout.hasMetrics,false);
-  assert.equal(layout.hasImage,true);
-  assert.notEqual(layout.stickyBackground,'rgba(0, 0, 0, 0)');
-  assert.equal(layout.imageRadius,0);
-  assert.ok(layout.headingToPreview<=1);
-  assert.ok(layout.previewToMetrics<=1);
-  await p.evaluate(()=>scrollTo(0,document.body.scrollHeight));
-  await p.clock.fastForward(20);
-  await p.waitForFunction(()=>document.querySelector('.tabs').classList.contains('is-stuck'));
-  await p.clock.fastForward(200);
-  const stuck=await p.evaluate(()=>{
-    const tabs=document.querySelector('.tabs'),style=getComputedStyle(tabs);
-    return {
-      radius:parseFloat(style.borderTopLeftRadius),
-      marginLeft:parseFloat(style.marginLeft),
-      marginRight:parseFloat(style.marginRight),
-      topBorder:parseFloat(style.borderTopWidth),
-      bottomBorder:parseFloat(style.borderBottomWidth),
-      boxShadow:style.boxShadow
-    };
-  });
-  assert.equal(stuck.radius,0);
-  assert.equal(stuck.marginLeft,0);
-  assert.equal(stuck.marginRight,0);
-  assert.equal(stuck.topBorder,1);
-  assert.equal(stuck.bottomBorder,1);
-  assert.equal(stuck.boxShadow,'none');
-  await p.evaluate(()=>scrollTo(0,0));
-  await p.clock.fastForward(20);
-  await p.waitForFunction(()=>!document.querySelector('.tabs').classList.contains('is-stuck'));
-  await p.clock.fastForward(200);
-  assert.ok(await p.locator('.tabs').evaluate(el=>parseFloat(getComputedStyle(el).borderTopLeftRadius)>0));
-  await p.locator('#tab-connect').click();
-  const summary=p.locator('#settings-video > .setting-summary');
-  const closedIcon=await summary.evaluate(el=>getComputedStyle(el,'::after').content);
-  assert.ok(closedIcon.includes('▶'));
-  await summary.click();
-  const openIcon=await summary.evaluate(el=>getComputedStyle(el,'::after').content);
-  assert.ok(openIcon.includes('▼'));
+  assert.ok(Math.abs(v.bottom)<2);assert.equal(v.navParent,'BODY');assert.ok(v.beside);assert.ok(v.aligned);assert.equal(v.tabCount,5);
+  await p.locator('#tab-chapters').click();assert.equal(await p.locator('#panel-chapters').isVisible(),true);
   await x.close();
+ });
+ await test('narrow layout preserves preview stack and fixed footer while scrolling',async()=>{
+  const x=await setup(),p=x.page;await p.setViewportSize({width:800,height:900});
+  await p.waitForFunction(()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--preview-sticky-height'))>0);
+  const v=await p.evaluate(()=>{
+   const n=document.querySelector('.tabs'),pre=document.querySelector('.preview-sticky'),tb=document.querySelector('.toolbar');
+   const h=document.querySelector('.preview-card>.card-head').getBoundingClientRect(),pb=pre.getBoundingClientRect(),m=document.querySelector('.preview-card>.metrics').getBoundingClientRect();
+   return {position:getComputedStyle(n).position,bottom:innerHeight-n.getBoundingClientRect().bottom,
+      previewPosition:getComputedStyle(pre).position,previewTop:parseFloat(getComputedStyle(pre).top),
+      toolbarHeight:tb.getBoundingClientRect().height,heading:Math.abs(h.bottom-pb.top),metrics:Math.abs(pb.bottom-m.top)};
+  });
+  assert.equal(v.position,'fixed');assert.ok(Math.abs(v.bottom)<2);assert.equal(v.previewPosition,'sticky');
+  assert.ok(v.previewTop>=v.toolbarHeight-1);assert.ok(v.heading<2);assert.ok(v.metrics<2);
+  await p.evaluate(()=>scrollTo(0,document.body.scrollHeight));
+  const box=await p.locator('.tabs').boundingBox();assert.ok(Math.abs(box.y+box.height-900)<2);
+  await p.locator('#tab-connect').click();assert.equal(await p.locator('#panel-connect').isVisible(),true);
+  const s=p.locator('#settings-video > .setting-summary');
+  assert.ok((await s.evaluate(e=>getComputedStyle(e,'::after').content)).includes('▶'));
+  await s.click();assert.ok((await s.evaluate(e=>getComputedStyle(e,'::after').content)).includes('▼'));
+  await x.close();
+ });
+ await test('phone footer remains accessible and leaves room for settings',async()=>{
+  const x=await setup(),p=x.page;await p.setViewportSize({width:360,height:740});
+  await p.locator('#tab-history').click();
+  const v=await p.evaluate(()=>{
+   const n=document.querySelector('.tabs').getBoundingClientRect();
+   return {bottom:innerHeight-n.bottom,padding:parseFloat(getComputedStyle(document.body).paddingBottom),
+     height:n.height,overflow:document.documentElement.scrollWidth>innerWidth+1,history:!document.querySelector('#panel-history').hidden};
+  });
+  assert.ok(Math.abs(v.bottom)<2);assert.ok(v.padding>=v.height-3);
+  assert.equal(v.overflow,false);assert.equal(v.history,true);
+  await p.locator('#openHelp').click();assert.equal(await p.locator('#helpDialog').getAttribute('open'),'');
+  await p.locator('#doneHelpDialog').click();await x.close();
  });
  await test('speaker balance sits beside the latest comment when wide and stacks below when narrow',async()=>{
   const x=await setup();const p=x.page;
