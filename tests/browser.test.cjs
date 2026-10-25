@@ -153,7 +153,7 @@ const results=[];
   jpeg=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=640;c.height=360;const x=c.getContext('2d');x.fillStyle='#345a4b';x.fillRect(0,0,640,360);return c.toDataURL('image/jpeg');});
   await page.locator('#sampleInterval').fill('4');
   await page.locator('#tab-connect').click();
-  await page.locator('#apiKey').fill('fake.test-key');await page.locator('#obsPassword').fill('obs-secret');await page.locator('#freeTier').check();
+  if(!config.embeddedFirebase){await page.locator('#apiKey').fill('fake.test-key');await page.locator('#freeTier').check();}await page.locator('#obsPassword').fill('obs-secret');
   if(config.host){await page.locator('#output').selectOption('voicevox');await page.locator('#voicevoxUrl').fill(`http://${host}:50021`);await page.locator('#output').selectOption('bouyomi');for(const [id,port,proto] of [['obsUrl',4455,'ws'],['bouyomiUrl',50080,'http']])await page.locator('#'+id).fill(`${proto}://${host}:${port}`);}
   await page.locator('#tab-live').click();
   for(let n=1;n<=6;n++)await page.locator('#speakerWeight'+n).fill(n===1?'100':'0');
@@ -422,7 +422,7 @@ const results=[];
   const x=await setup({httpEntry:true,embeddedFirebase:true}),p=x.page;
   await openConnect(p);
   assert.equal(await p.locator('#geminiProvider').inputValue(),'shared');
-  await p.locator('#apiKey').fill('');await p.locator('#freeTier').uncheck();
+  assert.equal(await p.locator('#apiKey').inputValue(),'');assert.equal(await p.locator('#freeTier').isChecked(),false);
   await p.locator('#testText').click();
   await p.waitForFunction(()=>document.getElementById('latency').textContent.includes('秒'));
   assert.equal(await p.evaluate(()=>(globalThis.__embeddedCalls||[]).length),1);
