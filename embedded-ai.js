@@ -29,7 +29,18 @@
  function asAppError(error,signal){
   root.LiveCore.check(signal);
   if(error instanceof root.LiveCore.AppError)return error;
-  const message=String(error?.message||error||''),code=String(error?.code||''),reason=code+' '+message;
+  const message=String(error?.message||error||''),code=String(error?.code||'').trim(),reason=code+' '+message;
+  // Display only the SDK error code, never the raw server response:
+  // responses can contain project configuration or request identifiers.
+  if(/^appCheck\/[a-z0-9-]+$/i.test(code)){
+   if(code==='appCheck/recaptcha-error')
+    return new root.LiveCore.AppError('reCAPTCHA認証でエラーが発生しました（appCheck/recaptcha-error）。ChromeのNetworkで recaptcha/enterprise の失敗を確認してください。サイトキー・ドメイン・ブラウザによるブロックを確認できます。','AUTH');
+   if(code==='appCheck/throttled')
+    return new root.LiveCore.AppError('App Checkのリクエストが一時制限されています（appCheck/throttled）。直前の認証エラーを解決してから、Google側の再試行制限解除を待つ必要があります。','AUTH');
+   if(code==='appCheck/fetch-status-error')
+    return new root.LiveCore.AppError('FirebaseへのApp Checkトークン交換に失敗しました（appCheck/fetch-status-error）。Networkの exchangeRecaptchaEnterpriseToken のHTTPステータスを確認してください。','AUTH');
+   return new root.LiveCore.AppError('App Checkのトークン取得で失敗しました（'+code+'）。ChromeのConsoleとNetworkで元のエラーを確認してください。','AUTH');
+  }
   if(/429|resource.exhausted|quota|rate.limit|too.many.requests/i.test(reason))
    return new root.LiveCore.AppError('組み込みGeminiの共有利用枠・頻度制限に達しました（HTTP 429）。','429');
   if(/503|unavailable|overloaded/i.test(reason))
@@ -37,9 +48,9 @@
   if(/500|502|504|internal/i.test(reason))
    return new root.LiveCore.AppError('組み込みGeminiで一時的なエラーが発生しました（HTTP 500）。','500');
   if(/must enforce firebase app check|firebase ai logic has been deactivated/i.test(reason))
-   return new root.LiveCore.AppError('Firebase AI LogicのApp Check適用が必要です。ベースライン保護が「適用」か確認してください。リプレイ保護がモニタリング中でも限定使用トークンを使用します。','AUTH');
+   return new root.LiveCore.AppError('Firebase AI LogicのApp Check適用が必要です。ベースライン保護が「適用」か確認してください。','AUTH');
   if(/app.?check|recaptcha|attestation/i.test(reason))
-   return new root.LiveCore.AppError('App Checkの検証に失敗しました。reCAPTCHAのサイトキー、登録ドメイン、Firebaseのアプリ登録を確認してください。','AUTH');
+   return new root.LiveCore.AppError('App Checkの認証に失敗しました。元のエラーコードをChromeのConsoleで確認してください。','AUTH');
   if(/403|permission|unauthentic|unauthoriz|401|api.key/i.test(reason))
    return new root.LiveCore.AppError('Firebase AI Logicの認証・権限エラーです。App Checkの適用、APIの有効化、Firebase Web設定のAPIキー制限を確認してください。','AUTH');
   if(/404|not.found|model/i.test(reason))
@@ -54,11 +65,14 @@
    if(!initialized)initialized=(async()=>{
     const {app,check,ai}=await sdkLoader();
     const firebase=app.initializeApp(config.firebase,'minkome-ai-shared');
-    const appCheck=check.initializeAppCheck(firebase,{
+    check.initializeAppCheck(firebase,{
      provider:new check.ReCaptchaEnterpriseProvider(config.appCheckSiteKey),
      isTokenAutoRefreshEnabled:true
     });
-    await check.getToken(appCheck);
+    // Firebase AI Logic obtains the token for each generateContent request.
+    // Do not prefetch a regular session token: replay monitoring requires
+    // limited-use tokens, and a redundant session-token failure can prevent
+    // the correct limited-use path from being attempted.
     // Replay monitoring can require limited-use App Check tokens for AI calls.
     return {service:ai.getAI(firebase,{
       backend:new ai.GoogleAIBackend(),

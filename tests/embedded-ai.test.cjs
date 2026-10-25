@@ -10,7 +10,7 @@ function mock(){
   check:{
    ReCaptchaEnterpriseProvider:class{constructor(key){assert.equal(key,'site-key');}},
    initializeAppCheck:(_app,options)=>{assert.equal(options.isTokenAutoRefreshEnabled,true);return {};},
-   getToken:async()=>{info.attestations++;return {token:'checked'};}
+   getToken:async()=>{info.attestations++;throw Error('Session token must not be requested by embedded AI');}
   },
   ai:{GoogleAIBackend:class{},getAI:(_firebase,options)=>{
     assert.equal(options.useLimitedUseAppCheckTokens,true,'Replay monitoring requires limited-use tokens');
@@ -37,7 +37,7 @@ test('the embedded adapter preserves image, JSON schema, thinking, and response 
   let r=await C.gemini(C.EMBEDDED_CREDENTIAL,payload);
   assert.equal(C.candidateText(r),'{"speak":true}');
   r=await C.gemini(C.EMBEDDED_CREDENTIAL,payload);
-  assert.equal(info.initializations,1);assert.equal(info.attestations,1);
+  assert.equal(info.initializations,1);assert.equal(info.attestations,0);
   assert.equal(info.models.length,2);
   assert.deepEqual(info.models[0].generationConfig,payload.generationConfig);
   assert.deepEqual(info.models[0].systemInstruction,payload.systemInstruction);
@@ -78,4 +78,26 @@ test('an App Check 403 identifies the baseline protection setting',async()=>{
  const client=Embedded.createClient(config,{sdkLoader:async()=>sdk});
  await assert.rejects(client.generate({contents:[{role:'user',parts:[{text:'hello'}]}]}),
    error=>error.code==='AUTH'&&error.message.includes('ベースライン保護'));
+});
+
+test('reCAPTCHA failures display a specific safe SDK code without leaking error details',async()=>{
+ const {sdk}=mock();
+ sdk.ai.getGenerativeModel=()=>({generateContent:async()=>{
+  const failure=new Error('AppCheck: ReCAPTCHA error. sitekey=should-not-be-shown');
+  failure.code='appCheck/recaptcha-error';
+  throw failure;
+ }});
+ const client=Embedded.createClient(config,{sdkLoader:async()=>sdk});
+ await assert.rejects(client.generate({contents:[{role:'user',parts:[{text:'hello'}]}]}),e=>
+  e.code==='AUTH'&&e.message.includes('appCheck/recaptcha-error')&&!e.message.includes('should-not-be-shown'));
+});
+test('App Check throttling explains rate limiting instead of claiming a domain mismatch',async()=>{
+ const {sdk}=mock();
+ sdk.ai.getGenerativeModel=()=>({generateContent:async()=>{
+  const failure=new Error('AppCheck: Requests throttled due to previous error.');
+  failure.code='appCheck/throttled';throw failure;
+ }});
+ const client=Embedded.createClient(config,{sdkLoader:async()=>sdk});
+ await assert.rejects(client.generate({contents:[{role:'user',parts:[{text:'hello'}]}]}),e=>
+  e.code==='AUTH'&&e.message.includes('appCheck/throttled')&&e.message.includes('一時制限'));
 });

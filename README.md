@@ -1,6 +1,10 @@
-# みんコメAI — ブラウザ版 v4.51.1
+# みんコメAI — ブラウザ版 v4.51.2
 
 OBSの映像をGemini 3.1 Flash-Liteが見て、AIの仲間たちが同じ場所に集まっているような短い感想・掛け合いを添えます。サーバー・インストール・ビルドは不要です。
+
+## v4.51.2 組み込みAIのApp Checkエラー切り分け
+
+限定使用App CheckトークンをFirebase AI Logic SDKから取得するため、起動時に行っていた冗長な通常トークンの事前取得を廃止しました。「モニタリングのみ」のリプレイ保護は変更不要です。トークン検証が失敗するときは `appCheck/recaptcha-error`、`appCheck/throttled`、`appCheck/fetch-status-error` 等のエラーコードを区別して画面表示し、公開設定値やトークン自体は出しません。実環境のFirebase接続はFirebase側のプロジェクト設定と実際のブラウザ通信に依存します。
 
 ## v4.51.1 Firebase App Check・リプレイ保護のモニタリング対応
 
