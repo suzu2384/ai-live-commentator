@@ -223,7 +223,7 @@
       const s=this.store.records.get(sessionId);if(!s)return;
       this.selected=s.id;this.generating=true;this.selectView('chapters');this.render();this.onSelectTab();
       try{
-        const generation=await H.generate(s,{signal,onProgress:text=>{$('chapterStatus').textContent=text;},request:async(payload,token)=>{
+        const generation=await H.generate(s,{signal,model:key===C.EMBEDDED_CREDENTIAL?root.MINKOME_AI_CONFIG?.model:C.MODEL,onProgress:text=>{$('chapterStatus').textContent=text;},request:async(payload,token)=>{
           onRequest();return C.deadline(t=>C.gemini(key,payload,t),120000,token,'チャプター生成がタイムアウトしました。記録は残っているので再生成できます。');
         }});
         C.check(signal);s.generations.push(generation);await this.store.save(s);this.generationId=generation.id;
