@@ -14,7 +14,7 @@
   const obsOverlaySourceName='みんコメ 吹き出し';
   const legacyObsOverlaySourceName='みんコメ コメント';
   const obsOverlayColors=['#2e7fa3','#a93b6b','#3f7f46','#b47420','#6549a7','#a8443b'];
-  const savedIds = ['theme','youtubeChannelId','obsUrl','sourceName','obsOverlayEnabled','obsOverlayPosition','obsOverlayFont','obsOverlayFontSize','obsOverlayShowName','obsOverlayBold','obsOverlayHold','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
+  const savedIds = ['theme','geminiProvider','youtubeChannelId','obsUrl','sourceName','obsOverlayEnabled','obsOverlayPosition','obsOverlayFont','obsOverlayFontSize','obsOverlayShowName','obsOverlayBold','obsOverlayHold','output','bouyomiUrl','voicevoxUrl','talkativeness','persona','conversationHistoryCount','apiInterval','speechInterval','quietInterval','freshness','sampleInterval','imageWidth','analysisFrameCount','speakerWeight1','speakerWeight2','speakerWeight3','speakerWeight4','speakerWeight5','speakerWeight6','greetStart','greetEnd'];
   const themes={
     midnight:{scheme:'dark',color:'#0d151c'},
     graphite:{scheme:'dark',color:'#17191c'},
@@ -57,6 +57,8 @@
   const stats = { used:0, stale:0 };
   let resumeAction=null, finishAction=null, streaming=false, vaultBusy=false, driveBusy=false, pageEpoch=0;
   let driveClient=null;
+  const embeddedAI=LiveEmbeddedAI.createClient(globalThis.MINKOME_AI_CONFIG);
+  C.setEmbeddedRequest((payload,signal)=>embeddedAI.generate(payload,signal));
   const googleAuth=new LiveGoogleAuth.GoogleAuth(globalThis.MINKOME_GOOGLE_OAUTH_CLIENT_ID);
   let googleReady=!!globalThis.google?.accounts?.oauth2?.initTokenClient;
   let googleError='';
@@ -139,11 +141,23 @@
     const content=$('contentName').selectedOptions?.[0]?.textContent?.trim()||'対象なし';
     $('summary-live').textContent=`${content||'対象なし'} / ${$('participantCount').value||'1'}人 / ${talk}`;
     $('summary-video').textContent=($('sourceName').value.trim()||'映像ソース未入力')+($('obsOverlayEnabled').checked?' / コメント表示ON':'');
-    $('summary-ai').textContent=$('apiKey').value?($('freeTier').checked?'APIキー入力済み / Free確認済み':'APIキー入力済み'):'APIキー未入力';
+    $('summary-ai').textContent=$('geminiProvider').value==='shared'?
+      (embeddedAI.available?'組み込みAI / '+embeddedAI.model:'組み込みAI / 未設定'):
+      ($('apiKey').value?($('freeTier').checked?'APIキー入力済み / Free確認済み':'APIキー入力済み'):'APIキー未入力');
     $('summary-voice').textContent=$('output').value==='voicevox'?'VOICEVOX':'棒読みちゃん';
     try{$('summary-vault').textContent=localStorage.getItem('ai-live-commentator-vault-v1')?'保存あり':'保存なし';}
     catch{$('summary-vault').textContent='保存状態不明';}
     if($('summary-drive'))$('summary-drive').textContent=googleAuth.token('drive')?'接続済み':googleAuth.isLinked('drive')?'再認証が必要':'未接続';
+  }
+  function updateGeminiProviderFields(){
+    const shared=$('geminiProvider').value==='shared';
+    $('personalGeminiFields').hidden=shared;
+    $('embeddedGeminiInfo').hidden=!shared;
+    $('embeddedGeminiState').textContent=embeddedAI.available?
+      '組み込みモデル: '+embeddedAI.model+'。APIキーは不要です。共有利用枠は他の利用者と共通です。':
+      '組み込みAIはFirebase設定待ちです。利用可能になるまでは個人APIキー方式を使ってください。';
+    $('apiKey').required=!shared;
+    updateSettingSummaries();
   }
   function initSettingSections(){
     for(const section of document.querySelectorAll('details.setting-section'))section.open=section.id==='settings-vault';
@@ -415,6 +429,7 @@
       if (s[id] === '' || !Number.isInteger(value) || value < min || value > max){revealSetting(id);throw new C.AppError(`${settingLabel(id)}は${min}〜${max}の整数で指定してください。`);}
       s[id] = value;
     }
+    if(!['personal','shared'].includes(s.geminiProvider)){revealSetting('geminiProvider');throw new C.AppError('Geminiの接続方式を選択してください。');}
     if (![320,640,960].includes(s.imageWidth)){revealSetting('imageWidth');throw new C.AppError('画像サイズを選択してください。');}
     if (!['top-left','top-center','top-right','bottom-left','bottom-center','bottom-right'].includes(s.obsOverlayPosition)){revealSetting('obsOverlayPosition');throw new C.AppError('OBSコメントの表示位置を選択してください。');}
     if (s.obsOverlayFont!=='system'&&!fontLibrary.includes(s.obsOverlayFont)){revealSetting('obsOverlayFont');throw new C.AppError('OBSコメントのフォントを選択してください。');}
@@ -445,6 +460,7 @@
     const importedKnowledge=normalizeContentKnowledge(value.contentKnowledge,importedContents);
     const importedFonts=normalizeFontLibrary(Array.isArray(value.fontLibrary)?value.fontLibrary:[]);
     for(const id of savedIds){
+      if(id==='geminiProvider'&&source[id]===undefined){data[id]='personal';continue;}
       if(id==='youtubeChannelId'&&source[id]===undefined){data[id]='';continue;}
       if(source[id]===undefined)throw new C.AppError('設定ファイルに必要な設定項目が不足しています。');
       const el=$(id),raw=source[id];
@@ -460,6 +476,7 @@
       if(!Number.isInteger(n)||n<min||n>max)throw new C.AppError(`${settingLabel(id)}は${min}〜${max}の整数で指定してください。`);
       data[id]=n;
     }
+    if(!['personal','shared'].includes(String(data.geminiProvider)))throw new C.AppError('Geminiの接続方式が不正です。');
     if(data.theme!==undefined&&!Object.hasOwn(themes,String(data.theme)))throw new C.AppError('テーマの値が不正です。');
     if(data.imageWidth!==undefined&&![320,640,960].includes(data.imageWidth))throw new C.AppError('画像サイズの値が不正です。');
     if(data.obsOverlayPosition!==undefined&&!['top-left','top-center','top-right','bottom-left','bottom-center','bottom-right'].includes(String(data.obsOverlayPosition)))throw new C.AppError('OBSコメントの表示位置が不正です。');
@@ -492,7 +509,7 @@
     applyTheme($('theme').value);
     renderContentOptions(bundle.data.contentName);
     $('profiles').replaceChildren();buildProfiles(bundle.data.profiles);renderParticipantSelection(bundle.data.selectedProfileIds);
-    outputFields();overlayFields();updateSettingSummaries();
+    outputFields();overlayFields();updateGeminiProviderFields();
     const s=settings();save(s);
     $('saveState').textContent='設定をインポートしました。APIキーとOBSパスワードは変更していません。';
     log('設定をインポートしました。友達設定・対象コンテンツ一覧・追加知識・登録フォント一覧も反映しました。');
@@ -697,10 +714,15 @@
   function outputFields() { voicevoxSettingsLink(); $('bouyomiFields').hidden = $('output').value !== 'bouyomi'; $('voicevoxFields').hidden = $('output').value !== 'voicevox'; updateSettingSummaries(); }
   function overlayFields(){ $('obsOverlayFields').hidden=!$('obsOverlayEnabled').checked; updateSettingSummaries(); }
   function requireKey() {
+    if($('geminiProvider').value==='shared'){
+      if(!embeddedAI.available){revealSetting('geminiProvider');throw new C.AppError('組み込みAIが未設定です。FirebaseとApp Checkの公開設定を確認してください。');}
+      return C.EMBEDDED_CREDENTIAL;
+    }
     let key;try{key=C.normalizeKey($('apiKey').value);}catch(e){revealSetting('apiKey');throw e;}
     if (!$('freeTier').checked){revealSetting('freeTier');throw new C.AppError('このキーのプロジェクトがFree Tier・課金未設定であることを確認し、チェックを付けてください。');}
     return key;
   }
+  function activeGeminiModel(){return $('geminiProvider').value==='shared'&&embeddedAI.available?embeddedAI.model:C.MODEL;}
   function reserve() { stats.used++; updateStats(); }
   async function getFrame(s, signal) {
     C.check(signal); const capturedAt = performance.now(),capturedAtMs=Date.now();
@@ -1415,7 +1437,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     const runtime={s,key,history:[],spoken:[],speakerHistory:[],state:{frames:[],frameVersion:0,pending:null,analysisVersion:0,speechEpoch:0,analysisInFlight:false,speaking:false,activeTurnTexts:[],activeSpeakerIds:[],rateLimitStreak:0,quietSceneStreak:0,lastAnalysis:-Infinity,lastSpeech:-Infinity,lastConversationStart:-Infinity,lastAnalyzedFrameAt:-Infinity}};
     await chapterUI.begin(s.contentName);C.check(signal);
     streaming=true;$('finish').disabled=true;updateObsRefreshButton();
-    log(`開始: ${C.MODEL}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
+    log(`開始: ${activeGeminiModel()}・最短${s.apiInterval}秒・鮮度${s.freshness}秒。今回のカウントを0にしました。`);
     try{wakeLock=await navigator.wakeLock?.request('screen');}catch{}
     if(s.greetStart&&s.obsOverlayEnabled&&!obs?.ready)await connectObs(s,signal);
     if(s.greetStart)await greeting('start',runtime,signal,{tolerateFailure:true});
@@ -1522,6 +1544,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('closeHelpDialog').addEventListener('click',closeHelpDialog);
   $('doneHelpDialog').addEventListener('click',closeHelpDialog);
   helpDialog.addEventListener('click',e=>{if(e.target===helpDialog)closeHelpDialog();});
+  $('geminiProvider').addEventListener('change',updateGeminiProviderFields);
   $('apiKey').addEventListener('input',()=>{$('freeTier').checked=false;});$('settings').addEventListener('submit',e=>e.preventDefault());
   setInterval(()=>{
     if(!busy){$('elapsed').textContent='';return;}
@@ -1625,6 +1648,9 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   const migratedFont=legacyFontName(stored.obsOverlayFont);
   if(migratedFont&&!fontLibrary.includes(migratedFont)){fontLibrary.push(migratedFont);fontLibrary=normalizeFontLibrary(fontLibrary);saveFontLibrary();stored.obsOverlayFont=migratedFont;}
   for(const id of savedIds){if(stored[id]===undefined)continue;if($(id).type==='checkbox')$(id).checked=stored[id]===true;else if(['string','number'].includes(typeof stored[id])&&id!=='obsOverlayFont')$(id).value=stored[id];}
+  // Existing users stay on personal keys; freshly initialized installations
+  // prefer embedded AI once a verified Firebase project is published.
+  if(stored.geminiProvider===undefined&&Object.keys(stored).length===0&&embeddedAI.available)$('geminiProvider').value='shared';
   renderFontOptions(typeof stored.obsOverlayFont==='string'?stored.obsOverlayFont:'system');
   applyTheme(stored.theme===undefined ? new URLSearchParams(location.search).get('theme')||$('theme').value : $('theme').value);
   renderContentOptions(typeof stored.contentName==='string'?splitContentName(stored.contentName).raw:'');
@@ -1635,7 +1661,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   const profiles=Array.isArray(stored.profiles)?stored.profiles:[];
   if(!profiles.length)profiles.push({...defaultProfile(0),speaker:stored.speaker??3,bouyomiVoice:stored.bouyomiVoice??0});
   buildProfiles(profiles);renderParticipantSelection(selectedIds);
-  vaultState();googleControls();outputFields();overlayFields();initSettingSections();updateStats();renderSpeakerStats();
+  vaultState();googleControls();outputFields();overlayFields();updateGeminiProviderFields();initSettingSections();updateStats();renderSpeakerStats();
   if(driveOriginAllowed()&&!googleReady)void loadGoogleIdentity().then(()=>{googleReady=true;googleControls();}).catch(e=>{$('googleAccountState').textContent=e.message||'Google認証を読み込めませんでした。';});
   // Restore Drive settings automatically when a still-valid token survived reload.
   void resumeGoogleSession();
