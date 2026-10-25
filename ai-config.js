@@ -1,2 +1,2 @@
 /* Generated PUBLIC Firebase configuration. Never place secrets here. */
-globalThis.MINKOME_AI_CONFIG=Object.freeze({"mode":"disabled","firebase":null,"appCheckSiteKey":"","model":"gemini-3.5-flash-lite"});
+globalThis.MINKOME_AI_CONFIG=Object.freeze({"mode":"shared-firebase","firebase":{"apiKey":"AIzaSyBtTLrpwpK5Jzc_JTrjYY1uNPng13xTGRA","authDomain":"ai-live-commentator-af602.firebaseapp.com","projectId":"ai-live-commentator-af602","storageBucket":"ai-live-commentator-af602.firebasestorage.app","messagingSenderId":"430092603226","appId":"1:430092603226:web:4ee626fb0213517e336d63"},"appCheckSiteKey":"6Lfcdf8tAAAAABsjxCJSQOYe-ecyj15gcp21hap9","model":"gemini-3.5-flash-lite"});
