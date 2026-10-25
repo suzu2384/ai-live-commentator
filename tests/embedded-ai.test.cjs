@@ -39,7 +39,7 @@ test('the embedded adapter preserves image, JSON schema, thinking, and response 
   assert.deepEqual(info.models[0].generationConfig,payload.generationConfig);
   assert.deepEqual(info.models[0].systemInstruction,payload.systemInstruction);
   assert.equal(info.models[0].model,config.model);
-  assert.deepEqual(info.contents[0],payload.contents);
+  assert.deepEqual(info.contents[0],{contents:payload.contents});
  }finally{C.setEmbeddedRequest(null);}
 });
 test('missing config fails closed without calling the Firebase SDK',async()=>{
