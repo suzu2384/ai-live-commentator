@@ -378,7 +378,7 @@ const results=[];
  await test('chapter recording preserves speech and closing greeting before auto-generation',async()=>{
   const wrap=value=>({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(value)}]}}]});
   const x=await setup({answers:[wrap({speak:true,summary:'新しいエリア',chapterEvents:[{kind:'scene',summary:'新しいエリアに移動した'}],turns:[{speakerId:'p1',text:'景色が変わったね'}]}),wrap({speak:true,summary:'終了',turns:[{speakerId:'p1',text:'続きが気になるね'}]})],before:async p=>{await p.locator('#greetEnd').check();}});
-  const p=x.page;await start(x);await p.waitForFunction(()=>document.getElementById('speakerStatsTotal').textContent==='1');
+  const p=x.page;await start(x);await p.waitForFunction(()=>document.getElementById('lastComment')?.textContent.includes('景色が変わったね'));
   assert.deepEqual(x.events.talks,['景色が変わったね']);await finish(p);
   assert.deepEqual(x.events.talks,['景色が変わったね','続きが気になるね']);assert.equal(x.events.api,3);
   const s=(await chapterRecords(p))[0];assert.equal(s.events.length,1);assert.equal(s.generations.length,1);assert.equal(s.status,'finished');await x.close();
@@ -650,13 +650,14 @@ const results=[];
   await p.waitForFunction(()=>['--toolbar-height','--preview-sticky-height'].every(key=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue(key))>0));
   const v=await p.evaluate(()=>{
    const n=document.querySelector('.tabs'),pre=document.querySelector('.preview-sticky'),tb=document.querySelector('.toolbar');
-   const h=document.querySelector('.preview-card>.card-head').getBoundingClientRect(),pb=pre.getBoundingClientRect(),m=document.querySelector('.preview-card>.metrics').getBoundingClientRect();
    return {position:getComputedStyle(n).position,bottom:innerHeight-n.getBoundingClientRect().bottom,
       previewPosition:getComputedStyle(pre).position,previewTop:parseFloat(getComputedStyle(pre).top),
-      toolbarHeight:tb.getBoundingClientRect().height,heading:Math.abs(h.bottom-pb.top),metrics:Math.abs(pb.bottom-m.top)};
+      toolbarHeight:tb.getBoundingClientRect().height,
+      outerGap:parseFloat(getComputedStyle(pre).marginBottom),
+      hasMetrics:!!pre.querySelector('.preview-metrics'),hasRefresh:!!pre.querySelector('#resetObsSource')};
   });
   assert.equal(v.position,'fixed');assert.ok(Math.abs(v.bottom)<2);assert.equal(v.previewPosition,'sticky');
-  assert.ok(v.previewTop>=0);assert.ok(v.heading<2);assert.ok(v.metrics<2);
+  assert.ok(v.previewTop>=0);assert.ok(v.outerGap>=12);assert.ok(v.hasMetrics&&v.hasRefresh);
   await p.evaluate(()=>scrollTo(0,document.body.scrollHeight));
   const box=await p.locator('.tabs').boundingBox();assert.ok(Math.abs(box.y+box.height-900)<2);
   await p.locator('#tab-connect').click();assert.equal(await p.locator('#panel-connect').isVisible(),true);
@@ -999,30 +1000,6 @@ const results=[];
   assert.ok(x.events.promptTexts[0].includes('異なる3人が1回ずつ発言'));assert.deepEqual(x.events.talks,['じゃあ今日も見ていこう','楽しんでいこうか','どんな感じか見てみよう']);
   assert.ok((await p.locator('#log').innerText()).includes('開始の挨拶'));await stop(p);await x.close();
  });
- await test('speaker status shows selected participants and resets at the next start',async()=>{
-  const x=await setup();const p=x.page;
-  assert.equal(await p.locator('#speakerStatsTotal').textContent(),'0');
-  assert.equal(await p.locator('#speakerStatsList .speaker-stat-row').count(),1);
-  assert.equal(await p.locator('[data-speaker-id="p1"] .speaker-stat-state').textContent(),'待機');
-  await start(x);await idle(p);
-  assert.equal(await p.locator('#speakerStatsTotal').textContent(),'1');
-  assert.equal(await p.locator('[data-speaker-id="p1"] .speaker-stat-value').textContent(),'1回 · 100%');
-  assert.equal(await p.locator('[data-speaker-id="p1"] .speaker-stat-state').textContent(),'直近');
-  await stop(p);
-  await p.locator('#start').click();
-  assert.equal(await p.locator('#speakerStatsTotal').textContent(),'0');
-  await stop(p);await x.close();
- });
- await test('speaker balance uses one column up to three friends and two columns above three',async()=>{
-  const x=await setup();const p=x.page;
-  await selectParticipants(p,['p1','p2','p3']);
-  let layout=await p.locator('#speakerStatsList').evaluate(el=>({two:el.classList.contains('two-columns'),columns:getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length,rows:el.children.length}));
-  assert.equal(layout.two,false);assert.equal(layout.columns,1);assert.equal(layout.rows,3);
-  await selectParticipants(p,['p1','p2','p3','p4','p5','p6']);
-  layout=await p.locator('#speakerStatsList').evaluate(el=>({two:el.classList.contains('two-columns'),columns:getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length,rows:el.children.length}));
-  assert.equal(layout.two,true);assert.equal(layout.columns,2);assert.equal(layout.rows,6);
-  await x.close();
- });
  await test('normal finish uses recent history and speaker-count weight for its closing greeting',async()=>{
   const normalTwo={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'道を進んでいる',turns:[{speakerId:'p1',text:'景色がいいね'},{speakerId:'p2',text:'この先も見てみよう'}]})}]}}]};
   const closing={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'終了',turns:[{speakerId:'p1',text:'今日はこの辺かな。また見よう'},{speakerId:'p2',text:'うん、おつかれさま'}]})}]}}]};
@@ -1033,19 +1010,9 @@ const results=[];
     for(let n=3;n<=6;n++)await p.locator('#speakerWeight'+n).fill('0');
   }});const p=x.page;
   await start(x);await idle(p);assert.equal(x.events.api,1);assert.deepEqual(x.events.talks,['景色がいいね','この先も見てみよう']);
-  assert.equal(await p.locator('#speakerStatsTotal').textContent(),'2');
-  assert.equal(await p.locator('[data-speaker-id="p1"] .speaker-stat-value').textContent(),'1回 · 50%');
-  assert.equal(await p.locator('[data-speaker-id="p2"] .speaker-stat-value').textContent(),'1回 · 50%');
-  assert.equal(await p.locator('[data-speaker-id="p2"] .speaker-stat-state').textContent(),'直近');
-  assert.ok((await p.locator('#speakerStatsDonut').evaluate(el=>el.style.background)).includes('conic-gradient'));
-  assert.ok((await p.locator('#speakerStatsDonut').getAttribute('aria-label')).includes('友達1 1回 50%'));
-  assert.ok((await p.locator('#speakerStatsDonut').getAttribute('aria-label')).includes('友達2 1回 50%'));
   await finish(p);assert.equal(x.events.api,2);assert.deepEqual(x.events.analysisImages,[2,0]);assert.equal(x.events.turnLimits[1],2);
   assert.ok(x.events.promptTexts[1].includes('道を進んでいる'));assert.ok(x.events.promptTexts[1].includes('異なる2人が1回ずつ発言'));
   assert.deepEqual(x.events.talks,['景色がいいね','この先も見てみよう','今日はこの辺かな。また見よう','うん、おつかれさま']);
-  assert.equal(await p.locator('#speakerStatsTotal').textContent(),'4');
-  assert.equal(await p.locator('[data-speaker-id="p1"] .speaker-stat-value').textContent(),'2回 · 50%');
-  assert.equal(await p.locator('[data-speaker-id="p2"] .speaker-stat-value').textContent(),'2回 · 50%');
   assert.ok(x.events.overlayUrls.some(url=>decodeURIComponent(url.slice(url.indexOf(',')+1)).includes('今日はこの辺かな。また見よう')));
   assert.ok((await p.locator('#log').innerText()).includes('実況を通常終了しました。'));await x.close();
  });
