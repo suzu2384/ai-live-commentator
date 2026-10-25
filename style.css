@@ -848,7 +848,7 @@ main>.toolbar .actions button.primary{padding:6px 15px}
   html,body{scroll-padding-bottom:calc(92px + env(safe-area-inset-bottom))}
 }
 
-/* v4.54.1 — Video monitor with compact in-frame controls and comments.
+/* v4.54.2 — Video monitor with compact in-frame controls and comments.
    Overlay content belongs to .preview so it remains attached on mobile. */
 @media(min-width:901px){
   .monitor-column>.preview-card:last-child{
@@ -872,23 +872,26 @@ main>.toolbar .actions button.primary{padding:6px 15px}
   pointer-events:none;
 }
 .preview .preview-metrics{
-  flex:0 1 200px;
+  flex:0 1 auto;
+  width:max-content;
   min-width:0;
   display:grid;
   gap:3px;
   padding:7px 9px;
   background:rgba(6,12,16,.84);
   color:#f3f8fc;
+  border:1px solid rgba(255,255,255,.18);
   border-radius:9px;
   box-shadow:0 2px 12px rgba(0,0,0,.22);
   font-variant-numeric:tabular-nums;
 }
 .preview .preview-metrics>div{
   min-width:0;
-  display:flex;
+  display:grid;
+  grid-template-columns:max-content max-content;
   align-items:baseline;
-  justify-content:space-between;
-  gap:6px;
+  justify-content:start;
+  column-gap:7px;
 }
 .preview .preview-metrics small{
   font-size:10px;
@@ -928,6 +931,7 @@ main>.toolbar .actions button.primary{padding:6px 15px}
   overflow-y:auto;
   overscroll-behavior:contain;
   padding:9px 11px;
+  border:1px solid rgba(255,255,255,.18);
   border-radius:10px;
   background:linear-gradient(to top,rgba(5,11,15,.95),rgba(5,11,15,.84));
   box-shadow:0 2px 16px rgba(0,0,0,.24);
