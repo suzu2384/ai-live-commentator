@@ -43,6 +43,7 @@ const results=[];
    });
   }
   await page.route('https://**/*',async r=>{
+   if(config.embeddedFirebase&&r.request().url().startsWith('https://www.gstatic.com/firebasejs/12.19.0/'))return r.fallback();
    if(r.request().url().startsWith('https://accounts.google.com/gsi/client')&&config.httpEntry)return r.fulfill({contentType:'text/javascript',body:`globalThis.google={accounts:{oauth2:{initTokenClient:(opts)=>({callback:opts.callback,requestAccessToken(){setTimeout(()=>this.callback({access_token:'drive-token',expires_in:3600,scope:opts.scope}),0);}}),hasGrantedAllScopes:()=>true,revoke:(_token,cb)=>cb&&cb()}}};`});
    if(r.request().url().startsWith('https://www.googleapis.com/oauth2/v3/userinfo'))return r.fulfill({contentType:'application/json',body:'{"email":"minkome-test@example.com"}'});
    if(r.request().url().startsWith('https://www.googleapis.com/drive/v3/')||r.request().url().startsWith('https://www.googleapis.com/upload/drive/v3/')){
