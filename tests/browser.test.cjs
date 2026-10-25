@@ -611,7 +611,7 @@ const results=[];
  });
  await test('narrow layout preserves preview stack and fixed footer while scrolling',async()=>{
   const x=await setup(),p=x.page;await p.setViewportSize({width:800,height:900});
-  await p.waitForFunction(()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--preview-sticky-height'))>0);
+  await p.waitForFunction(()=>['--toolbar-height','--preview-sticky-height'].every(key=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue(key))>0));
   const v=await p.evaluate(()=>{
    const n=document.querySelector('.tabs'),pre=document.querySelector('.preview-sticky'),tb=document.querySelector('.toolbar');
    const h=document.querySelector('.preview-card>.card-head').getBoundingClientRect(),pb=pre.getBoundingClientRect(),m=document.querySelector('.preview-card>.metrics').getBoundingClientRect();
