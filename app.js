@@ -106,8 +106,8 @@
     $('personalGeminiFields').hidden=shared;
     $('embeddedGeminiInfo').hidden=!shared;
     $('embeddedGeminiState').textContent=embeddedAI.available?
-      '組み込みモデル: '+embeddedAI.model+'。APIキーは不要です。共有利用枠は他の利用者と共通です。':
-      '組み込みAIはFirebase設定待ちです。利用可能になるまでは個人APIキー方式を使ってください。';
+      '組み込みAIを使用できます。':
+      '組み込みAIは利用できません。個人APIキーを使用してください。';
     $('apiKey').required=!shared;
     updateSettingSummaries();
   }
@@ -525,7 +525,7 @@
     $('driveConnect').disabled=!ready||googleAuth.isLinked('drive');
     for(const id of ['driveSave','driveRestore','driveDelete'])$(id).disabled=locked||!connected;
     $('driveDisconnect').disabled=locked||!googleAuth.isLinked('drive');
-    $('driveOriginInfo').textContent=allowed?(valid?'Google認証設定はアプリに組み込み済みです。現在の起動元: '+location.origin:'GitHubのGOOGLE_OAUTH_CLIENT_IDを設定してください。'):'Google認証はGitHub Pagesまたはlocalhostから利用できます。';
+    $('driveOriginInfo').textContent=allowed?(valid?'Google認証を利用できます。':'Google認証が未設定です。'):'この環境ではGoogle認証を利用できません。';
     $('summary-drive').textContent=connected?'接続済み':googleAuth.isLinked('drive')?'再認証が必要':'未接続';
   }
   function googleControls(){
@@ -538,7 +538,7 @@
     const channel=googleAuth.channel?.title||'';
     $('youtubeAuthState').textContent=googleAuth.token('youtube')?'接続済み: '+channel:googleAuth.isLinked('youtube')?'再認証が必要です'+(channel?'（'+channel+'）':''):'OAuth未接続。従来のAPIキー方式も利用できます。';
     const connections=googleAuth.services().map(s=>s==='youtube'?'YouTube: '+(channel||'チャンネル'):'Google Drive').join(' / ');
-    $('googleAccountState').textContent=googleError||(!valid?'GitHubのGOOGLE_OAUTH_CLIENT_IDが未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':connections?'連携中: '+connections:'YouTubeとDriveは個別に接続できます。');
+    $('googleAccountState').textContent=googleError||(!valid?'Google認証が未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':connections?'連携中: '+connections:'YouTubeとDriveは個別に接続できます。');
     updateSettingSummaries();
   }
   function youtubeCredential(){

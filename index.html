@@ -14,16 +14,16 @@ try{
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="みんコメAI">
-<link rel="icon" href="assets/favicon.ico?v=4.54.6" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.54.6">
-<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.54.6">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.54.6">
-<link rel="manifest" href="manifest.webmanifest?v=4.54.6">
-<link rel="stylesheet" href="style.css?v=4.54.6">
-<script src="core.js?v=4.54.6" defer></script><script src="ai-config.js?v=4.54.6&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.54.6" defer></script><script src="vault.js?v=4.54.6" defer></script><script src="google-config.js?v=4.54.6&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.54.6" defer></script><script src="google-auth.js?v=4.54.6" defer></script><script src="youtube.js?v=4.54.6" defer></script><script src="youtube-ui.js?v=4.54.6" defer></script><script src="chapters.js?v=4.54.6" defer></script><script src="thumbnail.js?v=4.54.6" defer></script><script src="chapter-editor.js?v=4.54.6" defer></script><script src="chapter-editor-ui.js?v=4.54.6" defer></script><script src="chapters-ui.js?v=4.54.6" defer></script><script src="app.js?v=4.54.6" defer></script>
+<link rel="icon" href="assets/favicon.ico?v=4.54.7" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.54.7">
+<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.54.7">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.54.7">
+<link rel="manifest" href="manifest.webmanifest?v=4.54.7">
+<link rel="stylesheet" href="style.css?v=4.54.7">
+<script src="core.js?v=4.54.7" defer></script><script src="ai-config.js?v=4.54.7&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.54.7" defer></script><script src="vault.js?v=4.54.7" defer></script><script src="google-config.js?v=4.54.7&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.54.7" defer></script><script src="google-auth.js?v=4.54.7" defer></script><script src="youtube.js?v=4.54.7" defer></script><script src="youtube-ui.js?v=4.54.7" defer></script><script src="chapters.js?v=4.54.7" defer></script><script src="thumbnail.js?v=4.54.7" defer></script><script src="chapter-editor.js?v=4.54.7" defer></script><script src="chapter-editor-ui.js?v=4.54.7" defer></script><script src="chapters-ui.js?v=4.54.7" defer></script><script src="app.js?v=4.54.7" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.54.6" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.54.6</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.54.7" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.54.7</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -57,12 +57,12 @@ try{
 <section class="card live-section">
 <div class="card-head"><div><h2>今回の実況</h2><p id="summary-live" class="section-meta">対象なし / 1人 / よく話す</p></div></div>
 <div class="content-setting-row"><label class="content-select-label">対象コンテンツ<select id="contentName"><option value="">なし</option></select></label><button type="button" id="manageContents">管理</button></div>
-<p class="hint compact-hint">選択したコンテンツについて、Geminiの既知の知識を画面理解と自然な会話に利用します。</p>
+<p class="hint compact-hint">選択したコンテンツを参考に実況します。</p>
 <fieldset class="participant-picker">
 <legend>参加する友達</legend>
 <div id="participantSelection" class="participant-selection" aria-describedby="participantHint"></div>
 <input id="participantCount" type="hidden" value="1">
-<p id="participantHint" class="hint compact-hint">今回の実況に参加させる友達を1人以上選びます。友達の内容は「友達」タブで編集できます。</p>
+<p id="participantHint" class="hint compact-hint">実況に参加する友達を選択します。</p>
 </fieldset>
 <div class="toggle-grid"><label class="check"><input id="greetStart" type="checkbox" checked>開始時に挨拶</label><label class="check"><input id="greetEnd" type="checkbox" checked>終了時に挨拶</label></div>
 </section>
@@ -72,12 +72,12 @@ try{
 <label>おしゃべり度<select id="talkativeness"><option value="0">控えめ — 出来事を中心に</option><option value="1">標準 — 移動中も時々</option><option value="2" selected>よく話す — 相づち・感想も</option></select></label>
 <label>会話の雰囲気<textarea id="persona" rows="2" maxlength="1000">学生時代の友達が家に集まってゲームをしている雰囲気。気取らない感想と相づち、軽いツッコミ。煽りは弱め。</textarea></label>
 <div class="compact-setting-grid"><label class="compact-field"><span>会話履歴</span><span class="value-unit"><input id="conversationHistoryCount" type="number" min="0" max="20" value="6" required><span>発言</span></span></label><label class="compact-field"><span>発言最短間隔</span><span class="value-unit"><input id="speechInterval" type="number" min="15" max="600" value="20" required><span>秒</span></span></label></div>
-<p class="hint compact-hint">会話履歴は0で送信しません。増やすほど直近の掛け合いを参照しやすくなります。</p>
+<p class="hint compact-hint">直近の会話をどれだけ参考にするか設定します。</p>
 </section>
 
 <section class="card live-section">
 <div class="card-head"><h2>掛け合い</h2></div>
-<p class="hint compact-hint">1回の解析で何人が話すかを相対値で抽選します。speak=trueなら、抽選された人数ちょうどで掛け合います。選択した友達の人数を超える欄は無視します。</p>
+<p class="hint compact-hint">一度に話す人数の出やすさを調整します。</p>
 <div class="speaker-weight-grid">
 <label>1人<input id="speakerWeight1" type="number" min="0" max="999" value="45" required></label>
 <label>2人<input id="speakerWeight2" type="number" min="0" max="999" value="35" required></label>
@@ -86,7 +86,7 @@ try{
 <label>5人<input id="speakerWeight5" type="number" min="0" max="999" value="0" required></label>
 <label>6人<input id="speakerWeight6" type="number" min="0" max="999" value="0" required></label>
 </div>
-<p class="hint compact-hint">0は選択なし。合計100にする必要はありません。</p>
+
 </section>
 
 <details class="advanced-settings" id="settings-advanced">
@@ -97,33 +97,33 @@ try{
 <label class="compact-field"><span>API最短間隔</span><span class="value-unit"><input id="apiInterval" type="number" min="30" max="600" value="30" required><span>秒</span></span></label>
 <label class="compact-field"><span>変化が少ない時</span><span class="value-unit"><input id="quietInterval" type="number" min="30" max="600" value="60" required><span>秒</span></span></label>
 <label class="compact-field"><span>コメントの鮮度上限</span><span class="value-unit"><input id="freshness" type="number" min="5" max="180" value="15" required><span>秒</span></span></label>
-</div><p class="hint compact-hint">鮮度上限を超えた古い応答は読み上げません。開始済みの掛け合いは最後まで再生します。</p>
+</div><p class="hint compact-hint">古い映像へのコメントを防ぎます。</p>
 </section>
 <section class="inline-setting-group compact-detail-group"><h3>映像解析</h3>
 <div class="compact-setting-grid">
 <label class="compact-field"><span>画像取得間隔</span><span class="value-unit"><input id="sampleInterval" type="number" min="1" max="60" value="8" required><span>秒</span></span></label>
 <label class="compact-field"><span>解析画像</span><select id="analysisFrameCount"><option value="2" selected>2枚</option><option value="3">3枚</option><option value="4">4枚</option><option value="5">5枚</option><option value="6">6枚</option></select></label>
 <label class="compact-field"><span>画像幅</span><select id="imageWidth"><option value="320">320px</option><option value="640" selected>640px</option><option value="960">960px</option></select></label>
-</div><p class="hint compact-hint">枚数・画像幅を増やすほど場面の流れを捉えやすくなりますが、送信量と応答時間も増える場合があります。</p>
+</div><p class="hint compact-hint">解析に使う映像の枚数と画質を設定します。</p>
 </section>
 </div>
 </details>
-<div class="settings-footer"><div class="actions wrap"><button type="button" id="save">設定を保存</button><button type="button" id="exportSettings">設定をエクスポート</button><button type="button" id="importSettings">設定をインポート</button><input id="importSettingsFile" type="file" accept=".json,application/json" hidden></div><span id="saveState" class="hint">通常の設定保存・エクスポートにはキー類を含めません。</span></div>
+<div class="settings-footer"><div class="actions wrap"><button type="button" id="save">設定を保存</button><button type="button" id="exportSettings">設定をエクスポート</button><button type="button" id="importSettings">設定をインポート</button><input id="importSettingsFile" type="file" accept=".json,application/json" hidden></div><span id="saveState" class="hint">APIキーやパスワードは書き出しません。</span></div>
 </div>
 
 <div id="panel-friends" role="tabpanel" aria-labelledby="tab-friends" hidden>
-<section class="card"><div class="card-head"><h2>友達の設定</h2></div><p class="hint">呼び名・性格・話し方・声を友達ごとに設定します。参加する友達は「実況」タブで選びます。</p></section>
+<section class="card"><div class="card-head"><h2>友達の設定</h2></div><p class="hint">友達ごとの話し方や声を設定します。</p></section>
 <div id="profiles"></div>
-<p class="hint">変更は「設定を保存」または実況開始で保存されます。VOICEVOX話速は0.5〜2.0で、1.0が標準です。声のIDはお使いの読み上げソフトで確認してください。</p>
+<p class="hint"></p>
 </div>
 
 <div id="panel-connect" role="tabpanel" aria-labelledby="tab-connect" hidden>
-<section class="panel-intro"><h2>設定</h2><p class="hint">OBS・Gemini・読み上げ先など、一度決めたら頻繁には変えない接続情報をまとめています。</p></section>
-<section class="card"><div class="card-head"><h2>Googleアカウント</h2></div><p class="hint compact-hint">YouTubeとDriveは個別に接続し、再接続では有効期限内でも両サービスの認証を更新します。</p><div class="actions wrap"><button id="googleReauth" type="button" disabled>Googleに再接続</button></div><label class="check"><input type="checkbox" id="googleKeepConnected">この端末で接続を保持する</label><p class="hint compact-hint">認証期限内はページを開き直しても自動復帰します。チェックを入れるとブラウザを閉じた後も、この端末に有効期限付きの認証情報を保存します。共有端末ではOFFにしてください。期限切れ後はGoogleの再認証が必要です。</p><p id="googleAccountState" class="hint" role="status">準備中</p></section>
+<section class="panel-intro"><h2>設定</h2><p class="hint">各サービスの接続と保存を設定します。</p></section>
+<section class="card"><div class="card-head"><h2>Googleアカウント</h2></div><p class="hint compact-hint">YouTubeとDriveの接続を管理します。</p><div class="actions wrap"><button id="googleReauth" type="button" disabled>Googleに再接続</button></div><label class="check"><input type="checkbox" id="googleKeepConnected">この端末で接続を保持する</label><p class="hint compact-hint">共有端末では接続の保持をOFFにしてください。</p><p id="googleAccountState" class="hint" role="status">準備中</p></section>
 <details class="card setting-section" id="settings-video"><summary class="setting-summary"><span>OBS・映像</span><span id="summary-video" class="setting-summary-value">PS Remote Play</span></summary><div class="setting-body">
 <label>接続先<input id="obsUrl" type="url" value="ws://127.0.0.1:4455" required></label>
 <div class="fields"><label>OBSパスワード<input id="obsPassword" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます"></label><label>映像ソース名<input id="sourceName" value="PS Remote Play" required maxlength="200"></label></div>
-<div class="setting-action"><button type="button" id="testObs">映像確認</button><span class="hint">OBSに登録したゲーム映像のソース名を指定します。ウィンドウの再取得は映像右上の「映像ソースを再取得」から実行できます。</span></div>
+<div class="setting-action"><button type="button" id="testObs">映像確認</button><span class="hint">OBSからゲーム映像を確認します。</span></div>
 <section class="inline-setting-group compact-detail-group"><h3>コメント表示</h3>
 <label class="check"><input id="obsOverlayEnabled" type="checkbox">OBSにコメントを表示</label>
 <div id="obsOverlayFields" hidden>
@@ -135,45 +135,45 @@ try{
 </div>
 <label class="check"><input id="obsOverlayShowName" type="checkbox" checked>友達の名前を表示</label>
 <label class="check"><input id="obsOverlayBold" type="checkbox">文字を太字</label>
-<p class="hint compact-hint">現在シーンに「みんコメ 吹き出し」という Browser Source を自動作成・追加します。短文は1行、長文は最大2行に明示分割し、長い方の行に合わせてBrowser Source自体を横に広げます。文字には友達色をさらに濃くした太めのエッジを付け、太字は任意です。しっぽにも吹き出し本体と同じ縁を付けます。フォントは「管理」からOBS側PCに入っているフォント名を自分で登録できます。</p>
+<p class="hint compact-hint">実況コメントをOBSの映像に重ねて表示します。</p>
 <div class="setting-action"><button type="button" id="testObsOverlay">コメント表示テスト</button><span class="hint">Geminiは使いません</span></div>
 </div></section></div></details>
 <details class="card setting-section" id="settings-ai"><summary class="setting-summary"><span>Gemini</span><span id="summary-ai" class="setting-summary-value">APIキー未入力</span></summary><div class="setting-body">
-<label>AIの接続方式<select id="geminiProvider"><option value="personal" selected>個人APIキー（従来方式）</option><option value="shared">組み込みAI（Firebase）</option></select></label>
+<label>AIの接続方式<select id="geminiProvider"><option value="personal" selected>個人APIキー</option><option value="shared">組み込みAI（Firebase）</option></select></label>
 <div id="personalGeminiFields">
 <div class="setting-meta"><span class="badge small">Gemini 3.1 Flash-Lite</span></div>
 <label>Gemini APIキー<input id="apiKey" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます" required></label>
 <label class="check"><input id="freeTier" type="checkbox">このキーのプロジェクトが Free Tier・課金未設定だと確認しました</label>
-<p class="hint compact-hint">従来のAPIキー方式です。無料枠と課金状態を自分で確認してください。</p>
+<p class="hint compact-hint">APIキーの利用枠・課金設定を確認してください。</p>
 </div>
-<div id="embeddedGeminiInfo" hidden><p id="embeddedGeminiState" class="hint compact-hint" role="status"></p><p class="hint compact-hint">KonDate準拠のFirebase AI LogicとApp Checkでアクセスします。APIキーの入力は不要です。</p></div>
-<p class="hint compact-hint">実況・挨拶・チャプターに利用します。画像・文章はGoogleへ送信されます。</p>
+<div id="embeddedGeminiInfo" hidden><p id="embeddedGeminiState" class="hint compact-hint" role="status"></p><p class="hint compact-hint">個人のAPIキーは不要です。</p></div>
+<p class="hint compact-hint">映像と会話の生成に使用します。画像・文章をGoogleへ送信します。</p>
 <div class="setting-action"><button type="button" id="testText">文章だけで接続テスト</button><span class="hint">API送信1回を使用</span></div>
 </div></details>
 <details class="card setting-section" id="settings-youtube"><summary class="setting-summary"><span>YouTube</span><span class="setting-summary-value">配信選択・時刻同期</span></summary><div class="setting-body">
-<div class="actions wrap"><button id="youtubeConnect" type="button" disabled>GoogleでYouTubeに接続</button><button id="youtubeDisconnect" type="button" class="subtle" disabled>接続解除</button></div><p id="youtubeAuthState" class="hint" role="status">未接続</p><p class="hint compact-hint">ブランドチャンネルにも対応します。YouTubeの認証にメールアドレスやDriveの権限は不要です。接続後はチャンネル名を表示します。</p>
-<label>YouTube Data API v3 APIキー（従来方式）<input id="youtubeApiKey" type="password" autocomplete="new-password" placeholder="任意・既存の合言葉で暗号化保存できます"></label>
+<div class="actions wrap"><button id="youtubeConnect" type="button" disabled>GoogleでYouTubeに接続</button><button id="youtubeDisconnect" type="button" class="subtle" disabled>接続解除</button></div><p id="youtubeAuthState" class="hint" role="status">未接続</p><p class="hint compact-hint">ブランドチャンネルにも接続できます。</p>
+<label>YouTube APIキー<input id="youtubeApiKey" type="password" autocomplete="new-password" placeholder="任意・既存の合言葉で暗号化保存できます"></label>
 <label>チャンネルID<input id="youtubeChannelId" type="text" placeholder="UCで始まるチャンネルID" maxlength="24"></label>
-<p class="hint">OAuthなら自分の終了済み配信をチャンネルIDなしでも検索できます。ID入力で候補を絞れます。既存のAPIキー方式も引き続き利用できます。実況開始・終了時には通信しません。</p>
+<p class="hint">終了済みの配信を選んでチャプターと同期します。</p>
 </div></details>
 <details class="card setting-section" id="settings-voice"><summary class="setting-summary"><span>読み上げ</span><span id="summary-voice" class="setting-summary-value">棒読みちゃん</span></summary><div class="setting-body">
 <label>出力先<select id="output"><option value="bouyomi">棒読みちゃん（PC側で再生）</option><option value="voicevox">VOICEVOX直接（ブラウザで再生）</option></select></label>
-<div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><p class="hint compact-hint">HTTP連携を有効にしてください。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
-<div id="voicevoxFields" hidden><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label><p class="hint compact-hint">音声はこのブラウザで再生します。LAN接続の手順は「ヘルプ」にまとめています。</p></div>
+<div id="bouyomiFields"><label>棒読みちゃん HTTP URL<input id="bouyomiUrl" type="url" value="http://127.0.0.1:50080"></label><p class="hint compact-hint">棒読みちゃんで音声を再生します。</p></div>
+<div id="voicevoxFields" hidden><label>VOICEVOX URL<input id="voicevoxUrl" type="url" value="http://127.0.0.1:50021"></label><p class="hint compact-hint">ブラウザで音声を再生します。</p></div>
 <div class="setting-action"><button type="button" id="testVoice">音声テスト（参加友達の先頭）</button><span class="hint">声・話速・性格は「友達」で設定</span></div></div></details>
 <details class="card setting-section" id="settings-vault" open><summary class="setting-summary"><span>端末内の暗号化保存</span><span id="summary-vault" class="setting-summary-value">保存なし</span></summary><div class="setting-body">
-<p class="hint compact-hint">Gemini・YouTube APIキーとOBSパスワードを端末内に暗号化保存します。合言葉は保存しません。</p>
+<p class="hint compact-hint">キー・パスワードを端末内に暗号化保存します。</p>
 <label>合言葉（保存時は12文字以上）<input id="vaultPass" type="password" autocomplete="off" maxlength="200"></label>
 <label>合言葉の確認（保存時のみ）<input id="vaultConfirm" type="password" autocomplete="off" maxlength="200"></label>
 <div class="actions wrap"><button type="button" id="vaultSave">暗号化して保存</button><button type="button" id="vaultUnlock">解除</button><button type="button" id="vaultLock">ロック</button><button type="button" id="vaultDelete">保存を削除</button></div>
 <p id="vaultState" class="hint" role="status">保存状態を確認中</p></div></details>
 <details class="card setting-section" id="settings-drive"><summary class="setting-summary"><span>Google Drive保存</span><span id="summary-drive" class="setting-summary-value">未接続</span></summary><div class="setting-body">
-<p class="hint compact-hint">合言葉なしで設定とキー類を引き継ぎます。Driveへ接続・再接続すると保存済みの設定とAPIキー・パスワードを自動復元します。Driveへの保存は手動です。</p>
+<p class="hint compact-hint">設定やキー類をDriveに保存・復元します。</p>
 <p id="driveOriginInfo" class="hint compact-hint"></p>
 <div class="actions wrap"><button type="button" id="driveConnect">Google Driveに接続</button><button type="button" id="driveSave" class="primary" disabled>Driveへ保存</button><button type="button" id="driveRestore" disabled>Driveから復元</button><button type="button" id="driveDisconnect" class="subtle" disabled>切断</button><button type="button" id="driveDelete" class="subtle" disabled>Driveの保存を削除</button></div>
 <p id="driveState" class="hint" role="status" aria-live="polite">未接続です。</p>
 <div class="drive-file-status"><span>通常設定 <strong id="driveSettingsState">未確認</strong></span><span>キー・パスワード <strong id="driveSecretsState">未確認</strong></span></div>
-<p class="hint compact-hint drive-security-note">秘密情報ファイルはアプリ側では暗号化しません。Googleアカウントへのアクセス権を持つこのアプリからは、Gemini APIキー・YouTube APIキー・OBSパスワードを読み出せます。Free Tier確認状態は保存しません。</p>
+<p class="hint compact-hint drive-security-note">キー類はDrive上ではアプリ独自の暗号化を行いません。</p>
 </div></details>
 </div>
 </form>
@@ -204,7 +204,7 @@ try{
 <summary>生成設定</summary>
 <div class="chapter-detail-body">
 <label class="check"><input id="chapterAuto" type="checkbox" checked>実況終了後に自動生成</label>
-<p class="hint compact-hint">生成・再生成はGeminiの無料枠を使用します。長い記録は分割整理して統合します。「即停止」では自動生成しません。</p>
+<p class="hint compact-hint">実況終了時にチャプターを自動生成できます。</p>
 </div>
 </details>
 <div class="chapter-list-actions actions wrap">
@@ -224,7 +224,7 @@ try{
 <h3 id="chapterExportTitle">説明欄用チャプター</h3>
 <label class="check"><input id="chapterIntro" type="checkbox" checked disabled>先頭が0秒でない場合に「00:00」を補う</label>
 <label>00:00のタイトル<input id="chapterIntroTitle" type="text" value="配信開始" maxlength="80" disabled></label>
-<p id="chapterIntroAdded" class="hint" hidden>出力に00:00を補っています。元のイベント・生成結果への追加はありません。</p>
+<p id="chapterIntroAdded" class="hint" hidden>説明欄用に00:00を補っています。</p>
 <p id="chapterExportStatus" class="hint" role="status"></p><ul id="chapterExportNotes" class="chapter-export-notes"></ul>
 <label for="chapterOutput">説明欄に貼り付ける内容</label><textarea id="chapterOutput" rows="7" readonly spellcheck="false" placeholder="YouTubeと同期すると、ここに表示されます。"></textarea>
 <div class="actions wrap"><button id="chapterCopy" type="button" class="primary" disabled>テキストをコピー</button><button id="chapterSelectText" type="button" hidden disabled>テキストを選択</button></div>
@@ -234,7 +234,7 @@ try{
 
 <section id="chapterSectionThumbnail" class="chapter-section" role="tabpanel" aria-labelledby="chapterSubtabThumbnail" data-chapter-section="thumbnail" hidden>
 <section class="chapter-thumbnail" aria-labelledby="chapterThumbnailTitle">
-<div class="chapter-section-head"><div><h3 id="chapterThumbnailTitle">ChatGPTサムネ素材</h3><p class="hint">代表画像からサムネ向きの最大5枚を選び、ChatGPTへ渡す素材を作ります。</p></div><button id="thumbnailAutoSelect" type="button" disabled>自動選別</button></div>
+<div class="chapter-section-head"><div><h3 id="chapterThumbnailTitle">ChatGPTサムネ素材</h3><p class="hint">配信の代表画像からサムネ素材を作成します。</p></div><button id="thumbnailAutoSelect" type="button" disabled>自動選別</button></div>
 <div id="thumbnailReferences" class="thumbnail-references" aria-label="ChatGPT用に選択した代表画像"></div>
 <p id="thumbnailReferenceInfo" class="hint">代表画像がある終了済み配信を選択してください。</p>
 <details id="thumbnailPickerDetails" class="thumbnail-picker-details"><summary>素材を手動で選び直す</summary><div id="thumbnailPicker" class="thumbnail-picker"></div></details>
@@ -262,7 +262,7 @@ try{
 <label>代表画像を保持する配信数<input id="chapterImageRetention" type="number" min="1" max="100" step="1" value="10" inputmode="numeric"></label>
 <button id="chapterImagesDelete" type="button" disabled>この配信の代表画像を削除</button>
 </div>
-<p class="hint compact-hint">代表画像は直近の指定配信数だけ保持します。古い配信では画像だけを削除し、チャプター・イベントログは残します。</p>
+<p class="hint compact-hint">保存する配信の画像数を管理します。</p>
 <p id="chapterImageStorageStatus" class="hint" role="status" aria-live="polite"></p>
 </div>
 </details>
@@ -303,31 +303,51 @@ try{
 <div class="chapter-image-dialog-body"><img id="chapterImagePreview" alt="イベントの代表画像"><p id="chapterImageInfo" class="hint"></p></div>
 </dialog><dialog id="youtubeDialog" class="content-dialog" aria-labelledby="youtubeDialogTitle">
 <div class="content-dialog-head"><h2 id="youtubeDialogTitle">YouTube同期先を選択</h2></div><div class="youtube-dialog-body">
-<p class="hint">終了済み配信の候補から選択するか、URL／動画IDを直接指定してください。確定するまで現在の同期先は変わりません。</p>
+<p class="hint">終了済み配信を選択するか、動画URLを入力します。</p>
 <label>YouTube動画URL／動画ID<input id="youtubeDirect" type="text" maxlength="2048" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off"></label>
 <div class="actions wrap"><button id="youtubeLookup" type="button">指定した動画を確認</button><button id="youtubeRetry" type="button">候補を再取得</button></div>
 <p id="youtubeMessage" role="status"></p><div id="youtubeCandidates"></div><button id="youtubeMore" type="button" hidden>さらに過去の候補を取得</button>
 <div class="actions wrap"><button id="youtubeConfirm" type="button" class="primary" disabled>この動画と同期</button><button id="youtubeCancel" type="button">キャンセル</button></div>
 </div></dialog><dialog id="helpDialog" class="content-dialog help-dialog" aria-labelledby="helpDialogTitle">
 <div class="content-dialog-head"><div><h2 id="helpDialogTitle">ヘルプ</h2><p>準備・接続・トラブルシューティング</p></div><button type="button" id="closeHelpDialog" class="content-dialog-close" aria-label="閉じる">×</button></div>
-<div class="help-dialog-body"><section class="help"><div class="card-head"><h2>準備とトラブルシューティング</h2></div>
-<h3>ホーム画面アイコンの背景色</h3><p>上部の「テーマ」で色を選んでから、ブラウザの「ホーム画面に追加」を実行してください。選択中のテーマに合わせた、色の違いが分かりやすいアイコン専用の背景色を使います。追加済みのアイコンは即時に変わるとは限りません。色が変わらない場合は、ブラウザでこのページを開き直してテーマを確認し、ホーム画面に追加し直してください。アプリのアンインストールでは保存設定が消える場合があるため、必要なら先に設定をエクスポートしてください。</p>
-<h3>イベントログとチャプター</h3><p>「配信」タブでは、最初に対象の実況記録を選び、その下の「チャプター／YouTube／サムネ／記録」で作業を切り替えます。「チャプター」はAI生成・編集、「YouTube」は配信との時刻同期と説明欄用テキスト、「サムネ」はChatGPTへ渡す代表画像の選別、「記録」は元イベントと代表画像の保存管理です。「元イベントを見る」を押すと自動で「記録」へ移動します。</p><p>実況中は映像解析で確認できた客観的なイベントと代表画像を端末内へ保存します。通常終了では設定に応じてチャプターを自動生成し、「即停止」では記録だけを残します。生成履歴と編集内容、YouTube同期情報は分けて保存するため、再生成や同期先変更で元イベントは書き換えません。代表画像は指定した直近の配信数だけ保持し、古い配信では画像だけを削除します。ChatGPT用サムネ素材は最大5枚を自動選別し、必要なら手動で入れ替えてZIP保存できます。YouTubeへの説明欄・サムネイルの自動書き込みは行いません。
-<h3>はじめに</h3><p>GitHub Pagesでアプリを開き、「設定 → Gemini」から「組み込みAI（Firebase）」か「個人APIキー」を選びます。組み込みAIが有効ならAPIキーは不要です。旧APIキー方式は従来どおりローカルのindex.htmlからも利用できます。「映像確認」と「音声テスト」を試してから実況を始めてください。</p>
-<h3>VOICEVOX：Windows版では鳴るのにブラウザでは失敗する</h3><p>開発者ツールに origin 'null'、CORS、403 Forbidden が出る場合は、VOICEVOXを起動し、<a id="voicevoxSettingsLink" href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>を開きます（設定したVOICEVOX URLの設定画面）。CORS Policy Mode を localapps、Allow Origin に null を追加し、保存してVOICEVOXを再起動してください。ほかの許可設定は必要に応じて残します。その後、音声テストをやり直します。</p><p>null の許可は、このアプリ以外のローカルファイルや一部の隔離されたページにも適用されます。信頼できないHTMLを同時に開かず、使わなくなったら許可を外してください。CORSを all にしたり、ブラウザの保護を無効化したりする必要はありません。</p>
-<h3>読み上げ先に接続できない・音が出ない</h3><p>起動状態、URLとポート、ブラウザのローカルネットワーク許可、OSの音量を確認してください。VOICEVOX直接は操作しているブラウザで再生します。棒読みちゃんは設定のHTTP連携を有効にし、PC側の声・音量を確認します。声が異なる場合は「友達」タブのスタイルID・声IDを、速すぎる・遅すぎる場合はVOICEVOX話速を見直してください。</p>
-<h3>OBSにつながらない・映像が違う</h3><p>OBS → ツール → WebSocketサーバー設定で有効化。URL、パスワード、OBSに登録された映像ソース名を確認してください。配信全体ではなくゲームだけを取得するソースがおすすめです。映像右上の「映像ソースを再取得」は、指定したOBS入力の設定を変更せずに再適用し、ウィンドウキャプチャの対象を探し直させます。PS Remote Playなどで同名のランチャーからプレイヤーへ切り替わらない場合に試してください。</p>
-<h3>OBSにコメントを表示する</h3><p>「設定 → OBS・映像 → コメント表示」でONにすると、現在のOBSシーンに「みんコメ 吹き出し」という Browser Source を必要時に自動作成します。角丸・影・しっぽを付けた吹き出しは、短文ではテキスト量に合わせて小さくなり、長文では最大幅で折り返します。表示位置、フォント、文字サイズ、友達名の表示ON/OFF、太字ON/OFF、発言後の表示時間を設定できます。文字には友達色を濃くしたエッジを自動で付けます。フォント一覧は管理画面で自由に追加・削除でき、初期状態はシステム標準だけです。登録名のフォントがOBS側PCにない場合は代替フォントを使います。表示時間が終わるとシーンアイテム自体を非表示にするため、背景だけ残りません。シーンを切り替えた場合は、そのシーンにも同じソースを自動追加します。VOICEVOX直接は発話中から表示し、棒読みちゃんはPC側の実再生時刻を取得できないため、読み上げ要求を送信した時点の最新コメントを表示します。</p>
-<h3>Geminiが遅い・503・429が出る</h3><p>503・通信エラーなどは5秒後に再開します。429は配信を止めず、30秒 → 60秒 → 120秒 → 300秒と間隔を広げ、その後は最大5分ごとに再試行します。Googleの構造化されたRetryInfoをRetry-Afterより優先し、サーバー指示が5分を超えていても自動再試行の間隔は最大5分です。元の待機指示は履歴に残します。正常応答が返れば429の連続回数をリセットします。待機中もOBS画像の取得は続き、再試行時点の最新映像で再開します。429には短時間の頻度制限だけでなく日次クォータ不足もあり、その場合は再試行してもリセットまで成功しません。Google側の上限を回避する機能ではありません。</p><p>401・403など認証や設定の問題は、同じ要求を繰り返さず修正待ちになります。設定を直し「設定を適用して再開」を押してください。いつでも「停止」で終了できます。接続・音声テストは単発の診断です。</p>
-<h3>対象コンテンツと追加知識</h3><p>「実況」タブの対象コンテンツで「管理」を開くと、各コンテンツの「知識」からその項目専用の追加知識を編集できます。固有名詞、人物、場所、ゲームシステム、略称など、画面だけでは判断しにくい情報を登録してください。追加知識は選択中のコンテンツにだけGeminiへ渡し、別のコンテンツには引き継ぎません。登録内容は参考情報として扱い、画像や現在の状況と矛盾する場合は画面側を優先します。空欄で保存するとそのコンテンツの追加知識を削除します。</p>
-<h3>画像取得・解析・読み上げのタイミング</h3><p>画像取得・Gemini解析・読み上げは独立して動きます。取得周期は「前回の取得完了から待つ」のではなく、前回の取得開始時刻を基準にします。たとえば1秒間隔・4枚なら、解析時点のおおむね直近3秒ぶんの流れを送ります。VOICEVOXで発言中でも画像履歴は更新され、API送信条件を満たせばGemini解析も1本だけ裏で進みます。未再生の解析結果は最新1件だけ保持し、より新しい結果が来れば差し替えます。VOICEVOXの現在の掛け合いが終わった時点で候補が鮮度内なら、発言間隔を再度待たず続けて再生します。画面変化が少ない状態が続いても、最初の低変化解析は通常実況のままです。低変化の解析が2回連続した時点から雑談モードになり、進行を急かさず、対象コンテンツ・現在画面の雰囲気・最近の状況から友達同士の自然な雑談を優先します。過去の別リクエストの発言は重複回避の参考だけにして、そこへの返事として新しい発言を始めません。「本当だね」「そうだね」「たしかに」等の同意相づち始まりも避けます。飲み物・食事・休憩・席を立つ等の生活ネタは、画面や現在の状況にきっかけがない限り埋め草にしません。棒読みちゃんはPC側の実再生完了をブラウザから確認できないため、同じ精度で「話し終わり」へ同期はできません。実行中の秒表示は処理ステータスの経過時間ではなく「最終取得から何秒前か」を表示します。</p>
-<h3>鮮度切れ・発言が少ない</h3><p>古い映像への発言を防ぐため、現在画像の取得開始から鮮度上限を超えた応答・音声を破棄します。Gemini待ちが鮮度上限に達した時点で待機を即打ち切り、鮮度切れをカウントして、待機時間を挟まず取得済みの最新映像から再解析します。読み上げ用テキストは、原則として漢字をかなへ、英字略語をカタカナ読みへ、数字を文脈に合う自然な読みへ変換してGeminiの最初の応答で生成します。読み上げ用テキストの品質だけを理由にGeminiへ再生成は行わないため、映像に対するコメントの鮮度を優先します。読み上げ用テキストが表示文と同じ、欠落、空欄、記号だけなど想定どおりでない場合でもコメント自体は破棄せず、使える読み上げ文または表示用テキストで必ず読み上げを続けます。読みが不確かな固有名詞などは漢字・英数字が残ることがあります。まず画像幅320pxや、鮮度上限を少し長くする設定を試せます。「よく話す設定」も利用できます。鮮度を確認するのは会話の最初の発言が始まるまでです。開始できた掛け合いは後半も最後まで再生します。停止ボタンや通信エラー・通常のタイムアウトでは途中でも中断します。</p>
-<h3>発言人数の重み</h3><p>通常実況・開始挨拶・終了挨拶では、1〜6人それぞれの重みから毎回「今回の発言人数」を抽選します。Geminiにはspeakの真偽にかかわらず抽選人数ぶんの候補発言を生成させ、通常実況ではspeak=trueの時だけ読み上げます。これにより「無言」と「人数指定」のJSON構造が競合しません。開始・終了挨拶を有効にしている場合はspeakの値に関係なく候補を読み上げ、生成結果が2回続けて不正なら固定の短い挨拶へフォールバックします。通常実況では直近の話者履歴も渡して、同じ人への偏りを抑えます。</p>
-<h3>開始・終了の挨拶</h3><p>「実況開始時に短い挨拶」を有効にすると、監視開始前にGeminiが短い挨拶を生成します。話す人数の上限は通常実況と同じ重み設定から毎回抽選します。開始時はゲーム内容をまだ断定しません。挨拶は毎回「期待型」「雑談開始型」「余韻型」など複数の方向性から1つを選び、直近の開始／終了挨拶も少数だけブラウザ内に記録して、同じ入り方・語尾・意味の繰り返しを避ける材料として使います。複数人の場合は全員が別々の挨拶を並べるのではなく、短い掛け合いになるよう依頼します。「実況を終了」は映像監視を止め、今回の直近履歴と同じ人数重みを使った締めの挨拶を再生してから終了します。「即停止」は挨拶を生成せず、通信・ブラウザ音声をすぐ停止します。開始・終了の挨拶もGemini API送信回数に含まれます。</p>
-<h3>友達の掛け合い</h3><p>友達1〜6から今回参加するメンバーを個別に選びます。選択した全員を毎回話させるわけではなく、その場に合う1人以上が短く発言します。「直近のコメント」とその下の「読み上げ」は、VOICEVOX直接では実際の音声再生開始と同時に更新します。棒読みちゃんはPC側の実再生開始時刻をブラウザから取得できないため、読み上げ要求の送信成功時に更新します。「直近のコメント」と「読み上げ」は映像左下に、送信回数・応答時間・鮮度切れは映像左上に表示します。1回のAPI応答で最大6発言を生成します。「会話履歴として送る発言数」で、直近の誰が何を言ったかをGeminiへ渡す件数を0〜20発言から指定できます。履歴がある場合も相づち自体は禁止せず、同意だけの反応が続きすぎないよう会話の偏りを抑える材料として使います。VOICEVOX直接は現在の発言を再生しながら次の1発言だけ先読み生成し、発言間の待ち時間を短縮します。棒読みちゃんは順番にキューへ送るため、ほかのアプリの発言が混ざる場合があります。送信済み音声の停止は棒読みちゃん側で行ってください。</p>
-<h3>設定のインポート・エクスポート</h3><p>「設定をエクスポート」で、実況・接続・読み上げ・OBS吹き出し・友達6人の名前／性格／声／話速・参加メンバー・発言人数の重み・対象コンテンツ一覧・コンテンツ別の追加知識・登録フォント一覧をJSONファイルに書き出せます。「設定をインポート」でそのJSONを読み込み、現在の通常設定を置き換えます。Gemini APIキー、OBSパスワード、Free Tier確認状態、暗号化保存データは書き出さず、インポートでも変更しません。Google Drive保存の通常設定ファイルにも、このエクスポートと同じ内容・形式を使用します。</p><h3>Google Drive保存</h3><p>「設定 → Google Drive保存」では、通常設定を <code>minkome-settings.json</code>、Gemini APIキー・YouTube APIキー・OBSパスワードを <code>minkome-secrets.json</code> として、Google Driveのアプリ専用領域（appDataFolder）へ別ファイルで保存します。秘密情報ファイルはみんコメ側では暗号化しないため合言葉は不要ですが、GoogleアカウントとこのアプリのDrive権限で保護する方式になります。Free Tier確認チェックは保存・復元しません。</p><p>Google OAuth Client IDはユーザー入力ではなく、GitHubのRepository Variable <code>GOOGLE_OAUTH_CLIENT_ID</code> を正本にします。同期ワークフローが公開用設定へ反映するため、KonDateのClient IDは流用しません。変数が未設定の場合はDrive接続を無効化します。Google Web OAuthの仕様上、<code>file://</code>で直接開いたページは使えません。Drive連携を使う場合はGitHub Pagesまたは<code>http://localhost</code>で開いてください。Driveへ接続しただけでは自動上書きせず、「Driveへ保存」「Driveから復元」を明示的に押した時だけデータを変更します。</p><h3>保存とロック</h3><p>通常設定はブラウザ内にも保存します。キーとOBSパスワードは「端末内の暗号化保存」を選べば、従来どおり合言葉で暗号化して保存できます。AES-GCM 256bit、PBKDF2-SHA256 60万回を使用し、合言葉は保存しません。Google Drive保存とは独立しているため、どちらか一方だけでも、両方を併用しても構いません。解除中のページやPC自体が侵害された場合まで守る機能ではありません。</p>
-<h3>同じLAN内の別PCへ接続する</h3><p>接続先PCのIPv4を指定します（例: OBSは ws://192.168.1.10:4455、VOICEVOXは http://192.168.1.10:50021、棒読みちゃんは http://192.168.1.10:50080）。許可範囲は10.x.x.x、172.16.x.x〜172.31.x.x、192.168.x.xです。PC名ではなくIPアドレスを使ってください。</p><p>接続先PCで各ソフトをLANから接続できる待受状態にし、Windowsファイアウォールのプライベートネットワークで必要なTCPポートをローカルサブネットから許可します。ルーターのポート開放は不要です。OBSは認証を有効にし、ゲストWi-Fiなど端末間通信が禁止されていないかも確認してください。</p><p>VOICEVOXのエンジンが127.0.0.1だけで待ち受けている場合は、LANのIPで待ち受ける起動設定が別途必要です。エンジンの --host にPCのLAN IPを指定する方法があります。CORS許可も引き続き必要です。棒読みちゃんもHTTP連携がLANから接続を受け付ける構成か確認してください。</p><p>VOICEVOX直接は接続先PCで音声を合成し、操作中の端末で再生します。接続先PCから音を出したい場合は棒読みちゃんを使います。HTTPSで公開したページからの ws/http 接続はブラウザに拒否される場合があります。ローカルHTMLでの利用を基本とし、ブラウザの保護を無効化しないでください。</p>
-<h3>スマホ・外出先・長時間の利用</h3><p>画面はスマホ幅にも対応し、同じLAN内のPCへも接続できます。接続にはブラウザの制限と接続先ソフトの設定が影響します。外出先からのインターネット経由の接続には対応していません。タブを閉じると終了し、非表示・スリープ・画面ロックで監視や音声が中断することがあります。無人での常時稼働は保証できません。</p>
+<div class="help-dialog-body"><section class="help">
+<h2>使い方とトラブルシューティング</h2>
+<h3>はじめに</h3>
+<p>「設定 → Gemini」でAIの接続方法を選び、「OBS・映像」と「読み上げ」を設定します。「映像確認」と「音声テスト」で接続を確かめてから実況を開始してください。</p>
+<h3>対象コンテンツ・参加する友達</h3>
+<p>「実況」で対象コンテンツと参加する友達を選びます。コンテンツの「管理 → 知識」には固有名詞やゲームの情報を追加できます。友達の名前・性格・声・話速は「友達」で変更できます。</p>
+<h3>会話と掛け合い</h3>
+<p>「おしゃべり度」で発言頻度を、「会話履歴」で過去の掛け合いを参照する量を調整します。会話履歴を0にすると過去の発言を送りません。「掛け合い」の1〜6人は発言人数の相対的な重みです。0の人数は選ばれず、合計を100にする必要はありません。</p>
+<h3>挨拶と終了方法</h3>
+<p>開始時と終了時の挨拶は「実況」でON/OFFを切り替えます。通常の「終了」は締めの挨拶と設定に応じたチャプター生成を実行し、「即停止」はその処理を行わず記録だけ残します。</p>
+<h3>画像解析と鮮度</h3>
+<p>「詳細設定」で画像の取得間隔、解析枚数、APIの間隔、コメントの鮮度上限を変更できます。画像の枚数や幅を増やすと通信量や応答時間も増えます。鮮度切れが多いときは画像幅を下げるか、鮮度上限を調整してください。</p>
+<h3>Googleアカウントと再接続</h3>
+<p>YouTubeとGoogle Driveは個別に接続します。「Googleに再接続」で連携済みの両方の認証を更新します。前回のGoogleアカウントを端末に記憶し、次回の選択を減らしますが、Googleやブランドチャンネルの選択画面が出る場合があります。ブラウザを閉じても接続を保持したい場合は「この端末で接続を保持する」をONにしてください。共有端末ではOFFをおすすめします。</p>
+<h3>YouTube接続とチャプター同期</h3>
+<p>「設定 → YouTube」でGoogleに接続すると、ブランドチャンネルを含めて終了済みの配信を探せます。チャンネルIDやAPIキーでも検索できます。「配信 → YouTube」から配信を選び、説明欄に貼るチャプターをコピーしてください。YouTubeへの自動書き込みは行いません。別のブランドチャンネルに切り替えるときは接続を解除してから選び直します。</p>
+<h3>OBSの映像が出ない</h3>
+<p>OBSの「ツール → WebSocketサーバー設定」を有効にして、URL・パスワード・映像ソース名を確認してください。ゲーム画面のウィンドウが切り替わって映像が更新されない場合は、映像右上の「映像ソースを再取得」を試してください。</p>
+<h3>OBSのコメント表示</h3>
+<p>「設定 → OBS・映像 → コメント表示」をONにすると、現在のOBSシーンに吹き出しを表示します。位置、フォント、文字サイズ、名前の表示、太字、表示秒数を調整できます。「フォント → 管理」からOBS側PCにインストール済みのフォントを登録してください。</p>
+<h3>読み上げと音声テスト</h3>
+<p>棒読みちゃんはPC側、VOICEVOX直接は操作中のブラウザで音声を再生します。音が出ない場合はソフトの起動、URL・ポート、端末の音量、ブラウザのローカルネットワーク許可を確認してください。声と読み上げ速度は「友達」の設定で調整します。</p>
+<h3>VOICEVOXのCORSエラー</h3>
+<p>ブラウザで403やCORSエラーが出る場合は、<a id="voicevoxSettingsLink" href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>で接続元の許可設定を確認してください。ローカルHTMLからの接続に必要な場合は許可するOriginを限定してください。全ての接続元を許可したり、ブラウザの保護を無効化したりする必要はありません。</p>
+<h3>Geminiのエラー・発言が少ない</h3>
+<p>通信エラーや利用上限によって一時的に発言が止まる場合があります。状態は下部ステータスバーと「履歴」で確認できます。401・403の場合はAPIキーや認証設定を見直してください。429は利用枠やレート制限が原因の場合があります。</p>
+<h3>配信の記録・チャプター</h3>
+<p>「配信」で実況記録を選び、「チャプター／YouTube／サムネ／記録」を切り替えます。チャプターは生成後に追加・編集・削除・再生成できます。「記録」には元イベントと代表画像が残り、チャプターを再生成しても元イベントは変更されません。</p>
+<h3>サムネ素材と画像の保存</h3>
+<p>「配信 → サムネ」では代表画像から最大5枚を自動選別し、必要なら手動で変更できます。「ChatGPT用素材を保存」で画像をまとめて保存し、依頼文もコピーできます。「記録」では保存する配信数を指定したり、代表画像だけを削除したりできます。</p>
+<h3>設定の保存と移行</h3>
+<p>「設定を保存」で通常設定を端末内に保存できます。エクスポート・インポートでは設定や友達の情報を移行できますが、APIキー・パスワードは含みません。キー類は「端末内の暗号化保存」か「Google Drive保存」で別途管理してください。</p>
+<h3>Google Drive保存の注意</h3>
+<p>「Driveへ保存」は手動です。接続時には保存済み設定・キー類を復元します。Driveの保存ファイルにアプリ独自の暗号化は行わないため、Googleアカウントの保護と共有端末での接続管理に注意してください。Drive連携はGitHub Pagesまたはlocalhostで利用できます。</p>
+<h3>別PCへのLAN接続</h3>
+<p>接続するPCのIPアドレスをURLに指定し、OBS・VOICEVOX・棒読みちゃん側でLANからの接続を許可します。WindowsファイアウォールやWi-Fiの端末間通信制限も確認してください。ルーターのポート開放は不要です。外出先からの接続には対応していません。</p>
+<h3>スマホ・ホーム画面への追加</h3>
+<p>ホーム画面に追加する前にテーマを選択してください。すでに追加したアイコンに色が反映されない場合は、追加し直してください。画面ロックやスリープ中は実況や読み上げが中断することがあります。</p>
 </section></div>
 <div class="content-dialog-actions"><button type="button" id="doneHelpDialog" class="primary">閉じる</button></div>
 </dialog>
