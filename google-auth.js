@@ -114,7 +114,7 @@
    if(!this.services().length)this.setKeepConnected(false);
    this.save();this.saveTokens();
   }
-  async authorize(names,{force=false}={}){
+  async authorize(names,{force=false,silent=false}={}){
    const selected=[...new Set(names)];
    if(!selected.length||selected.some(s=>!SCOPES[s]))throw Error('認証対象がありません。');
    if(!valid(this.clientId))throw Error('GitHubのGOOGLE_OAUTH_CLIENT_IDを設定してください。');
@@ -129,19 +129,20 @@
    try{
     // Brand Channel and Drive must be authorized independently.
     // A valid connection is reused unless explicitly forced.
-    for(const service of needed){await this.authorizeService(service);completed.push(service);}
+    for(const service of needed){await this.authorizeService(service,{silent});completed.push(service);}
     return completed;
    }catch(error){
     if(completed.length)error.message+='（'+completed.map(s=>s==='youtube'?'YouTube':'Drive').join('・')+'への接続は完了しています。）';
     throw error;
    }finally{this.pending=false;}
   }
-  authorizeService(service){
+  authorizeService(service,{silent=false}={}){
    const oauth=root.google?.accounts?.oauth2;
    if(!oauth?.initTokenClient)throw Error('Google認証ライブラリを読み込めませんでした。');
    return new Promise((resolve,reject)=>{
-    let settled=false;
-    const fail=e=>{if(settled)return;settled=true;reject(e);};
+    let settled=false,timeout=null;
+    const fail=e=>{if(settled)return;settled=true;if(timeout!==null)clearTimeout(timeout);reject(e);};
+    const succeed=()=>{if(settled)return;settled=true;if(timeout!==null)clearTimeout(timeout);resolve(service);};
     try{
      const preferred=preferredAccount(this.clientId,service);
     const client=oauth.initTokenClient({
@@ -171,13 +172,15 @@
         // Email is a best-effort account hint; channel verification above stays authoritative.
         const email=await accountForToken(service,response.access_token);
         if(email)rememberAccount(this.clientId,service,email);
-        settled=true;resolve(service);
+        succeed();
        }catch(e){fail(e);}
       },
       error_callback:error=>fail(Error(error?.type==='popup_closed'?'Google認証画面を閉じました。':'Googleの認証画面を開けませんでした。ポップアップを許可し、再度接続してください。'))
      });
-     // Called synchronously from the original click (for the first service).
-     client.requestAccessToken({prompt:service==='youtube'&&!preferred?'select_account':''});
+     // Silent reauthorization is best-effort. GIS may still require a popup
+     // and browser permission; if blocked the caller retains previous tokens.
+     if(silent)timeout=setTimeout(()=>fail(Error('Google Driveの自動認証は完了しませんでした。')),12000);
+     client.requestAccessToken({prompt:silent?'none':service==='youtube'&&!preferred?'select_account':''});
     }catch(e){fail(e);}
    });
   }

@@ -99,6 +99,15 @@ test('a remembered YouTube account never preselects a different Drive account',a
  await auth.authorize(['drive']);
  assert.equal(m.requests[1].login_hint,'');
 });
+test('silent Drive reauthorization is requested separately without a second prompt',async()=>{
+ const m=mock(),auth=new GoogleAuth(CLIENT);
+ await connectBoth(auth);
+ await auth.authorize(['youtube'],{force:true});
+ await auth.authorize(['drive'],{force:true,silent:true});
+ assert.equal(m.requests.at(-1).prompt,'none');
+ assert.equal(m.requests.at(-1).scopes[0],SCOPES.drive);
+ assert.notEqual(auth.token('drive'),auth.token('youtube'));
+});
 test('persistent scoped tokens restore, legacy YouTube remains unverified',async()=>{
  const m=mock(),auth=new GoogleAuth(CLIENT);
  await connectBoth(auth);

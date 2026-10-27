@@ -482,14 +482,9 @@ const results=[];
   assert.match(await p.locator('#youtubeAuthState').textContent(),/ブランド配信チャンネル/);
   assert.equal(x.events.drive,driveCallsBeforeYouTube);
   await p.locator('#googleReauth').click();
-  await p.waitForFunction(()=>document.getElementById('googleReauth').textContent==='Driveの再認証を続ける');
-  assert.match(await p.locator('#googleAccountState').textContent(),/Driveを再認証/);
-  assert.equal(await p.evaluate(()=>!!sessionStorage.getItem('minkome-drive-reauth-pending-v1')),true);
-  // Brand Channel selection must NOT open the Drive popup from an async callback.
-  await p.reload();await openConnect(p);
-  assert.equal(await p.locator('#googleReauth').textContent(),'Driveの再認証を続ける');
-  await p.locator('#googleReauth').click();
+  // One application click must run YouTube followed by Drive's silent grant.
   await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('自動復元しました'));
+  assert.equal(await p.locator('#googleReauth').textContent(),'Googleに再接続');
   assert.equal(await p.evaluate(()=>sessionStorage.getItem('minkome-drive-reauth-pending-v1')),null);
   assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');
   assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');

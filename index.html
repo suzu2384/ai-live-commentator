@@ -14,16 +14,16 @@ try{
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="みんコメAI">
-<link rel="icon" href="assets/favicon.ico?v=4.54.8" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.54.8">
-<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.54.8">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.54.8">
-<link rel="manifest" href="manifest.webmanifest?v=4.54.8">
-<link rel="stylesheet" href="style.css?v=4.54.8">
-<script src="core.js?v=4.54.8" defer></script><script src="ai-config.js?v=4.54.8&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.54.8" defer></script><script src="vault.js?v=4.54.8" defer></script><script src="google-config.js?v=4.54.8&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.54.8" defer></script><script src="google-auth.js?v=4.54.8" defer></script><script src="youtube.js?v=4.54.8" defer></script><script src="youtube-ui.js?v=4.54.8" defer></script><script src="chapters.js?v=4.54.8" defer></script><script src="thumbnail.js?v=4.54.8" defer></script><script src="chapter-editor.js?v=4.54.8" defer></script><script src="chapter-editor-ui.js?v=4.54.8" defer></script><script src="chapters-ui.js?v=4.54.8" defer></script><script src="app.js?v=4.54.8" defer></script>
+<link rel="icon" href="assets/favicon.ico?v=4.54.9" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.54.9">
+<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.54.9">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.54.9">
+<link rel="manifest" href="manifest.webmanifest?v=4.54.9">
+<link rel="stylesheet" href="style.css?v=4.54.9">
+<script src="core.js?v=4.54.9" defer></script><script src="ai-config.js?v=4.54.9&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.54.9" defer></script><script src="vault.js?v=4.54.9" defer></script><script src="google-config.js?v=4.54.9&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.54.9" defer></script><script src="google-auth.js?v=4.54.9" defer></script><script src="youtube.js?v=4.54.9" defer></script><script src="youtube-ui.js?v=4.54.9" defer></script><script src="chapters.js?v=4.54.9" defer></script><script src="thumbnail.js?v=4.54.9" defer></script><script src="chapter-editor.js?v=4.54.9" defer></script><script src="chapter-editor-ui.js?v=4.54.9" defer></script><script src="chapters-ui.js?v=4.54.9" defer></script><script src="app.js?v=4.54.9" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.54.8" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.54.8</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.54.9" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.54.9</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -119,7 +119,7 @@ try{
 
 <div id="panel-connect" role="tabpanel" aria-labelledby="tab-connect" hidden>
 <section class="panel-intro"><h2>設定</h2><p class="hint">各サービスの接続と保存を設定します。</p></section>
-<section class="card"><div class="card-head"><h2>Googleアカウント</h2></div><p class="hint compact-hint">YouTubeとDriveを順番に再認証します。</p><div class="actions wrap"><button id="googleReauth" type="button" disabled>Googleに再接続</button></div><label class="check"><input type="checkbox" id="googleKeepConnected">この端末で接続を保持する</label><p class="hint compact-hint">共有端末では接続の保持をOFFにしてください。</p><p id="googleAccountState" class="hint" role="status">準備中</p></section>
+<section class="card"><div class="card-head"><h2>Googleアカウント</h2></div><p class="hint compact-hint">YouTubeとDriveの認証をまとめて更新します。</p><div class="actions wrap"><button id="googleReauth" type="button" disabled>Googleに再接続</button></div><label class="check"><input type="checkbox" id="googleKeepConnected">この端末で接続を保持する</label><p class="hint compact-hint">共有端末では接続の保持をOFFにしてください。</p><p id="googleAccountState" class="hint" role="status">準備中</p></section>
 <details class="card setting-section" id="settings-video"><summary class="setting-summary"><span>OBS・映像</span><span id="summary-video" class="setting-summary-value">PS Remote Play</span></summary><div class="setting-body">
 <label>接続先<input id="obsUrl" type="url" value="ws://127.0.0.1:4455" required></label>
 <div class="fields"><label>OBSパスワード<input id="obsPassword" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます"></label><label>映像ソース名<input id="sourceName" value="PS Remote Play" required maxlength="200"></label></div>
@@ -323,7 +323,7 @@ try{
 <h3>画像解析と鮮度</h3>
 <p>「詳細設定」で画像の取得間隔、解析枚数、APIの間隔、コメントの鮮度上限を変更できます。画像の枚数や幅を増やすと通信量や応答時間も増えます。鮮度切れが多いときは画像幅を下げるか、鮮度上限を調整してください。</p>
 <h3>Googleアカウントと再接続</h3>
-<p>YouTubeとGoogle Driveはそれぞれ独立して認証します。両方が連携済みの場合、「Googleに再接続」でまずYouTubeを認証し、ブランドチャンネルを選択します。完了後はボタンが「Driveの再認証を続ける」に変わるので、もう一度押してDrive用のGoogleアカウントを認証してください。Googleの認証画面にはボタン操作が必要なため、2回に分けています。途中で止めても、完了したサービスの認証は維持されます。前回のアカウントをサービス別に記憶しますが、Googleの判断により選択画面が出る場合があります。接続をブラウザ終了後も維持する場合は「この端末で接続を保持する」をONにしてください。共有端末ではOFFをおすすめします。</p>
+<p>「Googleに再接続」は1回押すと、YouTubeのブランドチャンネルを再認証し、続けてGoogle Driveの認証更新を自動で試みます。ブラウザやGoogleの制限でDriveの自動認証が拒否された場合は、その旨を表示します。その場合だけ「Google Driveに再接続」から個別に認証してください。YouTubeとDriveの権限・記憶するアカウントは独立しています。接続をブラウザ終了後も維持する場合は「この端末で接続を保持する」をONにしてください。共有端末ではOFFをおすすめします。</p>
 <h3>YouTube接続とチャプター同期</h3>
 <p>「設定 → YouTube」でGoogleに接続すると、ブランドチャンネルを含めて終了済みの配信を探せます。チャンネルIDやAPIキーでも検索できます。「配信 → YouTube」から配信を選び、説明欄に貼るチャプターをコピーしてください。YouTubeへの自動書き込みは行いません。別のブランドチャンネルに切り替えるときは接続を解除してから選び直します。</p>
 <h3>OBSの映像が出ない</h3>

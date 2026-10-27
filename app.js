@@ -62,19 +62,8 @@
   const googleAuth=new LiveGoogleAuth.GoogleAuth(globalThis.MINKOME_GOOGLE_OAUTH_CLIENT_ID);
   let googleReady=!!globalThis.google?.accounts?.oauth2?.initTokenClient;
   let googleError='';
-  const driveReauthKey='minkome-drive-reauth-pending-v1';
-  let driveReauthPending=false;
-  try{
-    const saved=JSON.parse(sessionStorage.getItem(driveReauthKey)||'null');
-    driveReauthPending=saved?.clientId===googleAuth.clientId&&googleAuth.isLinked('drive');
-  }catch{}
-  function setDriveReauthPending(pending){
-    driveReauthPending=!!pending&&googleAuth.isLinked('drive');
-    try{
-      if(driveReauthPending)sessionStorage.setItem(driveReauthKey,JSON.stringify({clientId:googleAuth.clientId}));
-      else sessionStorage.removeItem(driveReauthKey);
-    }catch{}
-  }
+  // Migrate away from the former two-click reauthorization state.
+  try{sessionStorage.removeItem('minkome-drive-reauth-pending-v1');}catch{}
   let obsSourceFailurePending=false,obsSourceRecoveryReady=false;
   function log(message, kind='') {
     const li = document.createElement('li'), time = document.createElement('time');
@@ -112,7 +101,7 @@
     $('summary-voice').textContent=$('output').value==='voicevox'?'VOICEVOX':'棒読みちゃん';
     try{$('summary-vault').textContent=localStorage.getItem('ai-live-commentator-vault-v1')?'保存あり':'保存なし';}
     catch{$('summary-vault').textContent='保存状態不明';}
-    if($('summary-drive'))$('summary-drive').textContent=driveReauthPending?'再認証待ち':googleAuth.token('drive')?'接続済み':googleAuth.isLinked('drive')?'再認証が必要':'未接続';
+    if($('summary-drive'))$('summary-drive').textContent=googleAuth.token('drive')?'接続済み':googleAuth.isLinked('drive')?'再認証が必要':'未接続';
   }
   function updateGeminiProviderFields(){
     const shared=$('geminiProvider').value==='shared';
@@ -535,12 +524,12 @@
   function driveFileLabel(file){return file?.modifiedTime?new Date(file.modifiedTime).toLocaleString('ja-JP'):'なし';}
   function driveControls(){
     const allowed=driveOriginAllowed(),valid=LiveGoogleAuth.valid(googleAuth.clientId),connected=!!googleAuth.token('drive')&&!!driveClient?.accessToken,locked=busy||vaultBusy||driveBusy||googleAuth.pending,ready=allowed&&valid&&googleReady&&!locked;
-    $('driveConnect').disabled=!ready||(googleAuth.isLinked('drive')&&!!googleAuth.token('drive')&&!driveReauthPending);
+    $('driveConnect').disabled=!ready||(googleAuth.isLinked('drive')&&!!googleAuth.token('drive'));
     $('driveConnect').textContent=googleAuth.isLinked('drive')?'Google Driveに再接続':'Google Driveに接続';
     for(const id of ['driveSave','driveRestore','driveDelete'])$(id).disabled=locked||!connected;
     $('driveDisconnect').disabled=locked||!googleAuth.isLinked('drive');
     $('driveOriginInfo').textContent=allowed?(valid?'Google認証を利用できます。':'Google認証が未設定です。'):'この環境ではGoogle認証を利用できません。';
-    $('summary-drive').textContent=driveReauthPending?'再認証待ち':connected?'接続済み':googleAuth.isLinked('drive')?'再認証が必要':'未接続';
+    $('summary-drive').textContent=connected?'接続済み':googleAuth.isLinked('drive')?'再認証が必要':'未接続';
   }
   function googleControls(){
     driveControls();
@@ -548,12 +537,12 @@
     $('youtubeConnect').disabled=!ready||googleAuth.isLinked('youtube');
     $('youtubeDisconnect').disabled=locked||!googleAuth.isLinked('youtube');
     $('googleReauth').disabled=!ready||!googleAuth.services().length;
-    $('googleReauth').textContent=driveReauthPending?'Driveの再認証を続ける':'Googleに再接続';
+    $('googleReauth').textContent='Googleに再接続';
     $('googleKeepConnected').checked=googleAuth.keepConnected;
     const channel=googleAuth.channel?.title||'';
     $('youtubeAuthState').textContent=googleAuth.token('youtube')?'接続済み: '+channel:googleAuth.isLinked('youtube')?'再認証が必要です'+(channel?'（'+channel+'）':''):'OAuth未接続。従来のAPIキー方式も利用できます。';
     const connections=googleAuth.services().map(s=>s==='youtube'?'YouTube: '+(channel||'チャンネル'):'Google Drive').join(' / ');
-    $('googleAccountState').textContent=googleError||(driveReauthPending?'YouTubeの再認証が完了しました。続けてDriveを再認証してください。':!valid?'Google認証が未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':connections?'連携中: '+connections:'YouTubeとDriveは個別に接続できます。');
+    $('googleAccountState').textContent=googleError||(!valid?'Google認証が未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':connections?'連携中: '+connections:'YouTubeとDriveは個別に接続できます。');
     updateSettingSummaries();
   }
   function youtubeCredential(){
@@ -616,22 +605,47 @@
     }).finally(()=>{driveBusy=false;setBusy(false);googleControls();});
   }
   function reauthenticateGoogle(){
-    if(driveReauthPending){
-      // This click opens Drive OAuth directly, not from YouTube's async callback.
-      authorizeGoogle(['drive'],{force:true,onGranted:()=>setDriveReauthPending(false)});
-      return;
-    }
     const linked=googleAuth.services();
-    if(linked.includes('youtube')&&linked.includes('drive')){
-      // Brand Channel selection can take several interactions. A second popup
-      // opened after that promise resolves may lose browser user activation.
-      authorizeGoogle(['youtube'],{force:true,onGranted:()=>{
-        setDriveReauthPending(true);
-        log('YouTubeの再認証が完了しました。続けてDriveの再認証を行ってください。');
-      }});
-      return;
+    if(!linked.includes('youtube')||!linked.includes('drive')){
+      authorizeGoogle(linked,{force:true});return;
     }
-    authorizeGoogle(linked,{force:true});
+    if(busy||vaultBusy||driveBusy)return;
+    driveBusy=true;googleError='';setBusy(false);
+    let task;
+    try{
+      // The only interactive OAuth popup starts synchronously from this click.
+      // Brand Channel selection must not include Drive in its scope request.
+      task=googleAuth.authorize(['youtube'],{force:true});
+    }catch(error){
+      driveBusy=false;googleError=error.message;googleControls();return;
+    }
+    googleControls();
+    void task.then(async()=>{
+      log('YouTubeの再認証が完了しました。');
+      // Renew the independent Drive scope without another app button.
+      // GIS may refuse a non-interactive grant; never claim success then.
+      try{
+        await googleAuth.authorize(['drive'],{force:true,silent:true});
+        const client=await configureDrive();client.accessToken=googleAuth.token('drive');
+        try{
+          await restoreDriveData({automatic:true});
+          await refreshDriveStatus();
+        }catch(error){
+          $('driveState').textContent='Driveの認証は成功しましたが、自動復元に失敗しました: '+(error.message||'詳細不明');
+          log($('driveState').textContent,'warn');
+        }
+        log('YouTubeとGoogle Driveの認証を更新しました。');
+      }catch(error){
+        const hasDrive=!!googleAuth.token('drive');
+        googleError=hasDrive
+          ?'YouTubeを再認証しました。Driveは既存の認証で接続中です。'
+          :'YouTubeを再認証しました。DriveはGoogle側の追加認証が必要です。「Google Driveに再接続」から接続してください。';
+        log(googleError+' '+(error?.message||''),'warn');
+      }
+    }).catch(error=>{
+      googleError='YouTubeの再認証に失敗しました: '+(error?.message||'詳細不明');
+      log(googleError,'warn');
+    }).finally(()=>{driveBusy=false;setBusy(false);googleControls();});
   }
   async function configureDrive(){
     if(!globalThis.LiveDriveSync)throw new C.AppError('Google Drive連携モジュールを読み込めませんでした。');
@@ -689,7 +703,7 @@
     $('driveState').textContent='Google Driveの保存データを削除しました。';await refreshDriveStatus();log('Google Driveの保存データを削除しました。');
   }
   async function disconnectDrive(){
-    googleAuth.disconnect('drive');setDriveReauthPending(false);if(driveClient)driveClient.accessToken='';
+    googleAuth.disconnect('drive');if(driveClient)driveClient.accessToken='';
     $('driveState').textContent='Google Driveとの接続を切りました。保存済みファイルは残っています。';await refreshDriveStatus();googleControls();log('Google Driveとの接続を切りました。');
   }
   function voicevoxSettingsLink(){
@@ -1491,8 +1505,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('importSettings').addEventListener('click',()=>{$('importSettingsFile').click();});
   $('importSettingsFile').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';try{await importSettingsFile(file);}catch(error){$('saveState').textContent=error.message||'設定のインポートに失敗しました。';log(error.message||'設定のインポートに失敗しました。','warn');}});
   $('driveConnect').addEventListener('click',()=>authorizeGoogle(['drive'],{
-    force:googleAuth.isLinked('drive'),
-    onGranted:()=>setDriveReauthPending(false)
+    force:googleAuth.isLinked('drive')
   }));
   $('youtubeConnect').addEventListener('click',()=>authorizeGoogle(['youtube']));
   $('googleReauth').addEventListener('click',reauthenticateGoogle);
@@ -1501,7 +1514,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     catch(error){googleError=error.message;}
     googleControls();
   });
-  $('youtubeDisconnect').addEventListener('click',()=>{googleAuth.disconnect('youtube');setDriveReauthPending(false);googleControls();log('YouTubeのGoogle接続を解除しました。');});
+  $('youtubeDisconnect').addEventListener('click',()=>{googleAuth.disconnect('youtube');googleControls();log('YouTubeのGoogle接続を解除しました。');});
   $('driveSave').addEventListener('click',()=>driveOperation(saveDriveData));
   $('driveRestore').addEventListener('click',()=>driveOperation(restoreDriveData));
   $('driveDisconnect').addEventListener('click',()=>driveOperation(disconnectDrive));
