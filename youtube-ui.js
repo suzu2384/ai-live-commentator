@@ -42,7 +42,7 @@
         const result=await C.deadline(t=>Y.candidates(key,channelId.trim(),t,undefined,{pageToken:append?nextPageToken:''}),25000,token,'候補取得がタイムアウトしました。');C.check(token);
         if(append&&result.nextPageToken===nextPageToken&&nextPageToken)throw new Error('次の候補を取得できませんでした。');
         items=[...new Map([...(append?items:[]),...result.items].map(v=>[v.videoId,v])).values()];nextPageToken=result.nextPageToken;selected=null;render();
-        state(items.length?'取得した候補をチャプター日時に近い順で表示しています。同期先を選択してください。':'同期できる配信が見つかりませんでした。URL／動画IDの直接指定も利用できます。',items.length?'ready':'empty');
+        state(items.length?'取得した候補をチャプター日時に近い順で表示しています。同期先を選択してください。':nextPageToken?'このページには終了済みの配信がありません。「さらに表示」で次を確認できます。':'終了済みの配信が見つかりませんでした。動画URLの直接指定も利用できます。',items.length?'ready':'empty');
       });
       const reload=()=>void load(false),next=()=>void load(true);
       const find=()=>void perform(async()=>{

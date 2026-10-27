@@ -74,6 +74,19 @@ const results=[];
      assert.equal(r.request().headers().authorization,'Bearer drive-token');
      return r.fulfill({contentType:'application/json',body:JSON.stringify({items:[{id:'UC'+'a'.repeat(22),snippet:{title:'ブランド配信チャンネル'}}]})});
     }
+    const oauth=r.request().headers().authorization==='Bearer drive-token';
+    if(oauth){
+     const videos=config.youtubeVideos||[];
+     if(u.pathname.endsWith('/liveBroadcasts')){
+      assert.equal(u.searchParams.get('broadcastStatus'),'completed');
+      assert.equal(u.searchParams.get('broadcastType'),'all');
+      return r.fulfill({contentType:'application/json',body:JSON.stringify({items:config.youtubeSearchEmpty?[]:videos.map(v=>({id:v.id}))})});
+     }
+     if(u.pathname.endsWith('/channels'))return r.fulfill({contentType:'application/json',body:JSON.stringify({items:[{id:'UC'+'a'.repeat(22),contentDetails:{relatedPlaylists:{uploads:'UU'+'a'.repeat(22)}}}]})});
+     if(u.pathname.endsWith('/playlistItems'))return r.fulfill({contentType:'application/json',body:JSON.stringify({items:videos.map(v=>({contentDetails:{videoId:v.id}}))})});
+     if(u.pathname.endsWith('/videos'))return r.fulfill({contentType:'application/json',body:JSON.stringify({items:videos.filter(v=>u.searchParams.get('id')?.split(',').includes(v.id))})});
+     return r.abort();
+    }
     assert.equal(r.request().headers()['x-goog-api-key'],'youtube-test-key');
     if(config.holdYouTube){held=r;return;}
     if(config.youtubeError)return r.fulfill({status:403,body:'{}'});
@@ -287,6 +300,22 @@ const results=[];
    await p.waitForFunction(()=>['empty','error'].includes(document.getElementById('youtubeMessage').dataset.state));assert.equal(await p.locator('#youtubeMessage').getAttribute('data-state'),error?'error':'empty');
    assert.equal(await p.locator('#youtubeConfirm').isDisabled(),true);await p.locator('#youtubeCancel').click();await stopped(p);assert.deepEqual(await chapterRecords(p),before);await x.close();
   }
+ });
+ await test('OAuth brand channel lists archived streams with an outdated channel ID field',async()=>{
+  const config={httpEntry:true},x=await recorded(config),p=x.page;
+  const time=(await chapterRecords(p))[0].events[0].observedAtMs;
+  config.youtubeVideos=[youtubeVideo('abcdefghijk',new Date(time-120000).toISOString())];
+  config.youtubeVideos[0].liveStreamingDetails.actualEndTime=new Date(time+60000).toISOString();
+  await openConnect(p);
+  await p.locator('#youtubeChannelId').fill('UC'+'z'.repeat(22));
+  await p.locator('#youtubeConnect').click();
+  await p.waitForFunction(()=>document.getElementById('youtubeAuthState').textContent.includes('接続済み'));
+  await openSync(p);
+  await p.waitForFunction(()=>document.querySelectorAll('#youtubeCandidates input').length===1);
+  assert.equal(await p.locator('#youtubeCandidates input').first().inputValue(),'abcdefghijk');
+  await selectSync(p);
+  assert.equal((await chapterRecords(p))[0].youtubeSync.videoId,'abcdefghijk');
+  await x.close();
  });
  await test('YouTube explicit selection, replacement, unlink and reload preserve absolute data',async()=>{
   const config={},x=await recorded(config),p=x.page,before=(await chapterRecords(p))[0],time=before.events[0].observedAtMs;

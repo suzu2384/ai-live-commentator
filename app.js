@@ -546,7 +546,7 @@
     updateSettingSummaries();
   }
   function youtubeCredential(){
-    const token=googleAuth.token('youtube');if(token)return {accessToken:token};
+    const token=googleAuth.token('youtube');if(token)return {accessToken:token,channelId:googleAuth.channel?.id||''};
     if(googleAuth.isLinked('youtube'))throw new C.AppError('YouTubeの認証期限が切れました。Googleに再接続してください。');
     const key=$('youtubeApiKey').value.trim();
     if(!key)throw new C.AppError('YouTubeにGoogleで接続するかAPIキーを入力してください。');

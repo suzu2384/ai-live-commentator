@@ -1,6 +1,14 @@
-# みんコメAI — ブラウザ版 v4.54.9
+# みんコメAI — ブラウザ版 v4.54.10
 
 OBSの映像をGemini 3.1 Flash-Liteが見て、AIの仲間たちが同じ場所に集まっているような短い感想・掛け合いを添えます。サーバー・インストール・ビルドは不要です。
+
+## v4.54.10 OAuthでのYouTube配信候補検索の修正
+
+OAuth接続時の `search.list(forMine=true,eventType=completed)` を終了済み配信の候補取得には使わず、`liveBroadcasts.list(part=id,snippet,status,broadcastStatus=completed,broadcastType=all)` から配信IDを取得します。`videos.list(part=snippet,liveStreamingDetails)` で詳細を取得し、日時順の表示・チャプターとの同期処理は維持します。
+
+配信候補が返らない場合は `channels.list(mine=true,part=contentDetails)` から認証済みチャンネルの投稿動画再生リストを得て、`playlistItems.list` と `videos.list` で終了済みライブアーカイブを探します。1ページずつ取得し、追加ページは「さらに表示」から取得します。
+
+OAuth接続では設定欄に残った手入力チャンネルIDで絞り込まず、認証時に確認したブランドチャンネルIDを使用します。APIキー方式は従来どおり `search.list(channelId,eventType=completed)` を使います。URL直接指定、同期先情報、イベント・チャプターの保存形式は変更しません。
 
 ## v4.54.9 再認証ボタンを1回に戻す
 

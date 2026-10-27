@@ -28,17 +28,47 @@
   async function details(ids,key,signal,fetcher){
     const body=await request('videos',{part:'snippet,liveStreamingDetails',id:ids.join(',')},key,signal,fetcher);return body.items.map(video);
   }
-  // One page per explicit action: do not consume quota scanning the channel's entire history.
+  // Fetch one page per explicit action, avoiding unbounded API calls.
   async function candidates(key,channelId,signal,fetcher,{pageToken=''}={}){
     const oauth=key&&typeof key==='object'&&typeof key.accessToken==='string';
-    if(!oauth&&!/^UC[\w-]{22}$/.test(channelId))throw new Error('APIキーでの候補検索にはチャンネルIDを設定してください。');
-    const params={part:'snippet',...(oauth?{forMine:'true'}:{channelId}),eventType:'completed',type:'video',order:'date',maxResults:'50'};
+    if(!oauth){
+      if(!/^UC[\w-]{22}$/.test(channelId))throw new Error('APIキーでの候補検索にはチャンネルIDを設定してください。');
+      const params={part:'snippet',channelId,eventType:'completed',type:'video',order:'date',maxResults:'50'};
+      if(pageToken)params.pageToken=pageToken;
+      const body=await request('search',params,key,signal,fetcher),ids=new Set();
+      for(const item of body.items){if(!validId(item?.id?.videoId))throw new Error('YouTubeの候補IDが不正です。');ids.add(item.id.videoId);}
+      const items=ids.size?await details([...ids],key,signal,fetcher):[];
+      if(items.length!==ids.size)throw new Error('一部のYouTube配信情報を取得できませんでした。再取得またはURL直接指定をお試しください。');
+      return {items:items.filter(v=>v.channelId===channelId&&v.isLiveBroadcast),nextPageToken:typeof body.nextPageToken==='string'?body.nextPageToken:''};
+    }
+    // OAuth is bound to the verified Brand Channel, never to the old channel-ID text field.
+    const authorizedChannel=/^UC[\w-]{22}$/.test(key.channelId||'')?key.channelId:'';
+    const ownerStream=v=>v.isLiveBroadcast&&(!authorizedChannel||v.channelId===authorizedChannel);
+    const uploadCandidates=async token=>{
+      const account=await request('channels',{part:'contentDetails',mine:'true',maxResults:'1'},key,signal,fetcher);
+      const channel=account.items[0];
+      if(authorizedChannel&&channel?.id!==authorizedChannel)throw new Error('YouTubeの認証先チャンネルが変わりました。再認証してください。');
+      const playlist=channel?.contentDetails?.relatedPlaylists?.uploads;
+      if(!playlist)throw new Error('YouTubeの投稿動画一覧を取得できませんでした。チャンネルの権限を確認してください。');
+      const params={part:'contentDetails',playlistId:playlist,maxResults:'50'};
+      if(token)params.pageToken=token;
+      const list=await request('playlistItems',params,key,signal,fetcher),ids=new Set();
+      for(const item of list.items)if(validId(item?.contentDetails?.videoId))ids.add(item.contentDetails.videoId);
+      const videos=ids.size?await details([...ids],key,signal,fetcher):[];
+      return {items:videos.filter(v=>ownerStream(v)&&Number.isFinite(v.actualEndTimeMs)),
+        nextPageToken:list.nextPageToken?'uploads:'+list.nextPageToken:''};
+    };
+    if(pageToken.startsWith('uploads:'))return uploadCandidates(pageToken.slice(8));
+    // List completed broadcasts directly rather than relying on the search index.
+    const params={part:'id,snippet,status',broadcastStatus:'completed',broadcastType:'all',maxResults:'50'};
     if(pageToken)params.pageToken=pageToken;
-    const body=await request('search',params,key,signal,fetcher),ids=new Set();
-    for(const item of body.items){if(!validId(item?.id?.videoId))throw new Error('YouTubeの候補IDが不正です。');ids.add(item.id.videoId);}
-    const items=ids.size?await details([...ids],key,signal,fetcher):[];
-    if(items.length!==ids.size)throw new Error('一部のYouTube配信情報を取得できませんでした。再取得またはURL直接指定をお試しください。');
-    return {items:items.filter(v=>(!channelId||v.channelId===channelId)&&v.isLiveBroadcast),nextPageToken:typeof body.nextPageToken==='string'?body.nextPageToken:''};
+    const list=await request('liveBroadcasts',params,key,signal,fetcher),ids=new Set();
+    for(const item of list.items)if(validId(item?.id))ids.add(item.id);
+    const videos=ids.size?await details([...ids],key,signal,fetcher):[];
+    const items=videos.filter(ownerStream),nextPageToken=typeof list.nextPageToken==='string'?list.nextPageToken:'';
+    if(items.length||nextPageToken)return {items,nextPageToken};
+    // Some finished archives remain accessible through the uploads playlist.
+    return uploadCandidates('');
   }
   function parseVideoId(value){
     const input=String(value||'').trim();if(validId(input))return input;

@@ -13,6 +13,57 @@ test('completed candidates load one explicit page and expose pagination',async()
   return {ok:true,json:async()=>({items:ids.map(id=>({id:{videoId:id}})),nextPageToken:'page2'})};
  },{pageToken:'page1'});assert.deepEqual(result.items.map(x=>x.videoId),ids);assert.equal(calls.length,2);assert.equal(result.nextPageToken,'page2');
 });
+test('OAuth lists completed live broadcasts from the Brand Channel without applying the old manual channel ID',async()=>{
+ const oauth={accessToken:'brand-token',channelId:channel},seen=[];
+ const result=await Y.candidates(oauth,'UC'+'z'.repeat(22),signal(),async(url,options)=>{
+  const u=new URL(url);seen.push(u.pathname);assert.equal(options.headers.Authorization,'Bearer brand-token');
+  assert.equal(u.searchParams.has('channelId'),false);
+  if(u.pathname.endsWith('/liveBroadcasts')){
+   assert.equal(u.searchParams.get('broadcastStatus'),'completed');
+   assert.equal(u.searchParams.get('broadcastType'),'all');
+   return {ok:true,json:async()=>({items:ids.map(id=>({id})),nextPageToken:'page2'})};
+  }
+  if(u.pathname.endsWith('/videos'))return body(ids.map(id=>item(id)));
+  throw Error('Unexpected '+u.pathname);
+ });
+ assert.deepEqual(result.items.map(x=>x.videoId),ids);
+ assert.equal(result.nextPageToken,'page2');
+ assert.deepEqual(seen,['/youtube/v3/liveBroadcasts','/youtube/v3/videos']);
+});
+test('OAuth falls back to uploads playlist when live broadcasts are not returned',async()=>{
+ const oauth={accessToken:'brand-token',channelId:channel},paths=[];
+ const completed={...item(ids[0]),liveStreamingDetails:{...item(ids[0]).liveStreamingDetails,actualEndTime:'2026-10-05T00:58:00Z'}};
+ const result=await Y.candidates(oauth,'',signal(),async url=>{
+  const u=new URL(url);paths.push(u.pathname);
+  if(u.pathname.endsWith('/liveBroadcasts'))return body([]);
+  if(u.pathname.endsWith('/channels'))return body([{id:channel,contentDetails:{relatedPlaylists:{uploads:'uploads'}}}]);
+  if(u.pathname.endsWith('/playlistItems'))return {ok:true,json:async()=>({items:ids.map(videoId=>({contentDetails:{videoId}})),nextPageToken:'more'})};
+  if(u.pathname.endsWith('/videos'))return body([completed,item(ids[1])]);
+  throw Error('Unexpected '+u.pathname);
+ });
+ assert.deepEqual(result.items.map(x=>x.videoId),[ids[0]]);
+ assert.equal(result.nextPageToken,'uploads:more');
+ assert.deepEqual(paths,['/youtube/v3/liveBroadcasts','/youtube/v3/channels','/youtube/v3/playlistItems','/youtube/v3/videos']);
+});
+test('OAuth uploads page token does not repeat liveBroadcasts request',async()=>{
+ const oauth={accessToken:'brand-token',channelId:channel},calls=[];
+ const result=await Y.candidates(oauth,'',signal(),async url=>{
+  const u=new URL(url);calls.push(u.pathname);
+  if(u.pathname.endsWith('/channels'))return body([{id:channel,contentDetails:{relatedPlaylists:{uploads:'uploads'}}}]);
+  if(u.pathname.endsWith('/playlistItems')){assert.equal(u.searchParams.get('pageToken'),'more');return body([]);}
+  throw Error('Unexpected '+u.pathname);
+ },{pageToken:'uploads:more'});
+ assert.deepEqual(result,{items:[],nextPageToken:''});
+ assert.deepEqual(calls,['/youtube/v3/channels','/youtube/v3/playlistItems']);
+});
+test('OAuth detects a changed authorized channel on uploads fallback',async()=>{
+ const oauth={accessToken:'brand-token',channelId:channel};
+ await assert.rejects(Y.candidates(oauth,'',signal(),async url=>{
+  if(url.includes('/liveBroadcasts?'))return body([]);
+  if(url.includes('/channels?'))return body([{id:'UC'+'z'.repeat(22),contentDetails:{relatedPlaylists:{uploads:'uploads'}}}]);
+  throw Error('Unexpected '+url);
+ }),/認証先チャンネル/);
+});
 test('URL parsing accepts known forms and rejects unrelated or misleading hosts',()=>{
  for(const url of [ids[0],`https://www.youtube.com/watch?v=${ids[0]}&t=30`,`https://youtu.be/${ids[0]}?si=token`,`https://youtube.com/live/${ids[0]}`,`https://m.youtube.com/shorts/${ids[0]}`,`https://www.youtube.com/embed/${ids[0]}`])assert.equal(Y.parseVideoId(url),ids[0]);
  for(const url of ['bad','https://evil.example/watch?v='+ids[0],'https://youtube.com.evil.example/watch?v='+ids[0],'https://youtube.com/@channel','javascript:alert(1)'])assert.throws(()=>Y.parseVideoId(url));
