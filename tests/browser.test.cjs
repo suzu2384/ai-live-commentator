@@ -473,8 +473,9 @@ const results=[];
   assert.equal(await p.locator('#apiKey').inputValue(),'');
   assert.equal(await p.locator('#obsPassword').inputValue(),'');
   assert.equal(await p.locator('#youtubeApiKey').inputValue(),'');
-  assert.equal(await p.locator('#driveConnect').isDisabled(),true);
-  // YouTube may be linked independently; its connection must not restore Drive data.
+  assert.equal(await p.locator('#driveConnect').isDisabled(),false);
+  assert.equal(await p.locator('#driveConnect').textContent(),'Google Driveに再接続');
+  // Expired Drive tokens can now be renewed directly; YouTube remains independent.
   const driveCallsBeforeYouTube=x.events.drive;
   await p.locator('#youtubeConnect').click();
   await p.waitForFunction(()=>document.getElementById('youtubeAuthState').textContent.includes('接続済み'));
