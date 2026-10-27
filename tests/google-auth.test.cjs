@@ -3,6 +3,10 @@ const assert=require('node:assert/strict');
 const {GoogleAuth,SCOPES,preferredAccount}=require('../google-auth.js');
 const CLIENT='123-abc.apps.googleusercontent.com';
 const YOUTUBE_SCOPES=SCOPES.youtube.split(' ');
+async function connectBoth(auth){
+ await auth.authorize(['youtube']);
+ await auth.authorize(['drive']);
+}
 function mock(){
  const records=new Map(),sessions=new Map(),requests=[],calls=[];
  let youtubeEmail='creator@example.com',driveEmail='storage@example.com',channel='UC'+'x'.repeat(22),emailFailure=false;
@@ -49,10 +53,11 @@ test('Drive and YouTube remember their own accounts without enforcing equal emai
 });
 test('account hint prevents repetitive account selection, even on explicit reconnect',async()=>{
  const m=mock(),auth=new GoogleAuth(CLIENT);
- await auth.authorize(['youtube','drive']);
+ await connectBoth(auth);
  const token=auth.token('youtube');
- const completed=await auth.authorize(['drive','youtube'],{force:true});
- assert.deepEqual(completed,['youtube','drive']);
+ await assert.rejects(auth.authorize(['drive','youtube'],{force:true}),/別々に操作/);
+ await auth.authorize(['youtube'],{force:true});
+ await auth.authorize(['drive'],{force:true});
  assert.equal(m.requests[2].login_hint,'creator@example.com');
  assert.equal(m.requests[2].prompt,'');
  assert.equal(m.requests[3].login_hint,'storage@example.com');
@@ -62,7 +67,7 @@ test('account hint prevents repetitive account selection, even on explicit recon
 });
 test('normal authorization skips valid tokens and renews only expired service',async()=>{
  const m=mock(),auth=new GoogleAuth(CLIENT);
- await auth.authorize(['youtube','drive']);
+ await connectBoth(auth);
  assert.deepEqual(await auth.authorize(['youtube','drive']),[]);
  auth.tokens.youtube.expires=Date.now()-1;
  assert.deepEqual(await auth.authorize(['youtube','drive']),['youtube']);
@@ -70,7 +75,7 @@ test('normal authorization skips valid tokens and renews only expired service',a
 });
 test('changed brand channel requires disconnect; other service and hint remain',async()=>{
  const m=mock(),auth=new GoogleAuth(CLIENT);
- await auth.authorize(['youtube','drive']);
+ await connectBoth(auth);
  m.setChannel('UC'+'y'.repeat(22));
  await assert.rejects(auth.authorize(['youtube'],{force:true}),/異なるYouTubeチャンネル/);
  assert.ok(auth.token('drive'));
@@ -78,18 +83,25 @@ test('changed brand channel requires disconnect; other service and hint remain',
  assert.equal(preferredAccount(CLIENT,'drive'),'storage@example.com');
  await auth.authorize(['youtube']);
  assert.equal(auth.channel.id,'UC'+'y'.repeat(22));
- assert.equal(m.requests.at(-1).login_hint,'storage@example.com');
+ assert.equal(m.requests.at(-1).login_hint,''); // A Drive hint must not select a YouTube Brand account.
 });
 test('account lookup failure never blocks a successful grant',async()=>{
  const m=mock(),auth=new GoogleAuth(CLIENT);
  m.setEmailFailure(true);
- await auth.authorize(['youtube','drive']);
+ await connectBoth(auth);
  assert.ok(auth.token('youtube')&&auth.token('drive'));
  assert.equal(preferredAccount(CLIENT,'drive'),'');
 });
+test('a remembered YouTube account never preselects a different Drive account',async()=>{
+ const m=mock(),auth=new GoogleAuth(CLIENT);
+ await auth.authorize(['youtube']);
+ assert.equal(preferredAccount(CLIENT,'drive'),'');
+ await auth.authorize(['drive']);
+ assert.equal(m.requests[1].login_hint,'');
+});
 test('persistent scoped tokens restore, legacy YouTube remains unverified',async()=>{
  const m=mock(),auth=new GoogleAuth(CLIENT);
- await auth.authorize(['youtube','drive']);
+ await connectBoth(auth);
  auth.setKeepConnected(true);m.sessions.clear();
  let restored=new GoogleAuth(CLIENT);
  assert.ok(restored.token('youtube')&&restored.token('drive'));

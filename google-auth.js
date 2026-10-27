@@ -17,7 +17,7 @@
  }
  function preferredAccount(clientId,service){
   const hints=storedHints(clientId);
-  return hints[service]||hints[service==='youtube'?'drive':'youtube']||'';
+  return hints[service]||'';
  }
  function rememberAccount(clientId,service,email){
   email=validEmail(email);
@@ -122,12 +122,13 @@
    // Explicit reconnect renews valid tokens too. YouTube must never be skipped.
    const needed=force?selected:selected.filter(service=>!this.token(service));
    if(!needed.length)return [];
-   // The first popup keeps the originating click's user activation.
-   if(force&&needed.includes('youtube'))needed.sort((a,b)=>(a==='youtube'?0:1)-(b==='youtube'?0:1));
+   // A separate user gesture is required for every Google token popup.
+   // In particular, choosing a YouTube Brand Channel does not authorize Drive.
+   if(needed.length>1)throw Error('YouTubeとDriveの再認証は別々に操作してください。');
    this.pending=true;const completed=[];
    try{
-    // Separate Brand Channel and Drive grants. Never combine their scopes.
-    // Valid connections do not require another popup.
+    // Brand Channel and Drive must be authorized independently.
+    // A valid connection is reused unless explicitly forced.
     for(const service of needed){await this.authorizeService(service);completed.push(service);}
     return completed;
    }catch(error){
