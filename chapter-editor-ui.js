@@ -18,6 +18,9 @@
       const intro=()=>{
         if(!this.available())return;
         const draft=E.draft(this.session,this.generation);draft.introEnabled=$('chapterIntro').checked;draft.introTitle=$('chapterIntroTitle').value;
+        if(draft.introTitle.trim()&&draft.introTitle.length<=80){
+          try{localStorage.setItem('minkome-chapter-intro-title-v1',draft.introTitle);}catch{}
+        }
         E.save(this.session,this.generation,draft);void this.owner.store.save(this.session);this.renderExport();this.controls();
       };
       $('chapterIntro').addEventListener('change',intro);$('chapterIntroTitle').addEventListener('input',intro);
@@ -60,8 +63,9 @@
       for(const chapter of [...draft.chapters].sort((a,b)=>a.atMs-b.atMs)){
         const item=document.createElement('li'),time=document.createElement('time'),name=document.createElement('strong'),actions=document.createElement('div');
         item.dataset.chapterId=chapter.id;actions.className='actions wrap';
-        time.dateTime=new Date(chapter.atMs).toISOString();time.textContent=date(chapter.atMs)+(session.youtubeSync?' → '+(root.LiveYouTube.relative(chapter.atMs,session.youtubeSync)??'未同期'):'');
-        name.textContent=chapter.title;item.append(time,name);
+        time.dateTime=new Date(chapter.atMs).toISOString();const absolute=date(chapter.atMs),relative=session?.youtubeSync?root.LiveYouTube.relative(chapter.atMs,session.youtubeSync):null;
+        time.textContent=relative??absolute;time.title=relative?absolute:'';
+        name.textContent=chapter.title;name.title=chapter.title;item.append(time,name);
         if(chapter.editedAtMs!=null){const note=document.createElement('small');note.textContent=chapter.sourceChapterId?`編集済み · 元の観測日時 ${date(chapter.originalObservedAtMs)}`:'手動で追加';item.append(note);}
         const button=(label,fn,edit=true)=>{const el=document.createElement('button');el.type='button';el.className='subtle';el.textContent=label;if(edit)el.dataset.editAction='';el.addEventListener('click',fn);actions.append(el);};
         button('編集',()=>this.open(chapter.id));

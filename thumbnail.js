@@ -48,7 +48,7 @@
   }
   function suggestedCaption(session,generationId){
     const generation=generationOf(session,generationId),chapter=text(generation?.chapters?.[0]?.title);
-    return (chapter||text(session?.contentName)||text(session?.youtubeSync?.title)).slice(0,32);
+    return (text(session?.youtubeSync?.title)||chapter||text(session?.contentName)).slice(0,50);
   }
   function buildPrompt(session,{generationId=null,referenceImageIds=[],includeText=true,caption=''}={}){
     const ids=validSelection(session,referenceImageIds),generation=generationOf(session,generationId);

@@ -3,6 +3,8 @@
   const C = LiveCore, $ = id => document.getElementById(id);
   let chapterUI=null;
   const storageKey = 'ai-live-commentator-browser-v1';
+  const geminiChoiceKey='minkome-gemini-choice-v1';
+  const geminiRememberKey='minkome-gemini-remember-v1';
   const contentLibraryKey = 'ai-live-commentator-content-library-v1';
   const contentKnowledgeKey = 'ai-live-commentator-content-knowledge-v1';
   const greetingHistoryKey = 'ai-live-commentator-greeting-history-v1';
@@ -40,6 +42,19 @@
     document.querySelector('link[rel="manifest"]').setAttribute('href',`manifests/${theme}.webmanifest${assetVersion}`);
     document.querySelector('link[rel="apple-touch-icon"]').setAttribute('href',`assets/home/${theme}-180.png${assetVersion}`);
     return theme;
+  }
+  function rememberedGeminiChoice(){
+    try{const v=localStorage.getItem(geminiChoiceKey);return ['personal','shared'].includes(v)?v:null;}catch{return null;}
+  }
+  function persistGeminiChoice(){
+    const value=$('geminiProvider').value;
+    if(!['personal','shared'].includes(value))return;
+    try{
+      localStorage.setItem(geminiChoiceKey,value);
+      const raw=JSON.parse(localStorage.getItem(storageKey)||'{}');
+      const saved=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
+      saved.geminiProvider=value;localStorage.setItem(storageKey,JSON.stringify(saved));
+    }catch{}
   }
   function persistTheme(){
     const theme=applyTheme($('theme').value);
@@ -463,7 +478,7 @@
     applyTheme($('theme').value);
     renderContentOptions(bundle.data.contentName);
     $('profiles').replaceChildren();buildProfiles(bundle.data.profiles);renderParticipantSelection(bundle.data.selectedProfileIds);
-    outputFields();overlayFields();updateGeminiProviderFields();
+    outputFields();overlayFields();updateGeminiProviderFields();persistGeminiChoice();
     const s=settings();save(s);
     $('saveState').textContent='設定をインポートしました。APIキーとOBSパスワードは変更していません。';
     log('設定をインポートしました。友達設定・対象コンテンツ一覧・追加知識・登録フォント一覧も反映しました。');
@@ -520,6 +535,7 @@
   }
   function applyDriveSecrets(credentials){
     $('apiKey').value=credentials.apiKey||'';$('obsPassword').value=credentials.obsPassword||'';$('youtubeApiKey').value=credentials.youtubeApiKey||'';$('freeTier').checked=false;updateSettingSummaries();
+    if(credentials.apiKey)void saveRememberedGeminiKey();
   }
   function driveFileLabel(file){return file?.modifiedTime?new Date(file.modifiedTime).toLocaleString('ja-JP'):'なし';}
   function driveControls(){
@@ -659,6 +675,9 @@
     const targets=[imported?'通常設定':'',credentials?'キー・パスワード':''].filter(Boolean).join('と');
     if(!automatic&&!confirm('Google Driveの'+targets+'で現在の内容を置き換えますか？\nFree Tier確認状態は復元しません。'))return false;
     if(imported)applyImportedBundle(imported);
+    if(automatic&&rememberedGeminiChoice()){
+      $('geminiProvider').value=rememberedGeminiChoice();updateGeminiProviderFields();
+    }
     if(credentials)applyDriveSecrets(credentials);
     $('driveState').textContent=automatic
       ?'Google Driveへの接続後、'+targets+'を自動復元しました。Geminiを使う前にFree Tier確認を行ってください。'
@@ -1513,8 +1532,9 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   $('closeHelpDialog').addEventListener('click',closeHelpDialog);
   $('doneHelpDialog').addEventListener('click',closeHelpDialog);
   helpDialog.addEventListener('click',e=>{if(e.target===helpDialog)closeHelpDialog();});
-  $('geminiProvider').addEventListener('change',updateGeminiProviderFields);
-  $('apiKey').addEventListener('input',()=>{$('freeTier').checked=false;});$('settings').addEventListener('submit',e=>e.preventDefault());
+  $('geminiProvider').addEventListener('change',()=>{persistGeminiChoice();updateGeminiProviderFields();});
+  $('apiKey').addEventListener('input',()=>{$('freeTier').checked=false;scheduleRememberGeminiKey();});
+  $('apiKey').addEventListener('change',()=>void saveRememberedGeminiKey());$('settings').addEventListener('submit',e=>e.preventDefault());
   setInterval(()=>{
     if(!busy){$('elapsed').textContent='';return;}
     if(lastCaptureAt!==null){$('elapsed').textContent=`最終取得 ${((performance.now()-lastCaptureAt)/1000).toFixed(1)}秒前`;return;}
@@ -1570,6 +1590,39 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     return p;
   });}
   const vaultKey='ai-live-commentator-vault-v1';
+  let geminiKeyTimer=null,geminiKeyRevision=0,geminiKeyUserEdited=false;
+  function scheduleRememberGeminiKey(){
+    geminiKeyUserEdited=true;
+    clearTimeout(geminiKeyTimer);
+    geminiKeyTimer=setTimeout(()=>void saveRememberedGeminiKey(),400);
+  }
+  async function saveRememberedGeminiKey(){
+    clearTimeout(geminiKeyTimer);
+    const revision=++geminiKeyRevision;
+    if(!$('rememberGeminiKey').checked||!$('apiKey').value.trim()){
+      try{LiveLocalGeminiKey.clear();}catch{}
+      return;
+    }
+    let apiKey;
+    try{apiKey=C.normalizeKey($('apiKey').value);}catch{return;}
+    try{await LiveLocalGeminiKey.save(apiKey);
+      if(revision!==geminiKeyRevision&& !$('rememberGeminiKey').checked)LiveLocalGeminiKey.clear();
+    }catch(error){$('saveState').textContent='APIキーの自動保存に失敗しました。合言葉での暗号化保存も利用できます。';}
+  }
+  async function restoreRememberedGeminiKey(){
+    if(!$('rememberGeminiKey').checked||geminiKeyUserEdited||$('apiKey').value.trim())return;
+    const revision=geminiKeyRevision;
+    try{
+      const apiKey=await LiveLocalGeminiKey.restore();
+      if(revision!==geminiKeyRevision||geminiKeyUserEdited||!$('rememberGeminiKey').checked||$('apiKey').value.trim()||!apiKey)return;
+      $('apiKey').value=C.normalizeKey(apiKey);updateSettingSummaries();
+    }catch{}
+  }
+  try{$('rememberGeminiKey').checked=localStorage.getItem(geminiRememberKey)!=='false';}catch{}
+  $('rememberGeminiKey').addEventListener('change',()=>{
+    try{localStorage.setItem(geminiRememberKey,$('rememberGeminiKey').checked?'true':'false');}catch{}
+    void saveRememberedGeminiKey();
+  });
   function lockSecrets(){$('apiKey').value='';$('obsPassword').value='';$('youtubeApiKey').value='';$('vaultPass').value='';$('vaultConfirm').value='';$('freeTier').checked=false;updateSettingSummaries();}
   function vaultState(){try{$('vaultState').textContent=localStorage.getItem(vaultKey)?'暗号化した情報があります。合言葉を入力して解除できます。':'暗号化した情報はまだありません。';}catch{$('vaultState').textContent='ブラウザが保存を許可していません。';}updateSettingSummaries();}
   async function vaultOperation(fn){
@@ -1592,6 +1645,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     const credentials=await LiveVault.open(data,$('vaultPass').value);
     if(epoch!==pageEpoch)return;
     $('apiKey').value=credentials.apiKey;$('obsPassword').value=credentials.obsPassword;$('youtubeApiKey').value=credentials.youtubeApiKey||'';$('freeTier').checked=false;
+    if(credentials.apiKey)void saveRememberedGeminiKey();
     $('vaultState').textContent='解除しました。Free Tierの確認をしてから開始してください。';updateSettingSummaries();
   }));
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
@@ -1603,9 +1657,9 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   const migratedFont=legacyFontName(stored.obsOverlayFont);
   if(migratedFont&&!fontLibrary.includes(migratedFont)){fontLibrary.push(migratedFont);fontLibrary=normalizeFontLibrary(fontLibrary);saveFontLibrary();stored.obsOverlayFont=migratedFont;}
   for(const id of savedIds){if(stored[id]===undefined)continue;if($(id).type==='checkbox')$(id).checked=stored[id]===true;else if(['string','number'].includes(typeof stored[id])&&id!=='obsOverlayFont')$(id).value=stored[id];}
-  // Existing users stay on personal keys; freshly initialized installations
-  // prefer embedded AI once a verified Firebase project is published.
-  if(stored.geminiProvider===undefined&&Object.keys(stored).length===0&&embeddedAI.available)$('geminiProvider').value='shared';
+  // Preserve a manually selected provider even if Drive contains older settings.
+  if(rememberedGeminiChoice())$('geminiProvider').value=rememberedGeminiChoice();
+  else if(stored.geminiProvider===undefined&&Object.keys(stored).length===0&&embeddedAI.available)$('geminiProvider').value='shared';
   renderFontOptions(typeof stored.obsOverlayFont==='string'?stored.obsOverlayFont:'system');
   applyTheme(stored.theme===undefined ? new URLSearchParams(location.search).get('theme')||$('theme').value : $('theme').value);
   renderContentOptions(typeof stored.contentName==='string'?splitContentName(stored.contentName).raw:'');
@@ -1617,6 +1671,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   if(!profiles.length)profiles.push({...defaultProfile(0),speaker:stored.speaker??3,bouyomiVoice:stored.bouyomiVoice??0});
   buildProfiles(profiles);renderParticipantSelection(selectedIds);
   vaultState();googleControls();outputFields();overlayFields();updateGeminiProviderFields();initSettingSections();updateStats();
+  void restoreRememberedGeminiKey();
   if(driveOriginAllowed()&&!googleReady)void loadGoogleIdentity().then(()=>{googleReady=true;googleControls();}).catch(e=>{$('googleAccountState').textContent=e.message||'Google認証を読み込めませんでした。';});
   // Restore Drive settings automatically when a still-valid token survived reload.
   void resumeGoogleSession();

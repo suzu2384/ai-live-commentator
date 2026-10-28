@@ -183,11 +183,11 @@
       const sync=await root.LiveYouTubeUI.choose(key,channelId,signal,setStatus,reference);C.check(signal);
       if(!sync)return;
       // The only mutable data is synchronization metadata. Absolute event/chapter timestamps stay intact.
-      s.youtubeSync=sync;await this.store.save(s);this.render();
+       s.youtubeSync=sync;this.thumbnailTextTouched=false;await this.store.save(s);this.render();
     }
     async unlinkYouTube(signal){
       C.check(signal);const s=this.current();if(!s)return;
-      s.youtubeSync=null;await this.store.save(s);this.render();
+       s.youtubeSync=null;this.thumbnailTextTouched=false;await this.store.save(s);this.render();
     }
     async syncYouTube(key,signal,sessionId=this.selected){
       const s=this.store.records.get(sessionId);if(!s?.youtubeSync)return;

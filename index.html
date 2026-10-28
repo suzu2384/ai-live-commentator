@@ -14,16 +14,16 @@ try{
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="みんコメAI">
-<link rel="icon" href="assets/favicon.ico?v=4.54.11" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.54.11">
-<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.54.11">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.54.11">
-<link rel="manifest" href="manifest.webmanifest?v=4.54.11">
-<link rel="stylesheet" href="style.css?v=4.54.11">
-<script src="core.js?v=4.54.11" defer></script><script src="ai-config.js?v=4.54.11&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.54.11" defer></script><script src="vault.js?v=4.54.11" defer></script><script src="google-config.js?v=4.54.11&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.54.11" defer></script><script src="google-auth.js?v=4.54.11" defer></script><script src="youtube.js?v=4.54.11" defer></script><script src="youtube-ui.js?v=4.54.11" defer></script><script src="chapters.js?v=4.54.11" defer></script><script src="thumbnail.js?v=4.54.11" defer></script><script src="chapter-editor.js?v=4.54.11" defer></script><script src="chapter-editor-ui.js?v=4.54.11" defer></script><script src="chapters-ui.js?v=4.54.11" defer></script><script src="app.js?v=4.54.11" defer></script>
+<link rel="icon" href="assets/favicon.ico?v=4.54.12" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.54.12">
+<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.54.12">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.54.12">
+<link rel="manifest" href="manifest.webmanifest?v=4.54.12">
+<link rel="stylesheet" href="style.css?v=4.54.12">
+<script src="core.js?v=4.54.12" defer></script><script src="ai-config.js?v=4.54.12&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.54.12" defer></script><script src="vault.js?v=4.54.12" defer></script><script src="local-gemini-key.js?v=4.54.12" defer></script><script src="google-config.js?v=4.54.12&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.54.12" defer></script><script src="google-auth.js?v=4.54.12" defer></script><script src="youtube.js?v=4.54.12" defer></script><script src="youtube-ui.js?v=4.54.12" defer></script><script src="chapters.js?v=4.54.12" defer></script><script src="thumbnail.js?v=4.54.12" defer></script><script src="chapter-editor.js?v=4.54.12" defer></script><script src="chapter-editor-ui.js?v=4.54.12" defer></script><script src="chapters-ui.js?v=4.54.12" defer></script><script src="app.js?v=4.54.12" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.54.11" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.54.11</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.54.12" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><label class="theme-picker"><span>テーマ</span><select id="theme" aria-label="カラーテーマ"><option value="midnight">ミッドナイト</option><option value="graphite">グラファイト</option><option value="aurora">オーロラ</option><option value="crimson">クリムゾン</option><option value="forest">フォレスト</option><option value="amber">アンバー</option><option value="mist">ミスト</option><option value="lavender">ラベンダー</option><option value="rose">ローズ</option><option value="sage">セージ</option><option value="daylight">デイライト</option><option value="sand">サンド</option></select></label><span class="badge">BROWSER · v4.54.12</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -142,7 +142,7 @@ try{
 <label>AIの接続方式<select id="geminiProvider"><option value="personal" selected>個人APIキー</option><option value="shared">組み込みAI（Firebase）</option></select></label>
 <div id="personalGeminiFields">
 <div class="setting-meta"><span class="badge small">Gemini 3.1 Flash-Lite</span></div>
-<label>Gemini APIキー<input id="apiKey" type="password" autocomplete="new-password" placeholder="任意で暗号化して保存できます" required></label>
+<label>Gemini APIキー<input id="apiKey" type="password" autocomplete="new-password" placeholder="APIキーを入力" required></label><label class="check"><input id="rememberGeminiKey" type="checkbox" checked>この端末でAPIキーを記憶</label>
 <label class="check"><input id="freeTier" type="checkbox">このキーのプロジェクトが Free Tier・課金未設定だと確認しました</label>
 <p class="hint compact-hint">APIキーの利用枠・課金設定を確認してください。</p>
 </div>
@@ -334,14 +334,16 @@ try{
 <p>棒読みちゃんはPC側、VOICEVOX直接は操作中のブラウザで音声を再生します。音が出ない場合はソフトの起動、URL・ポート、端末の音量、ブラウザのローカルネットワーク許可を確認してください。声と読み上げ速度は「友達」の設定で調整します。</p>
 <h3>VOICEVOXのCORSエラー</h3>
 <p>ブラウザで403やCORSエラーが出る場合は、<a id="voicevoxSettingsLink" href="http://127.0.0.1:50021/setting" target="_blank" rel="noopener noreferrer">VOICEVOXエンジンの設定</a>で接続元の許可設定を確認してください。ローカルHTMLからの接続に必要な場合は許可するOriginを限定してください。全ての接続元を許可したり、ブラウザの保護を無効化したりする必要はありません。</p>
+<h3>Geminiの設定と保存</h3>
+<p>AIの接続方式は変更時に保存されます。個人APIキーは「この端末でAPIキーを記憶」をONにすると次回自動復元され、OFFにすると自動復元用データを削除します。キーは端末内で暗号化されますが、同じブラウザからは再表示できるため、共有端末ではOFFにしてください。「端末内の暗号化保存」の合言葉式は別の保存方法として引き続き利用できます。利用時のFree Tier確認は毎回必要です。</p>
 <h3>Geminiのエラー・発言が少ない</h3>
 <p>通信エラーや利用上限によって一時的に発言が止まる場合があります。状態は下部ステータスバーと「履歴」で確認できます。401・403の場合はAPIキーや認証設定を見直してください。429は利用枠やレート制限が原因の場合があります。</p>
 <h3>配信の記録・チャプター</h3>
-<p>「配信」で実況記録を選び、「チャプター／YouTube／サムネ／記録」を切り替えます。チャプターは生成後に追加・編集・削除・再生成できます。「記録」には元イベントと代表画像が残り、チャプターを再生成しても元イベントは変更されません。</p>
+<p>「配信」で実況記録を選び、「チャプター／YouTube／サムネ／記録」を切り替えます。チャプターは生成後に追加・編集・削除・再生成できます。00:00の冒頭タイトルは変更すると次回の生成でも初期値になります。「記録」には元イベントと代表画像が残り、チャプターを再生成しても元イベントは変更されません。</p>
 <h3>サムネ素材と画像の保存</h3>
-<p>「配信 → サムネ」では代表画像から最大5枚を自動選別し、必要なら手動で変更できます。「ChatGPT用素材を保存」で画像をまとめて保存し、依頼文もコピーできます。「記録」では保存する配信数を指定したり、代表画像だけを削除したりできます。</p>
+<p>「配信 → サムネ」では代表画像から最大5枚を自動選別し、必要なら手動で変更できます。「ChatGPT用素材を保存」で画像をまとめて保存し、依頼文もコピーできます。YouTubeと動画を同期している場合はその動画タイトルをサムネ文字の初期値にします。「記録」では保存する配信数を指定したり、代表画像だけを削除したりできます。</p>
 <h3>設定の保存と移行</h3>
-<p>「設定を保存」で通常設定を端末内に保存できます。エクスポート・インポートでは設定や友達の情報を移行できますが、APIキー・パスワードは含みません。キー類は「端末内の暗号化保存」か「Google Drive保存」で別途管理してください。</p>
+<p>「設定を保存」で通常設定を端末内に保存できます。Geminiの接続方式は切り替え時にも保存されます。エクスポート・インポートでは設定や友達の情報を移行できますが、APIキー・パスワードは含みません。APIキーは端末の自動復元、合言葉での暗号化保存、またはGoogle Drive保存から管理できます。</p>
 <h3>Google Drive保存の注意</h3>
 <p>「Driveへ保存」は手動です。接続時には保存済み設定・キー類を復元します。Driveの保存ファイルにアプリ独自の暗号化は行わないため、Googleアカウントの保護と共有端末での接続管理に注意してください。Drive連携はGitHub Pagesまたはlocalhostで利用できます。</p>
 <h3>別PCへのLAN接続</h3>

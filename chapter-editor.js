@@ -5,10 +5,16 @@
   const uid=()=>root.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const validTime=ms=>Number.isSafeInteger(ms)&&Math.abs(ms)<=8640000000000000;
   const title=value=>String(value??'').replace(/\s+/gu,' ').trim();
+  const introKey='minkome-chapter-intro-title-v1';
+  function defaultIntroTitle(){
+    try{const value=root.localStorage?.getItem(introKey);if(typeof value==='string'&&value.trim()&&value.length<=80)return value;}
+    catch{}
+    return '配信開始';
+  }
   function draft(session,generation){
     const saved=session?.chapterEdits?.find(x=>x.generationId===generation?.id);
     if(saved)return clone(saved);
-    return {generationId:generation?.id,updatedAtMs:null,introEnabled:true,introTitle:'配信開始',
+    return {generationId:generation?.id,updatedAtMs:null,introEnabled:true,introTitle:defaultIntroTitle(),
       chapters:(generation?.chapters||[]).map(c=>({id:c.id,sourceChapterId:c.id,sourceEventId:c.sourceEventId,
         originalObservedAtMs:c.observedAtMs,atMs:c.observedAtMs,title:c.title,editedAtMs:null}))};
   }
@@ -82,6 +88,6 @@
     result.text=rows.map(row=>`${formatTime(row.seconds)} ${row.title}`).join('\n');
     result.canCopy=result.errors.length===0;return result;
   }
-  const api={draft,save,edit,remove,restore,reset,formatTime,parseTime,exportText};
+  const api={draft,save,edit,remove,restore,reset,formatTime,parseTime,exportText,defaultIntroTitle};
   root.LiveChapterEditor=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(globalThis);
