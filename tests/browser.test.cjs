@@ -171,7 +171,7 @@ const results=[];
   // Firebase is now configured in production. Legacy test fixtures explicitly
   // select the personal-key provider rather than depending on a blank config.
   // Legacy test fixtures validate passphrase vault isolation by disabling the new optional cache.
-  if(!config.rememberGeminiKey)await page.locator('#rememberGeminiKey').uncheck();
+  if(!config.rememberGeminiKey)await page.locator('#rememberGeminiKey').evaluate(el=>{el.checked=false;el.dispatchEvent(new Event('change',{bubbles:true}));});
   if(!config.embeddedFirebase)await page.locator('#geminiProvider').selectOption('personal');
   if(!config.embeddedFirebase){await page.locator('#apiKey').fill('fake.test-key');await page.locator('#freeTier').check();}await page.locator('#obsPassword').fill('obs-secret');
   if(config.host){await page.locator('#output').selectOption('voicevox');await page.locator('#voicevoxUrl').fill(`http://${host}:50021`);await page.locator('#output').selectOption('bouyomi');for(const [id,port,proto] of [['obsUrl',4455,'ws'],['bouyomiUrl',50080,'http']])await page.locator('#'+id).fill(`${proto}://${host}:${port}`);}
@@ -265,7 +265,7 @@ const results=[];
   const x=await editorFixture(),p=x.page,oldId=x.before.generations[0].id;
   await editCandidate(p,0,'編集を保持','12:40');await chapterView(p,'youtube');await p.locator('#chapterIntroTitle').fill('配信スタート');
   await chapterView(p,'chapters');await p.locator('#chapterGenerate').click();await stopped(p);assert.equal(await p.locator('#chapterGeneration option').count(),2);
-  assert.equal(await p.locator('#chapterCandidates strong').textContent(),'新しいエリアを探索');await p.locator('#chapterGeneration').selectOption(oldId);
+  assert.equal(await p.locator('#chapterCandidates strong').textContent(),'新しいエリアを探索');assert.equal(await p.locator('#chapterIntroTitle').inputValue(),'配信スタート');await p.locator('#chapterGeneration').selectOption(oldId);
   assert.equal(await p.locator('#chapterCandidates strong').textContent(),'編集を保持');assert.equal(await p.locator('#chapterIntroTitle').inputValue(),'配信スタート');
   await p.reload();await p.locator('#tab-chapters').click();await p.waitForFunction(()=>document.getElementById('chapterGeneration').options.length===2);await p.locator('#chapterGeneration').selectOption(oldId);
   const before=(await chapterRecords(p))[0];assert.equal(await p.locator('#chapterCandidates strong').textContent(),'編集を保持');
@@ -317,6 +317,13 @@ const results=[];
   assert.equal(await p.locator('#youtubeCandidates input').first().inputValue(),'abcdefghijk');
   await selectSync(p);
   assert.equal((await chapterRecords(p))[0].youtubeSync.videoId,'abcdefghijk');
+  await chapterView(p,'thumbnail');
+  assert.equal(await p.locator('#thumbnailText').inputValue(),'テスト配信 abcdefghijk');
+  assert.match(await p.locator('#thumbnailPrompt').inputValue(),/テスト配信 abcdefghijk/);
+  await chapterView(p,'chapters');
+  const first=await p.locator('#chapterCandidates li').first().boundingBox();assert(first.height<=70);
+  await p.setViewportSize({width:390,height:844});
+  const mobile=await p.locator('#chapterCandidates li').first().boundingBox();assert(mobile.height<=90);
   await x.close();
  });
  await test('YouTube explicit selection, replacement, unlink and reload preserve absolute data',async()=>{
