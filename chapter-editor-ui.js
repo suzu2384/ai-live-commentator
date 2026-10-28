@@ -64,7 +64,7 @@
         const item=document.createElement('li'),time=document.createElement('time'),name=document.createElement('strong'),actions=document.createElement('div');
         item.dataset.chapterId=chapter.id;actions.className='actions wrap';
         time.dateTime=new Date(chapter.atMs).toISOString();const absolute=date(chapter.atMs),relative=session?.youtubeSync?root.LiveYouTube.relative(chapter.atMs,session.youtubeSync):null;
-        time.textContent=relative??absolute;time.title=relative?absolute:'';
+        time.textContent=relative??(session?.youtubeSync?'未同期 · '+absolute:absolute);time.title=relative?absolute:'';
         name.textContent=chapter.title;name.title=chapter.title;item.append(time,name);
         if(chapter.editedAtMs!=null){const note=document.createElement('small');note.textContent=chapter.sourceChapterId?`編集済み · 元の観測日時 ${date(chapter.originalObservedAtMs)}`:'手動で追加';item.append(note);}
         const button=(label,fn,edit=true)=>{const el=document.createElement('button');el.type='button';el.className='subtle';el.textContent=label;if(edit)el.dataset.editAction='';el.addEventListener('click',fn);actions.append(el);};
