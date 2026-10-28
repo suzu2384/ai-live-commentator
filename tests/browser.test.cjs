@@ -170,6 +170,8 @@ const results=[];
   await page.locator('#tab-connect').click();
   // Firebase is now configured in production. Legacy test fixtures explicitly
   // select the personal-key provider rather than depending on a blank config.
+  // Legacy test fixtures validate passphrase vault isolation by disabling the new optional cache.
+  if(!config.rememberGeminiKey)await page.locator('#rememberGeminiKey').uncheck();
   if(!config.embeddedFirebase)await page.locator('#geminiProvider').selectOption('personal');
   if(!config.embeddedFirebase){await page.locator('#apiKey').fill('fake.test-key');await page.locator('#freeTier').check();}await page.locator('#obsPassword').fill('obs-secret');
   if(config.host){await page.locator('#output').selectOption('voicevox');await page.locator('#voicevoxUrl').fill(`http://${host}:50021`);await page.locator('#output').selectOption('bouyomi');for(const [id,port,proto] of [['obsUrl',4455,'ws'],['bouyomiUrl',50080,'http']])await page.locator('#'+id).fill(`${proto}://${host}:${port}`);}
@@ -469,6 +471,31 @@ const results=[];
   await p.locator('#testText').click();
   await p.waitForFunction(()=>document.getElementById('latency').textContent.includes('秒'));
   assert.equal(x.events.api,1);
+  await x.close();
+ });
+ await test('Gemini key encrypted device cache and immediate provider choice survive reload',async()=>{
+  const x=await setup({httpEntry:true,rememberGeminiKey:true}),p=x.page;
+  await openConnect(p);
+  await p.locator('#apiKey').fill('second-api-key.test');
+  await p.locator('#freeTier').check(); // Blur ensures save is scheduled synchronously.
+  await p.waitForFunction(()=>!!localStorage.getItem('minkome-gemini-key-cipher-v1'));
+  const encrypted=await p.evaluate(()=>localStorage.getItem('minkome-gemini-key-cipher-v1'));
+  assert.ok(!encrypted.includes('second-api-key.test'));
+  assert.ok(!(await p.evaluate(()=>JSON.stringify(localStorage))).includes('second-api-key.test'));
+  await p.locator('#geminiProvider').selectOption('shared');
+  assert.equal(await p.evaluate(()=>localStorage.getItem('minkome-gemini-choice-v1')),'shared');
+  await p.reload();await openConnect(p);
+  await p.waitForFunction(()=>document.getElementById('apiKey').value==='second-api-key.test');
+  assert.equal(await p.locator('#geminiProvider').inputValue(),'shared');
+  assert.equal(await p.locator('#freeTier').isChecked(),false);
+  await p.locator('#geminiProvider').selectOption('personal');
+  await p.reload();await openConnect(p);
+  await p.waitForFunction(()=>document.getElementById('apiKey').value==='second-api-key.test');
+  assert.equal(await p.locator('#geminiProvider').inputValue(),'personal');
+  await p.locator('#rememberGeminiKey').uncheck();
+  assert.equal(await p.evaluate(()=>localStorage.getItem('minkome-gemini-key-cipher-v1')),null);
+  await p.reload();await openConnect(p);
+  assert.equal(await p.locator('#apiKey').inputValue(),'');
   await x.close();
  });
  await test('Google Drive saves normal settings and plaintext secrets as separate files, restores both and deletes both',async()=>{

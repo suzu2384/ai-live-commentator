@@ -45,7 +45,14 @@ test('ChatGPT prompt uses stream context, selected image descriptions and option
   assert.match(withText,/公式のプロモーション画像/);
   const without=T.buildPrompt(s,{generationId:'g1',referenceImageIds:ids,includeText:false,caption:'ignored'});
   assert(without.includes('文字・ロゴ・字幕は新しく追加しない'));assert(!without.includes('「ignored」'));
-  assert.equal(T.suggestedCaption(s,'g1'),'新エリアへ');
+  assert.equal(T.suggestedCaption(s,'g1'),'配信タイトル');
+});
+test('synced thumbnail title overrides a chapter title and respects text input limit',()=>{
+ const s=session();s.youtubeSync.title='配信タイトルの特別版';
+ assert.equal(T.suggestedCaption(s,'g1'),'配信タイトルの特別版');
+ s.youtubeSync.title='あ'.repeat(65);
+ assert.equal(T.suggestedCaption(s,'g1'),'あ'.repeat(50));
+ s.youtubeSync=null;assert.equal(T.suggestedCaption(s,'g1'),'新エリアへ');
 });
 test('prompt adapts to one or two images without inventing scenes',()=>{
   const s=session();

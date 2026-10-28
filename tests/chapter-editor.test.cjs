@@ -12,6 +12,20 @@ test('editor reads legacy generations without modifying records or sharing edita
  const {s,g}=fixture(),before=structuredClone(s),d=E.draft(s,g);d.chapters[0].title='編集';
  assert.deepEqual(s,before);assert.equal(E.draft(s,g).chapters[0].title,'場面0');assert.equal(E.draft(s,g).introEnabled,true);
 });
+test('custom 00:00 title is a default for new generations without changing older drafts',()=>{
+ const original=globalThis.localStorage;
+ const titleKey='minkome-chapter-intro-title-v1';
+ globalThis.localStorage={getItem:key=>key===titleKey?'オープニング':'',setItem:()=>{}};
+ try{
+  const {s,g}=fixture();
+  assert.equal(E.draft(s,g).introTitle,'オープニング');
+  const draft=E.draft(s,g);draft.introTitle='この履歴だけのタイトル';E.save(s,g,draft);
+  assert.equal(E.draft(s,g).introTitle,'この履歴だけのタイトル');
+  assert.equal(E.draft({...s,chapterEdits:[]},g).introTitle,'オープニング');
+ }finally{
+  if(original===undefined)delete globalThis.localStorage;else globalThis.localStorage=original;
+ }
+});
 test('edits, additions, deletion and undo retain original absolute events and AI results',()=>{
  const {s,g}=fixture(),events=structuredClone(s.events),generations=structuredClone(s.generations);
  E.edit(s,g,'c0',{title:'  新しい\nタイトル  ',atMs:start+10000});

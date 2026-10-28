@@ -468,7 +468,7 @@
     if(Array.from({length:selected.length},(_,i)=>data[`speakerWeight${i+1}`]).every(w=>w===0))throw new C.AppError('選択した友達の人数以内の発言人数の重みを1つ以上0より大きくしてください。');
     return {data:{...data,contentName,selectedProfileIds:selected,participantCount:selected.length,profiles},contentLibrary:importedContents,contentKnowledge:importedKnowledge,fontLibrary:importedFonts};
   }
-  function applyImportedBundle(bundle){
+  function applyImportedBundle(bundle,{preserveLocalChoice=false}={}){
     contentLibrary=bundle.contentLibrary;contentKnowledge=bundle.contentKnowledge||{};fontLibrary=bundle.fontLibrary;saveContentLibrary();saveContentKnowledge();saveFontLibrary();
     for(const id of savedIds){
       if(bundle.data[id]===undefined)continue;
@@ -478,7 +478,9 @@
     applyTheme($('theme').value);
     renderContentOptions(bundle.data.contentName);
     $('profiles').replaceChildren();buildProfiles(bundle.data.profiles);renderParticipantSelection(bundle.data.selectedProfileIds);
-    outputFields();overlayFields();updateGeminiProviderFields();persistGeminiChoice();
+    if(preserveLocalChoice&&rememberedGeminiChoice())$('geminiProvider').value=rememberedGeminiChoice();
+    outputFields();overlayFields();updateGeminiProviderFields();
+    if(!preserveLocalChoice)persistGeminiChoice();
     const s=settings();save(s);
     $('saveState').textContent='設定をインポートしました。APIキーとOBSパスワードは変更していません。';
     log('設定をインポートしました。友達設定・対象コンテンツ一覧・追加知識・登録フォント一覧も反映しました。');
@@ -674,10 +676,7 @@
     const credentials=secretsRecord?normalizeDriveSecrets(secretsRecord.value):null;
     const targets=[imported?'通常設定':'',credentials?'キー・パスワード':''].filter(Boolean).join('と');
     if(!automatic&&!confirm('Google Driveの'+targets+'で現在の内容を置き換えますか？\nFree Tier確認状態は復元しません。'))return false;
-    if(imported)applyImportedBundle(imported);
-    if(automatic&&rememberedGeminiChoice()){
-      $('geminiProvider').value=rememberedGeminiChoice();updateGeminiProviderFields();
-    }
+    if(imported)applyImportedBundle(imported,{preserveLocalChoice:automatic});
     if(credentials)applyDriveSecrets(credentials);
     $('driveState').textContent=automatic
       ?'Google Driveへの接続後、'+targets+'を自動復元しました。Geminiを使う前にFree Tier確認を行ってください。'
@@ -1606,7 +1605,10 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     let apiKey;
     try{apiKey=C.normalizeKey($('apiKey').value);}catch{return;}
     try{await LiveLocalGeminiKey.save(apiKey);
-      if(revision!==geminiKeyRevision&& !$('rememberGeminiKey').checked)LiveLocalGeminiKey.clear();
+      if(revision!==geminiKeyRevision){
+        if(!$('rememberGeminiKey').checked)LiveLocalGeminiKey.clear();
+        else void saveRememberedGeminiKey(); // A later edit wins even if encryption completed out of order.
+      }
     }catch(error){$('saveState').textContent='APIキーの自動保存に失敗しました。合言葉での暗号化保存も利用できます。';}
   }
   async function restoreRememberedGeminiKey(){
