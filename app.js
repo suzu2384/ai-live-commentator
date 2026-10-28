@@ -524,7 +524,7 @@
   function driveFileLabel(file){return file?.modifiedTime?new Date(file.modifiedTime).toLocaleString('ja-JP'):'なし';}
   function driveControls(){
     const allowed=driveOriginAllowed(),valid=LiveGoogleAuth.valid(googleAuth.clientId),connected=!!googleAuth.token('drive')&&!!driveClient?.accessToken,locked=busy||vaultBusy||driveBusy||googleAuth.pending,ready=allowed&&valid&&googleReady&&!locked;
-    $('driveConnect').disabled=!ready||(googleAuth.isLinked('drive')&&!!googleAuth.token('drive'));
+    $('driveConnect').disabled=!ready;
     $('driveConnect').textContent=googleAuth.isLinked('drive')?'Google Driveに再接続':'Google Driveに接続';
     for(const id of ['driveSave','driveRestore','driveDelete'])$(id).disabled=locked||!connected;
     $('driveDisconnect').disabled=locked||!googleAuth.isLinked('drive');
@@ -542,7 +542,7 @@
     const channel=googleAuth.channel?.title||'';
     $('youtubeAuthState').textContent=googleAuth.token('youtube')?'接続済み: '+channel:googleAuth.isLinked('youtube')?'再認証が必要です'+(channel?'（'+channel+'）':''):'OAuth未接続。従来のAPIキー方式も利用できます。';
     const connections=googleAuth.services().map(s=>s==='youtube'?'YouTube: '+(channel||'チャンネル'):'Google Drive').join(' / ');
-    $('googleAccountState').textContent=googleError||(!valid?'Google認証が未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':connections?'連携中: '+connections:'YouTubeとDriveは個別に接続できます。');
+    $('googleAccountState').textContent=googleError||(!valid?'Google認証が未設定です。':!driveOriginAllowed()?'Google認証はGitHub Pagesまたはlocalhostで利用できます。':!googleReady?'Google認証を読み込み中です。':googleAuth.isLinked('drive')&&!googleAuth.token('drive')?'Driveの再認証が必要です。個人のGoogleアカウントを選んでください。':googleAuth.isLinked('youtube')&&!googleAuth.token('youtube')?'YouTubeの再認証が必要です。':connections?'連携中: '+connections:'YouTubeとDriveは個別に接続できます。');
     updateSettingSummaries();
   }
   function youtubeCredential(){
@@ -606,46 +606,15 @@
   }
   function reauthenticateGoogle(){
     const linked=googleAuth.services();
-    if(!linked.includes('youtube')||!linked.includes('drive')){
-      authorizeGoogle(linked,{force:true});return;
+    if(!linked.length)return;
+    // Never start Drive OAuth immediately after selecting a YouTube Brand Channel.
+    if(linked.includes('drive')&&!googleAuth.token('drive')){
+      authorizeGoogle(['drive'],{force:true});return;
     }
-    if(busy||vaultBusy||driveBusy)return;
-    driveBusy=true;googleError='';setBusy(false);
-    let task;
-    try{
-      // The only interactive OAuth popup starts synchronously from this click.
-      // Brand Channel selection must not include Drive in its scope request.
-      task=googleAuth.authorize(['youtube'],{force:true});
-    }catch(error){
-      driveBusy=false;googleError=error.message;googleControls();return;
+    if(linked.includes('youtube')){
+      authorizeGoogle(['youtube'],{force:true});return;
     }
-    googleControls();
-    void task.then(async()=>{
-      log('YouTubeの再認証が完了しました。');
-      // Renew the independent Drive scope without another app button.
-      // GIS may refuse a non-interactive grant; never claim success then.
-      try{
-        await googleAuth.authorize(['drive'],{force:true,silent:true});
-        const client=await configureDrive();client.accessToken=googleAuth.token('drive');
-        try{
-          await restoreDriveData({automatic:true});
-          await refreshDriveStatus();
-        }catch(error){
-          $('driveState').textContent='Driveの認証は成功しましたが、自動復元に失敗しました: '+(error.message||'詳細不明');
-          log($('driveState').textContent,'warn');
-        }
-        log('YouTubeとGoogle Driveの認証を更新しました。');
-      }catch(error){
-        const hasDrive=!!googleAuth.token('drive');
-        googleError=hasDrive
-          ?'YouTubeを再認証しました。Driveは既存の認証で接続中です。'
-          :'YouTubeを再認証しました。DriveはGoogle側の追加認証が必要です。「Google Driveに再接続」から接続してください。';
-        log(googleError+' '+(error?.message||''),'warn');
-      }
-    }).catch(error=>{
-      googleError='YouTubeの再認証に失敗しました: '+(error?.message||'詳細不明');
-      log(googleError,'warn');
-    }).finally(()=>{driveBusy=false;setBusy(false);googleControls();});
+    authorizeGoogle(['drive'],{force:true});
   }
   async function configureDrive(){
     if(!globalThis.LiveDriveSync)throw new C.AppError('Google Drive連携モジュールを読み込めませんでした。');

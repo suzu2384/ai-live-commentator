@@ -2,26 +2,26 @@
    Remember only the preferred Google login account per service. */
 (function(root){
  'use strict';
- const SCOPES={drive:'https://www.googleapis.com/auth/drive.appdata',youtube:'https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/userinfo.email'};
+ const SCOPES={drive:'https://www.googleapis.com/auth/drive.appdata',youtube:'https://www.googleapis.com/auth/youtube.readonly'};
  const LINKED='minkome-google-linked-v1',CHANNEL='minkome-youtube-channel-v1';
  const LEGACY_EMAIL='minkome-google-account-v1';
  const ACCOUNT_HINTS='minkome-google-account-hints-v1';
  const EMAIL=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
- const validEmail=v=>typeof v==='string'&&v.length<=254&&EMAIL.test(v)?v:'';
+ const validEmail=v=>typeof v==='string'&&v.length<=254&&EMAIL.test(v)&&!/@pages\.plusgoogle\.com$/i.test(v)?v:'';
  function storedHints(clientId){
   try{
    const saved=JSON.parse(root.localStorage?.getItem(ACCOUNT_HINTS)||'null');
    if(saved?.clientId!==clientId||!saved.hints||typeof saved.hints!=='object')return {};
-   return Object.fromEntries(Object.entries(saved.hints).filter(([s,e])=>SCOPES[s]&&validEmail(e)));
+   return Object.fromEntries(Object.entries(saved.hints).filter(([s,e])=>s==='drive'&&validEmail(e)));
   }catch{return {};}
  }
  function preferredAccount(clientId,service){
   const hints=storedHints(clientId);
-  return hints[service]||'';
+  return service==='drive'?hints.drive||'':'';
  }
  function rememberAccount(clientId,service,email){
   email=validEmail(email);
-  if(!clientId||!SCOPES[service]||!email)return false;
+  if(!clientId||service!=='drive'||!email)return false;
   try{
    root.localStorage?.setItem(ACCOUNT_HINTS,JSON.stringify({clientId,hints:{...storedHints(clientId),[service]:email}}));
    return true;
@@ -35,15 +35,15 @@
    else root.localStorage?.removeItem(ACCOUNT_HINTS);
   }catch{}
  }
- async function accountForToken(service,token){
-  const url=service==='drive'?'https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)':'https://www.googleapis.com/oauth2/v3/userinfo';
+ async function accountForToken(token){
+  const url='https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)';
   try{
    const opts={headers:{Authorization:'Bearer '+token},credentials:'omit',cache:'no-store'};
    if(typeof root.AbortSignal?.timeout==='function')opts.signal=root.AbortSignal.timeout(8000);
    const r=await root.fetch(url,opts);
    if(!r.ok)return '';
    const data=await r.json();
-   return validEmail(service==='drive'?data?.user?.emailAddress:data?.email);
+   return validEmail(data?.user?.emailAddress);
   }catch{return '';}
  }
  const SESSION='minkome-google-session-v1',PERSIST='minkome-google-persistent-token-v1',KEEP='minkome-google-keep-connected-v1';
@@ -59,6 +59,15 @@
      this.channel={id:channel.id,title:String(channel.title||channel.id).slice(0,100)};
     }
    }catch{this.linked={drive:false,youtube:false};this.channel=null;}
+   // Erase previously cached Brand Channel login hints.
+   try{
+    const saved=JSON.parse(root.localStorage?.getItem(ACCOUNT_HINTS)||'null');
+    if(saved?.clientId===this.clientId){
+     const drive=storedHints(this.clientId).drive;
+     if(drive)root.localStorage?.setItem(ACCOUNT_HINTS,JSON.stringify({clientId:this.clientId,hints:{drive}}));
+     else root.localStorage?.removeItem(ACCOUNT_HINTS);
+    }
+   }catch{}
    this.restoreTokens();
   }
   get keepConnected(){try{return root.localStorage?.getItem(KEEP)==='1';}catch{return false;}}
@@ -114,7 +123,7 @@
    if(!this.services().length)this.setKeepConnected(false);
    this.save();this.saveTokens();
   }
-  async authorize(names,{force=false,silent=false}={}){
+  async authorize(names,{force=false}={}){
    const selected=[...new Set(names)];
    if(!selected.length||selected.some(s=>!SCOPES[s]))throw Error('認証対象がありません。');
    if(!valid(this.clientId))throw Error('GitHubのGOOGLE_OAUTH_CLIENT_IDを設定してください。');
@@ -129,20 +138,20 @@
    try{
     // Brand Channel and Drive must be authorized independently.
     // A valid connection is reused unless explicitly forced.
-    for(const service of needed){await this.authorizeService(service,{silent});completed.push(service);}
+    for(const service of needed){await this.authorizeService(service);completed.push(service);}
     return completed;
    }catch(error){
     if(completed.length)error.message+='（'+completed.map(s=>s==='youtube'?'YouTube':'Drive').join('・')+'への接続は完了しています。）';
     throw error;
    }finally{this.pending=false;}
   }
-  authorizeService(service,{silent=false}={}){
+  authorizeService(service){
    const oauth=root.google?.accounts?.oauth2;
    if(!oauth?.initTokenClient)throw Error('Google認証ライブラリを読み込めませんでした。');
    return new Promise((resolve,reject)=>{
-    let settled=false,timeout=null;
-    const fail=e=>{if(settled)return;settled=true;if(timeout!==null)clearTimeout(timeout);reject(e);};
-    const succeed=()=>{if(settled)return;settled=true;if(timeout!==null)clearTimeout(timeout);resolve(service);};
+    let settled=false;
+    const fail=e=>{if(settled)return;settled=true;reject(e);};
+    const succeed=()=>{if(settled)return;settled=true;resolve(service);};
     try{
      const preferred=preferredAccount(this.clientId,service);
     const client=oauth.initTokenClient({
@@ -167,20 +176,20 @@
          if(this.channel?.id&&this.channel.id!==channel.id)throw Error('前回とは異なるYouTubeチャンネルです。'+this.channel.title+'を選ぶか、YouTube連携を解除して切り替えてください。');
          this.channel={id:channel.id,title:String(channel.snippet?.title||channel.id).slice(0,100)};
         }
+        if(service==='drive'){
+         // Require a real Drive login before saving the token.
+         const email=await accountForToken(response.access_token);
+         if(!email)throw Error('Google Driveのアカウントを確認できませんでした。ブランドチャンネルではなく通常のGoogleアカウントを選択してください。');
+         rememberAccount(this.clientId,service,email);
+        }
         this.linked[service]=true;this.tokens[service]={value:response.access_token,expires};
-        this.save();this.saveTokens();
-        // Email is a best-effort account hint; channel verification above stays authoritative.
-        const email=await accountForToken(service,response.access_token);
-        if(email)rememberAccount(this.clientId,service,email);
-        succeed();
+        this.save();this.saveTokens();succeed();
        }catch(e){fail(e);}
       },
       error_callback:error=>fail(Error(error?.type==='popup_closed'?'Google認証画面を閉じました。':'Googleの認証画面を開けませんでした。ポップアップを許可し、再度接続してください。'))
      });
-     // Silent reauthorization is best-effort. GIS may still require a popup
-     // and browser permission; if blocked the caller retains previous tokens.
-     if(silent)timeout=setTimeout(()=>fail(Error('Google Driveの自動認証は完了しませんでした。')),12000);
-     client.requestAccessToken({prompt:silent?'none':service==='youtube'&&!preferred?'select_account':''});
+     // Select Brand Channel explicitly; a Brand Channel email is not a login hint.
+     client.requestAccessToken({prompt:service==='youtube'||!preferred?'select_account':''});
     }catch(e){fail(e);}
    });
   }
