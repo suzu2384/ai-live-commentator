@@ -33,12 +33,21 @@
   // Display only the SDK error code, never the raw server response:
   // responses can contain project configuration or request identifiers.
   if(/^appCheck\/[a-z0-9-]+$/i.test(code)){
+   // Firebase includes the HTTP status in fetch-status-error messages. Use
+   // only the status and SDK error code; never display response text or keys.
+   const statusFromMessage=message.match(/\bHTTP\s*(?:error\s*)?(?:status\s*)?[:=]?\s*([1-5]\d{2})\b/i);
+   const reported=Number(statusFromMessage?.[1]??error?.customData?.httpStatus??error?.customData?.status??error?.httpStatus??error?.status);
+   const status=Number.isInteger(reported)&&reported>=100&&reported<=599?reported:0;
+   if(status>=500)
+    return new root.LiveCore.AppError('App Checkのトークン取得で一時的なサーバーエラーが発生しました（HTTP '+status+'）。自動再試行します。',String(status));
+   if(status===429||code==='appCheck/throttled'||code==='appCheck/initial-throttle')
+    return new root.LiveCore.AppError('App Checkのリクエストが一時制限されています（appCheck/throttled）。自動再試行します。','429');
+   if(status===400||status===401||status===403)
+    return new root.LiveCore.AppError('App Checkのトークン取得が拒否されました（HTTP '+status+'）。FirebaseのApp Check設定を確認してください。','AUTH');
+   if(code==='appCheck/fetch-status-error')
+    return new root.LiveCore.AppError('App Checkのトークン交換に失敗しました（appCheck/fetch-status-error）。一時的な通信障害として再試行します。','NETWORK');
    if(code==='appCheck/recaptcha-error')
     return new root.LiveCore.AppError('reCAPTCHA認証でエラーが発生しました（appCheck/recaptcha-error）。ChromeのNetworkで recaptcha/enterprise の失敗を確認してください。サイトキー・ドメイン・ブラウザによるブロックを確認できます。','AUTH');
-   if(code==='appCheck/throttled')
-    return new root.LiveCore.AppError('App Checkのリクエストが一時制限されています（appCheck/throttled）。直前の認証エラーを解決してから、Google側の再試行制限解除を待つ必要があります。','AUTH');
-   if(code==='appCheck/fetch-status-error')
-    return new root.LiveCore.AppError('FirebaseへのApp Checkトークン交換に失敗しました（appCheck/fetch-status-error）。Networkの exchangeRecaptchaEnterpriseToken のHTTPステータスを確認してください。','AUTH');
    return new root.LiveCore.AppError('App Checkのトークン取得で失敗しました（'+code+'）。ChromeのConsoleとNetworkで元のエラーを確認してください。','AUTH');
   }
   if(/429|resource.exhausted|quota|rate.limit|too.many.requests/i.test(reason))
@@ -69,14 +78,13 @@
      provider:new check.ReCaptchaEnterpriseProvider(config.appCheckSiteKey),
      isTokenAutoRefreshEnabled:true
     });
-    // Firebase AI Logic obtains the token for each generateContent request.
-    // Do not prefetch a regular session token: replay monitoring requires
-    // limited-use tokens, and a redundant session-token failure can prevent
-    // the correct limited-use path from being attempted.
-    // Replay monitoring can require limited-use App Check tokens for AI calls.
+    // Replay protection is disabled in Firebase; reuse the SDK-cached
+    // session App Check token instead of minting a limited-use token for
+    // every AI request. Keep baseline App Check enforcement enabled.
+    // Do not manually prefetch tokens; let Firebase AI Logic handle them.
     return {service:ai.getAI(firebase,{
       backend:new ai.GoogleAIBackend(),
-      useLimitedUseAppCheckTokens:true
+      useLimitedUseAppCheckTokens:false
     }),ai};
    })().catch(error=>{initialized=null;throw error;});
    return initialized;
