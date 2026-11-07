@@ -10,10 +10,10 @@ function mock(){
   check:{
    ReCaptchaEnterpriseProvider:class{constructor(key){assert.equal(key,'site-key');}},
    initializeAppCheck:(_app,options)=>{assert.equal(options.isTokenAutoRefreshEnabled,true);return {};},
-   getToken:async()=>{info.attestations++;throw Error('Session token must not be requested by embedded AI');}
+   getToken:async()=>{info.attestations++;throw Error('Session token management belongs to Firebase AI Logic, not this adapter');}
   },
   ai:{GoogleAIBackend:class{},getAI:(_firebase,options)=>{
-    assert.equal(options.useLimitedUseAppCheckTokens,true,'Replay monitoring requires limited-use tokens');
+    assert.equal(options.useLimitedUseAppCheckTokens,false,'Replay protection is off; use cached session tokens');
     return {};
    },
    getGenerativeModel:(_service,options)=>{
@@ -99,5 +99,33 @@ test('App Check throttling explains rate limiting instead of claiming a domain m
  }});
  const client=Embedded.createClient(config,{sdkLoader:async()=>sdk});
  await assert.rejects(client.generate({contents:[{role:'user',parts:[{text:'hello'}]}]}),e=>
-  e.code==='AUTH'&&e.message.includes('appCheck/throttled')&&e.message.includes('一時制限'));
+  e.code==='429'&&!C.needsSettings(e)&&e.message.includes('appCheck/throttled')&&e.message.includes('一時制限'));
+});
+
+test('App Check 5xx token-exchange failures recover instead of pausing for settings',async()=>{
+ for(const status of [500,502,503,504]){
+  const {sdk}=mock();
+  sdk.ai.getGenerativeModel=()=>({generateContent:async()=>{
+   const failure=new Error('AppCheck: Fetch server returned an HTTP error status. HTTP status: '+status+'. sitekey=not-for-display');
+   failure.code='appCheck/fetch-status-error';throw failure;
+  }});
+  const client=Embedded.createClient(config,{sdkLoader:async()=>sdk});
+  await assert.rejects(client.generate({contents:[]}),e=>
+   e.code===String(status)&&!C.needsSettings(e)&&C.recoveryDelay(e)===5000&&
+   e.message.includes('App Check')&&!e.message.includes('not-for-display'));
+ }
+});
+test('App Check HTTP 403 remains a settings error while unavailable exchange is retried',async()=>{
+ for(const [errorMessage,expected]of[
+  ['AppCheck: HTTP status: 403.','AUTH'],
+  ['AppCheck: Fetch server error without status.','NETWORK']
+ ]){
+  const {sdk}=mock();
+  sdk.ai.getGenerativeModel=()=>({generateContent:async()=>{
+   const e=new Error(errorMessage);e.code='appCheck/fetch-status-error';throw e;
+  }});
+  const client=Embedded.createClient(config,{sdkLoader:async()=>sdk});
+  await assert.rejects(client.generate({contents:[]}),e=>
+   e.code===expected&&C.needsSettings(e)===(expected==='AUTH'));
+ }
 });
