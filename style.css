@@ -1053,3 +1053,36 @@ main>.toolbar .actions button.primary{padding:6px 15px}
  #chapterCandidates>li>small{grid-column:1;grid-row:3}
  #chapterCandidates>li>.actions>button{padding:4px 5px;font-size:10px}
 }
+
+/* v4.54.18 design foundation: shared tokens for type, spacing, radius and control metrics.
+   New and refactored components must use these tokens instead of literal values. */
+:root{
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;
+  --radius-s:8px;--radius-m:12px;--radius-l:16px;
+  --fs-caption:11px;--fs-label:12px;--fs-body:14px;--fs-section:16px;--fs-title:20px;
+  --control-height:40px;
+}
+body{font-size:var(--fs-body)}
+.card-head h2{font-size:var(--fs-section)}
+.panel-scroll h2{font-size:var(--fs-section)}
+label{font-size:var(--fs-label)}
+.hint{font-size:var(--fs-label)}
+.badge{font-size:var(--fs-caption)}
+.badge.small{font-size:var(--fs-caption)}
+footer{font-size:var(--fs-caption)}
+button{border-radius:var(--radius-s);min-height:36px}
+button.subtle{min-height:0}
+button.primary{min-height:var(--control-height)}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select,textarea{min-height:var(--control-height);border-radius:var(--radius-s)}
+.theme-picker select{min-height:0}
+.card{border-radius:var(--radius-m)}
+dialog{border-radius:var(--radius-m)}
+details.setting-section{border-radius:var(--radius-m);background:var(--surface-section)}
+.setting-summary{padding:var(--space-3)}
+#profiles .friend{border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--space-3) var(--space-4)}
+#profiles .friend-voice-grid{gap:var(--space-3)}
+.panel-scroll{padding:var(--space-4)}
+.workspace{gap:var(--space-5)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main>.toolbar .actions button{min-height:36px}
+main>.toolbar .actions button.primary{min-height:36px}

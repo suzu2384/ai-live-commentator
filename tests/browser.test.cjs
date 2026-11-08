@@ -947,6 +947,28 @@ const results=[];
   assert.equal(saved.profiles[0].speaker,42);assert.equal(saved.profiles[0].speedScale,1.25);
   await x.close();
  });
+ await test('design foundation tokens unify type, spacing and control metrics',async()=>{
+  const x=await setup();const p=x.page;
+  await p.locator('#tab-friends').click();
+  const metrics=await p.evaluate(()=>{
+   const cs=s=>getComputedStyle(document.querySelector(s));
+   const friend=document.querySelector('#profiles .friend');
+   const friendStyle=getComputedStyle(friend);
+   return {token:getComputedStyle(document.documentElement).getPropertyValue('--fs-section').trim(),
+    hint:cs('.panel-scroll .hint').fontSize,friendBorder:friendStyle.borderTopStyle,friendRadius:friendStyle.borderTopLeftRadius,
+    nameHeight:document.querySelector('#p1-name').getBoundingClientRect().height,
+    startHeight:document.querySelector('#start').getBoundingClientRect().height,
+    primaryMin:cs('#start').minHeight,buttonMin:cs('#manageContents').minHeight,
+    sectionBg:cs('details.setting-section').backgroundColor,surface:getComputedStyle(document.documentElement).getPropertyValue('--surface-section').trim()};
+  });
+  assert.equal(metrics.token,'16px');assert.equal(metrics.hint,'12px');
+  assert.equal(metrics.friendBorder,'solid');assert.equal(metrics.friendRadius,'12px');
+  assert.ok(metrics.nameHeight>=40,'text inputs use the shared 40px control height');
+  assert.equal(metrics.primaryMin,'36px');assert.equal(metrics.buttonMin,'36px');
+  assert.ok(metrics.startHeight>=36);
+  assert.equal(metrics.sectionBg,'rgb(21, 29, 33)');assert.equal(metrics.surface,'#151d21');
+  await x.close();
+ });
  await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await setOutput(x.page,'voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await openConnect(x.page);await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
  await test('Bouyomi prefers speechText even when it still contains kanji and shows both texts in the UI',async()=>{
   const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'この性は変わらないね？',speechText:'この性質は変わらないね？'}]})}]}}]};
