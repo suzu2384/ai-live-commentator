@@ -984,6 +984,25 @@ const results=[];
   assert.ok(Math.abs(stuck2.headTop-stuck2.psTop)<=24,'a section heading sticks to the panel top');
   await x.close();
  });
+ await test('comment overlay hangs below the video frame on narrow screens without covering the placeholder',async()=>{
+  const x=await setup();const p=x.page;
+  await p.setViewportSize({width:390,height:844});
+  const narrow=await p.evaluate(()=>{
+   const q=s=>document.querySelector(s).getBoundingClientRect();
+   const ph=q('#placeholder'),note=q('#placeholder small'),ov=q('.preview-comment-overlay'),pv=q('.preview');
+   return {noteBottom:note.bottom,overlayTop:ov.top,previewBottom:pv.bottom,overlayBottom:ov.bottom};
+  });
+  assert.ok(narrow.overlayTop>=narrow.previewBottom+4,'overlay starts below the frame');
+  assert.ok(narrow.noteBottom<=narrow.overlayTop,'placeholder note is not covered');
+  await p.setViewportSize({width:1440,height:900});
+  const wide=await p.evaluate(()=>{
+   const q=s=>document.querySelector(s).getBoundingClientRect();
+   const ov=q('.preview-comment-overlay'),pv=q('.preview');
+   return {overlayBottom:ov.bottom,previewBottom:pv.bottom,overlayTop:ov.top,previewTop:pv.top};
+  });
+  assert.ok(wide.overlayBottom<=wide.previewBottom+1&&wide.overlayTop>=wide.previewTop,'desktop keeps the overlay inside the frame');
+  await x.close();
+ });
  await test('preview placeholder offers the video check action in place',async()=>{
   const x=await setup();const p=x.page;
   assert.equal(await p.locator('#placeholderCapture').isVisible(),true);

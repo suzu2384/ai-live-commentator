@@ -1110,3 +1110,12 @@ details.advanced-settings{border:0!important;border-bottom:1px solid var(--line)
 }
 #panel-connect .panel-intro{padding-top:var(--space-4)}
 .panel-scroll{mask-image:linear-gradient(to bottom,#000 calc(100% - 18px),transparent);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 18px),transparent)}
+
+/* v4.54.21: on stacked layouts the comment card hangs below the video frame
+   instead of covering the placeholder and the lower part of the video. */
+@media(max-width:900px){
+ .preview-sticky .preview{overflow:visible}
+ .preview img{border-radius:10px}
+ .preview .preview-comment-overlay{top:calc(100% + 8px);bottom:auto;max-height:132px}
+ .preview-card .preview-sticky{margin-bottom:156px}
+}
