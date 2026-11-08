@@ -14,16 +14,16 @@ try{
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="みんコメAI">
-<link rel="icon" href="assets/favicon.ico?v=4.54.25" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.54.25">
-<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.54.25">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.54.25">
-<link rel="manifest" href="manifest.webmanifest?v=4.54.25">
-<link rel="stylesheet" href="style.css?v=4.54.25">
-<script src="core.js?v=4.54.25" defer></script><script src="ai-config.js?v=4.54.25&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.54.25" defer></script><script src="vault.js?v=4.54.25" defer></script><script src="local-gemini-key.js?v=4.54.25" defer></script><script src="google-config.js?v=4.54.25&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.54.25" defer></script><script src="google-auth.js?v=4.54.25" defer></script><script src="youtube.js?v=4.54.25" defer></script><script src="youtube-ui.js?v=4.54.25" defer></script><script src="chapters.js?v=4.54.25" defer></script><script src="thumbnail.js?v=4.54.25" defer></script><script src="chapter-editor.js?v=4.54.25" defer></script><script src="chapter-editor-ui.js?v=4.54.25" defer></script><script src="chapters-ui.js?v=4.54.25" defer></script><script src="app.js?v=4.54.25" defer></script>
+<link rel="icon" href="assets/favicon.ico?v=4.54.26" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=4.54.26">
+<link rel="icon" type="image/svg+xml" sizes="any" href="assets/icon.svg?v=4.54.26">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png?v=4.54.26">
+<link rel="manifest" href="manifest.webmanifest?v=4.54.26">
+<link rel="stylesheet" href="style.css?v=4.54.26">
+<script src="core.js?v=4.54.26" defer></script><script src="ai-config.js?v=4.54.26&amp;id=e6f9bf64b336" defer></script><script src="embedded-ai.js?v=4.54.26" defer></script><script src="vault.js?v=4.54.26" defer></script><script src="local-gemini-key.js?v=4.54.26" defer></script><script src="google-config.js?v=4.54.26&amp;id=eda720c573a2" defer></script><script src="drive-sync.js?v=4.54.26" defer></script><script src="google-auth.js?v=4.54.26" defer></script><script src="youtube.js?v=4.54.26" defer></script><script src="youtube-ui.js?v=4.54.26" defer></script><script src="chapters.js?v=4.54.26" defer></script><script src="thumbnail.js?v=4.54.26" defer></script><script src="chapter-editor.js?v=4.54.26" defer></script><script src="chapter-editor-ui.js?v=4.54.26" defer></script><script src="chapters-ui.js?v=4.54.26" defer></script><script src="app.js?v=4.54.26" defer></script>
 </head>
 <body>
-<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.54.25" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><span class="badge">BROWSER · v4.54.25</span></div></header>
+<header><div class="brand"><div class="brand-copy"><h1 class="brand-heading"><img class="brand-logo" src="assets/header-logo.svg?v=4.54.26" alt="みんコメAI"></h1><p>映像を見ながら、AIのみんながひとこと。</p></div></div><div class="header-tools"><span class="badge">BROWSER · v4.54.26</span></div></header>
 <main>
 <section class="toolbar" aria-label="実行操作"><div class="actions"><button id="start" class="primary">▶ 実況を開始</button><button id="resume" hidden>設定を適用して再開</button><button id="finish" disabled>✓ 実況を終了</button><button id="stop" disabled>■ 即停止</button></div></section>
 <div class="workspace">
@@ -216,14 +216,6 @@ try{
 <p id="chapterEditStatus" class="hint" role="status"></p>
 <ol id="chapterCandidates" class="chapter-list" aria-label="チャプター候補"></ol>
 <p id="chapterCandidateEmpty" class="hint">生成されたチャプター候補がここに表示されます。</p>
-<section class="chapter-export chapter-summary" aria-labelledby="chapterSummaryTitle">
-<h3 id="chapterSummaryTitle">配信のまとめ</h3>
-<p class="hint">YouTubeと同期した配信で作成できます。チャプターとイベント記録から、概要とハイライトを動画の開始時刻基準で文章化します。</p>
-<label for="summaryOutput">まとめテキスト</label>
-<textarea id="summaryOutput" rows="9" spellcheck="false" placeholder="配信を選んで「まとめを作成」を押すと、ここに表示されます。"></textarea>
-<div class="actions wrap"><button id="summaryGenerate" type="button" class="primary" disabled>まとめを作成</button><button id="summaryCopy" type="button" disabled>テキストをコピー</button></div>
-<p id="summaryStatus" class="hint" role="status" aria-live="polite"></p>
-</section>
 </section>
 
 <section id="chapterSectionYoutube" class="chapter-section" role="tabpanel" aria-labelledby="chapterSubtabYoutube" data-chapter-section="youtube" hidden>
@@ -238,6 +230,16 @@ try{
 <label for="chapterOutput">説明欄に貼り付ける内容</label><textarea id="chapterOutput" rows="7" readonly spellcheck="false" placeholder="YouTubeと同期すると、ここに表示されます。"></textarea>
 <div class="actions wrap"><button id="chapterCopy" type="button" class="primary" disabled>テキストをコピー</button><button id="chapterSelectText" type="button" hidden disabled>テキストを選択</button></div>
 <p id="chapterCopyStatus" class="hint" role="status" aria-live="polite"></p>
+</section>
+<section class="chapter-export chapter-description" aria-labelledby="descriptionTitle">
+<h3 id="descriptionTitle">概要欄を編集</h3>
+<p class="hint">同期済み動画の現在の概要欄を読み込みます。既存の文章・VOICEVOXの権利表記を残したまま編集し、保存操作でYouTubeへ反映します。</p>
+<p id="descriptionVideo" class="hint">YouTube動画を選択してください。</p>
+<div class="actions wrap"><button id="descriptionLoad" type="button" disabled>概要欄を取得・再取得</button><button id="descriptionInsertChapters" type="button" disabled>チャプターを挿入・更新</button></div>
+<label for="descriptionText">動画の概要欄</label><textarea id="descriptionText" rows="11" spellcheck="false" disabled placeholder="YouTubeから取得した概要欄がここに表示されます。"></textarea>
+<p id="descriptionLength" class="hint">0 / 5000 バイト</p>
+<div class="actions wrap"><button id="descriptionSave" class="primary" type="button" disabled>YouTubeに反映</button><button id="descriptionCopy" type="button" disabled>テキストをコピー</button></div>
+<p id="descriptionStatus" class="hint" role="status" aria-live="polite"></p>
 </section>
 </section>
 
@@ -334,7 +336,7 @@ try{
 <h3>Googleアカウントと再接続</h3>
 <p>YouTubeは配信するブランドチャンネル、Driveは通常のGoogleアカウントで認証します。Driveが期限切れなら先にDriveを再認証し、Driveが有効ならYouTubeだけを更新します。両方が期限切れなら個別に認証が必要です。Driveのアカウント変更は「Google Driveに再接続」から行えます。</p>
 <h3>YouTube接続とチャプター同期</h3>
-<p>「設定 → YouTube」でGoogleに接続すると、選んだブランドチャンネルの終了済み配信を取得できます。OAuth接続では入力済みのチャンネルIDを使わず、認証したチャンネルを参照します。候補がない場合は「さらに表示」か動画URLの直接指定を試してください。APIキー方式ではチャンネルIDの設定が必要です。「配信 → YouTube」で選んだ動画のチャプターをコピーできます。YouTubeへの自動書き込みは行いません。別のブランドチャンネルへ切り替えるときは接続解除後に選び直してください。</p>
+<p>「設定 → YouTube」でGoogleに接続すると、選んだブランドチャンネルの終了済み配信を取得できます。OAuth接続では入力済みのチャンネルIDを使わず、認証したチャンネルを参照します。候補がない場合は「さらに表示」か動画URLの直接指定を試してください。APIキー方式ではチャンネルIDの設定が必要です。「配信 → YouTube」でチャプターをコピーでき、Google認証があれば動画の概要欄を取得・編集・反映できます。編集済みチャプターは概要欄の専用区間へ挿入・更新でき、VOICEVOXの権利表記など既存の文章は保持します。YouTubeの編集権限が追加されたため、最初にYouTubeを再認証してください。APIキーのみの場合は読み込み・コピーはできますが概要欄への書き込みはできません。別のブランドチャンネルへ切り替えるときは接続解除後に選び直してください。</p>
 <h3>OBSの映像が出ない</h3>
 <p>OBSの「ツール → WebSocketサーバー設定」を有効にして、URL・パスワード・映像ソース名を確認してください。ゲーム画面のウィンドウが切り替わって映像が更新されない場合は、映像右上の「映像ソースを再取得」を試してください。</p>
 <h3>OBSのコメント表示</h3>

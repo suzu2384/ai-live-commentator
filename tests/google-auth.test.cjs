@@ -140,3 +140,7 @@ test('persistent scoped tokens restore, legacy YouTube remains unverified',async
  assert.equal(restored.token('youtube'),'');
  assert.equal(restored.token('drive'),'old-drive');
 });
+
+test('description editing requires the write-capable YouTube OAuth scope',()=>{
+ assert.equal(SCOPES.youtube,'https://www.googleapis.com/auth/youtube.force-ssl');
+});

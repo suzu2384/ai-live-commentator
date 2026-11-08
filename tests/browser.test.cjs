@@ -84,7 +84,19 @@ const results=[];
      }
      if(u.pathname.endsWith('/channels'))return r.fulfill({contentType:'application/json',body:JSON.stringify({items:[{id:'UC'+'a'.repeat(22),contentDetails:{relatedPlaylists:{uploads:'UU'+'a'.repeat(22)}}}]})});
      if(u.pathname.endsWith('/playlistItems'))return r.fulfill({contentType:'application/json',body:JSON.stringify({items:videos.map(v=>({contentDetails:{videoId:v.id}}))})});
-     if(u.pathname.endsWith('/videos'))return r.fulfill({contentType:'application/json',body:JSON.stringify({items:videos.filter(v=>u.searchParams.get('id')?.split(',').includes(v.id))})});
+     if(u.pathname.endsWith('/videos')){
+      if(r.request().method()==='PUT'){
+       const payload=JSON.parse(r.request().postData()||'{}');
+       assert.equal(u.searchParams.get('part'),'snippet');
+       assert.ok(!payload.status);
+       const target=videos.find(v=>v.id===payload.id);
+       if(!target)return r.fulfill({status:404,body:'{}'});
+       target.snippet={...target.snippet,...payload.snippet};
+       events.descriptionUpdates=(events.descriptionUpdates||[]);events.descriptionUpdates.push(payload);
+       return r.fulfill({contentType:'application/json',body:JSON.stringify({id:target.id,snippet:target.snippet})});
+      }
+      return r.fulfill({contentType:'application/json',body:JSON.stringify({items:videos.filter(v=>u.searchParams.get('id')?.split(',').includes(v.id))})});
+     }
      return r.abort();
     }
     assert.equal(r.request().headers()['x-goog-api-key'],'youtube-test-key');
@@ -97,11 +109,6 @@ const results=[];
    if(!r.request().url().startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent')){events.unexpected.push(r.request().url());return r.abort();}
    events.api++;assert.equal(r.request().headers()['x-goog-api-key'],'fake.test-key');
    const requestBody=JSON.parse(r.request().postData()||'{}');
-   if(requestBody.generationConfig?.responseSchema?.properties?.overview){
-    if(config.summaryStatus)return r.fulfill({status:config.summaryStatus,contentType:'application/json',body:'{}'});
-    const items=JSON.parse(requestBody.contents[0].parts[0].text).items;
-    return r.fulfill({contentType:'application/json',body:JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({overview:'探索からボス戦まで進んだ配信でした。',highlightIds:[items[0].id]})}]}}]})});
-   }
    if(requestBody.generationConfig?.responseSchema?.properties?.chapters){
     if(config.holdChapter){held=r;return;}
     if(config.chapterStatus)return r.fulfill({status:config.chapterStatus,contentType:'application/json',body:'{}'});
@@ -209,7 +216,7 @@ const results=[];
 
  async function chapterView(p,view='chapters'){await p.locator('#tab-chapters').click();const button=p.locator(`[data-chapter-view="${view}"]`);await button.click();await p.waitForFunction(v=>document.querySelector(`[data-chapter-section="${v}"]`)?.hidden===false,view);}
  const youtubeChannel='UC'+'a'.repeat(22);
- const youtubeVideo=(id,actualStartTime=null)=>({id,snippet:{title:'テスト配信 '+id,channelId:youtubeChannel,liveBroadcastContent:actualStartTime?'live':'upcoming'},liveStreamingDetails:{scheduledStartTime:'2026-10-04T23:00:00Z',...(actualStartTime?{actualStartTime}:{})}});
+ const youtubeVideo=(id,actualStartTime=null)=>({id,snippet:{title:'テスト配信 '+id,channelId:youtubeChannel,categoryId:'20',description:'配信メモ\nVOICEVOX: ずんだもん',tags:['game'],defaultLanguage:'ja',liveBroadcastContent:actualStartTime?'live':'upcoming'},liveStreamingDetails:{scheduledStartTime:'2026-10-04T23:00:00Z',...(actualStartTime?{actualStartTime}:{})}});
  async function youtubeSettings(p){await openConnect(p);await p.locator('#youtubeApiKey').fill('youtube-test-key');await p.locator('#youtubeChannelId').fill(youtubeChannel);}
  const chapterAnswer={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:false,summary:'移動',chapterEvents:[{kind:'scene',summary:'ボス部屋へ入った'}],turns:[{speakerId:'p1',text:'静かだね'}]})}]}}]};
  async function recorded(config={}){
@@ -218,8 +225,8 @@ const results=[];
  async function openSync(p){await chapterView(p,'youtube');await p.locator('#youtubeSync').click();await p.locator('#youtubeDialog').waitFor({state:'visible'});}
  async function lookup(p,value){await p.locator('#youtubeDirect').fill(value);await p.locator('#youtubeLookup').click();await p.waitForFunction(()=>!document.getElementById('youtubeLookup').disabled);}
  async function selectSync(p,index=0){await p.locator('#youtubeCandidates input').nth(index).check();await p.locator('#youtubeConfirm').click();await stopped(p);}
- async function editorFixture(){
-  const config={},x=await recorded(config),p=x.page,before=(await chapterRecords(p))[0],time=before.events[0].observedAtMs;
+ async function editorFixture(options={}){
+  const config={...options},x=await recorded(config),p=x.page,before=(await chapterRecords(p))[0],time=before.events[0].observedAtMs;
   config.youtubeVideos=[youtubeVideo('abcdefghijk',new Date(time-738000).toISOString())];
   config.youtubeVideos[0].liveStreamingDetails.actualEndTime=new Date(time-738000+7200000).toISOString();
   await openSync(p);await p.waitForFunction(()=>document.querySelectorAll('#youtubeCandidates input').length===1);await selectSync(p);
@@ -570,6 +577,7 @@ const results=[];
   assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');assert.equal(await p.locator('#youtubeApiKey').inputValue(),'youtube-test-key');assert.equal(await p.locator('#freeTier').isChecked(),false);
   await p.locator('#tab-live').click();assert.equal(await p.locator('#persona').inputValue(),'Drive保存前の雰囲気');assert.equal(await p.locator('#theme').inputValue(),'sage');
   await p.locator('#tab-connect').click();p.once('dialog',d=>d.accept());await p.locator('#driveDelete').click();await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('削除しました'));
+  await p.waitForFunction(()=>document.getElementById('driveSettingsState').textContent==='なし'&&document.getElementById('driveSecretsState').textContent==='なし');
   assert.equal(x.driveFiles.size,0);assert.equal(await p.locator('#driveSettingsState').textContent(),'なし');assert.equal(await p.locator('#driveSecretsState').textContent(),'なし');
   await p.locator('#driveDisconnect').click();await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('接続を切りました'));assert.equal(await p.locator('#summary-drive').textContent(),'未接続');
   await x.close();
@@ -989,48 +997,48 @@ const results=[];
   assert.ok(Math.abs(stuck2.headTop-stuck2.psTop)<=24,'a section heading sticks to the panel top');
   await x.close();
  });
- await test('stream summary generates an AI overview with highlights and persists',async()=>{
-  const x=await editorFixture(),p=x.page;
-  await chapterView(p,'chapters');
-  await p.locator('#summaryGenerate').click();
-  await p.waitForFunction(()=>document.getElementById('summaryOutput').value.includes('探索からボス戦まで進んだ配信でした'));
-  const text=await p.locator('#summaryOutput').inputValue();
-  assert.ok(text.includes('【配信のまとめ】'));assert.ok(text.includes('■ ハイライト'));assert.ok(text.includes('■ チャプター'));assert.ok(text.includes('新しいエリアを探索'));
-  assert.match(await p.locator('#summaryStatus').textContent(),/AIでまとめを作成/);
-  const saved=(await chapterRecords(p))[0];assert.equal(saved.streamSummary.aiUsed,true);assert.equal(saved.streamSummary.synced,true);assert.equal(saved.streamSummary.text,text);
-  await p.reload();await chapterView(p,'chapters');
-  await p.waitForFunction(()=>document.getElementById('summaryOutput').value.includes('探索からボス戦まで進んだ配信でした'));
+ await test('YouTube description editor loads existing text, updates managed chapters and saves',async()=>{
+  const x=await editorFixture({httpEntry:true}),p=x.page;
+  await openConnect(p);await p.locator('#youtubeConnect').click();
+  await p.waitForFunction(()=>document.getElementById('youtubeAuthState').textContent.includes('接続済み'));
+  await chapterView(p,'youtube');
+  assert.equal(await p.locator('#descriptionSave').isDisabled(),true);
+  await p.locator('#descriptionLoad').click();
+  await p.waitForFunction(()=>document.getElementById('descriptionText').value.includes('配信メモ'));
+  const before=await p.locator('#descriptionText').inputValue();
+  assert.match(before,/VOICEVOX: ずんだもん/);
+  await p.locator('#descriptionInsertChapters').click();
+  const draft=await p.locator('#descriptionText').inputValue();
+  assert.match(draft,/【チャプター】/);assert.match(draft,/00:00 配信開始/);
+  await p.locator('#descriptionInsertChapters').click();
+  assert.equal(await p.locator('#descriptionText').inputValue(),draft);
+  p.once('dialog',d=>d.accept());
+  await p.locator('#descriptionSave').click();
+  await p.waitForFunction(()=>document.getElementById('descriptionStatus').textContent.includes('反映しました'));
+  assert.equal(x.events.descriptionUpdates.length,1);
+  assert.equal(x.events.descriptionUpdates[0].snippet.title,'テスト配信 abcdefghijk');
+  assert.deepEqual(x.events.descriptionUpdates[0].snippet.tags,['game']);
+  assert.ok(x.config.youtubeVideos[0].snippet.description.includes('VOICEVOX: ずんだもん'));
+  await p.reload();await chapterView(p,'youtube');
+  await p.locator('#descriptionLoad').click();
+  await p.waitForFunction(()=>document.getElementById('descriptionText').value.includes('【チャプター】'));
   await x.close();
  });
- await test('stream summary falls back to the record when AI is unavailable',async()=>{
-  const x=await editorFixture(),p=x.page;
-  x.config.summaryStatus=500;
-  await chapterView(p,'chapters');
-  await p.locator('#summaryGenerate').click();
-  await p.waitForFunction(()=>document.getElementById('summaryOutput').value.includes('【配信のまとめ】'));
-  const text=await p.locator('#summaryOutput').inputValue();
-  assert.ok(text.includes('新しいエリアを探索'));assert.ok(!text.includes('探索からボス戦まで進んだ配信でした'));
-  assert.match(await p.locator('#summaryStatus').textContent(),/AIを使わず/);
-  const saved=(await chapterRecords(p))[0];assert.equal(saved.streamSummary.aiUsed,false);assert.equal(saved.streamSummary.synced,true);
+ await test('YouTube description editor refuses an external metadata change without erasing user edits',async()=>{
+  const x=await editorFixture({httpEntry:true}),p=x.page;
+  await openConnect(p);await p.locator('#youtubeConnect').click();
+  await p.waitForFunction(()=>document.getElementById('youtubeAuthState').textContent.includes('接続済み'));
+  await chapterView(p,'youtube');
+  await p.locator('#descriptionLoad').click();
+  await p.waitForFunction(()=>document.getElementById('descriptionText').value.includes('配信メモ'));
+  await p.locator('#descriptionText').fill('手元の編集');
+  x.config.youtubeVideos[0].snippet.description='YouTubeで別途変更';
+  p.once('dialog',d=>d.accept());
+  await p.locator('#descriptionSave').click();
+  await p.waitForFunction(()=>document.getElementById('descriptionStatus').textContent.includes('取得後に変更'));
+  assert.equal(await p.locator('#descriptionText').inputValue(),'手元の編集');
+  assert.equal(x.events.descriptionUpdates?.length||0,0);
   await x.close();
- });
- await test('stream summary requires YouTube sync and uses its start for timestamps',async()=>{
-  const x=await recorded(),p=x.page;
-  await chapterView(p,'chapters');
-  assert.equal(await p.locator('#summaryGenerate').isDisabled(),true);
-  assert.equal((await chapterRecords(p))[0].streamSummary,undefined);
-  await x.close();
-  const y=await editorFixture(),q=y.page;
-  await chapterView(q,'chapters');
-  assert.equal(await q.locator('#summaryGenerate').isDisabled(),false);
-  await q.locator('#summaryGenerate').click();
-  await q.waitForFunction(()=>document.getElementById('summaryOutput').value.includes('探索からボス戦まで進んだ配信でした'));
-  const text=await q.locator('#summaryOutput').inputValue();
-  assert.ok(text.includes('12:18 新しいエリアを探索'),'chapter and highlight times are relative to the broadcast start');
-  assert.ok(text.includes('00:00 配信開始'),'chapter list matches the description export including the intro');
-  assert.match(await q.locator('#summaryStatus').textContent(),/YouTubeの開始時刻に合わせています/);
-  assert.equal((await chapterRecords(q))[0].streamSummary.synced,true);
-  await y.close();
  });
  await test('comment overlay stays on the video and the compact placeholder fits between the overlays on narrow screens',async()=>{
   const x=await setup();const p=x.page;

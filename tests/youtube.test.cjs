@@ -103,3 +103,46 @@ test('sync retains actual end and rejects ordinary videos without broadcast data
  const synced=await Y.synchronize({videoId:ids[0]},'key',signal(),async()=>body([video]));assert.equal(synced.actualEndTime,'2026-10-05T00:58:00Z');assert.equal(synced.actualEndTimeMs,Date.parse(synced.actualEndTime));
  delete video.liveStreamingDetails;await assert.rejects(Y.synchronize({videoId:ids[0]},'key',signal(),async()=>body([video])),/ライブ配信/);
 });
+
+test('description editing preserves video metadata, channel and privacy by updating snippet only',async()=>{
+ const key={accessToken:'creator-token',channelId:channel},source={id:ids[0],
+   snippet:{channelId:channel,title:'配信タイトル',categoryId:'20',description:'旧概要\nVOICEVOX: credit',
+     tags:['game','live'],defaultLanguage:'ja'}},calls=[];
+ const fetcher=async(url,options)=>{
+  calls.push({url,options});
+  if(options.method==='PUT')return {ok:true,json:async()=>({id:ids[0],snippet:JSON.parse(options.body).snippet})};
+  return body([source]);
+ };
+ const result=await Y.loadDescription(ids[0],key,signal(),fetcher);
+ assert.equal(result.description,'旧概要\nVOICEVOX: credit');
+ const next=await Y.updateDescription(ids[0],'新概要\nVOICEVOX: credit',result.description,key,signal(),fetcher);
+ assert.equal(next.description,'新概要\nVOICEVOX: credit');
+ assert.equal(calls.length,3);
+ const write=calls[2],payload=JSON.parse(write.options.body);
+ assert.equal(write.options.method,'PUT');
+ assert.equal(write.options.headers.Authorization,'Bearer creator-token');
+ assert.equal(new URL(write.url).searchParams.get('part'),'snippet');
+ assert.deepEqual(payload,{id:ids[0],snippet:{title:'配信タイトル',categoryId:'20',
+   description:'新概要\nVOICEVOX: credit',tags:['game','live'],defaultLanguage:'ja'}});
+ assert.equal(payload.status,undefined);
+});
+test('description write rejects API key, other brand channel, invalid text and concurrent changes',async()=>{
+ const key={accessToken:'token',channelId:channel},resource={id:ids[0],
+  snippet:{channelId:channel,title:'動画',categoryId:'20',description:'外部で変更した文章'}};
+ let writes=0;const fetcher=async(url,options)=>{if(options.method==='PUT'){writes++;return {ok:true,json:async()=>({})};}return body([resource]);};
+ await assert.rejects(Y.loadDescription(ids[0],'api-key',signal(),fetcher),/Google認証/);
+ await assert.rejects(Y.loadDescription(ids[0],{accessToken:'token',channelId:'UC'+'b'.repeat(22)},signal(),fetcher),/一致しません/);
+ await assert.rejects(Y.updateDescription(ids[0],'変更','古い文章',key,signal(),fetcher),/取得後に変更/);
+ await assert.rejects(Y.updateDescription(ids[0],'<script>','外部で変更した文章',key,signal(),fetcher),/使用できません/);
+ await assert.rejects(Y.updateDescription(ids[0],'あ'.repeat(2000),'外部で変更した文章',key,signal(),fetcher),/5000バイト/);
+ assert.equal(writes,0);
+});
+test('managed chapter block updates idempotently and preserves credits',()=>{
+ const source='配信ありがとうございました\nVOICEVOX: ずんだもん';
+ const first=Y.mergeDescriptionChapters(source,'00:00 配信開始\n12:34 ボス戦');
+ const second=Y.mergeDescriptionChapters(first,'00:00 配信開始\n15:00 ボス戦');
+ assert.equal(second.split('【チャプター】').length,2);
+ assert.match(second,/15:00 ボス戦/);assert.doesNotMatch(second,/12:34 ボス戦/);
+ assert.ok(second.startsWith(source));assert.match(second,/VOICEVOX: ずんだもん/);
+ assert.throws(()=>Y.mergeDescriptionChapters('00:00 古いチャプター','00:00 新しいチャプター'),/二重登録|既存/);
+});

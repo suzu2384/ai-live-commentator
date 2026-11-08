@@ -2,7 +2,7 @@
    Remember only the preferred Google login account per service. */
 (function(root){
  'use strict';
- const SCOPES={drive:'https://www.googleapis.com/auth/drive.appdata',youtube:'https://www.googleapis.com/auth/youtube.readonly'};
+ const SCOPES={drive:'https://www.googleapis.com/auth/drive.appdata',youtube:'https://www.googleapis.com/auth/youtube.force-ssl'};
  const LINKED='minkome-google-linked-v1',CHANNEL='minkome-youtube-channel-v1';
  const LEGACY_EMAIL='minkome-google-account-v1';
  const ACCOUNT_HINTS='minkome-google-account-hints-v1';

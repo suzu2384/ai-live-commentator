@@ -570,6 +570,15 @@
     if(!key)throw new C.AppError('YouTubeにGoogleで接続するかAPIキーを入力してください。');
     return key;
   }
+  function youtubeWriteCredential(){
+    const token=googleAuth.token('youtube'),channelId=googleAuth.channel?.id||'';
+    if(!token||!channelId){
+      const message='概要欄の編集にはYouTubeのGoogle認証が必要です。設定 → YouTubeでブランドチャンネルに接続・再認証してください。';
+      $('descriptionStatus').textContent=message;
+      throw new C.AppError(message,'AUTH');
+    }
+    return {accessToken:token,channelId};
+  }
   async function resumeGoogleSession(){
     // A valid access token is reusable without an OAuth popup. Expired tokens
     // cannot be renewed silently by the browser-only Google token client.
@@ -712,10 +721,6 @@
     return key;
   }
   function activeGeminiModel(){return $('geminiProvider').value==='shared'&&embeddedAI.available?embeddedAI.model:C.MODEL;}
-  function summaryKey(){
-    if($('geminiProvider').value==='shared')return embeddedAI.available?C.EMBEDDED_CREDENTIAL:null;
-    try{const key=C.normalizeKey($('apiKey').value);return $('freeTier').checked?key:null;}catch{return null;}
-  }
   function reserve() { stats.used++; updateStats(); }
   async function getFrame(s, signal) {
     C.check(signal); const capturedAt = performance.now(),capturedAtMs=Date.now();
@@ -1697,7 +1702,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   }));
   $('vaultLock').addEventListener('click',()=>{lockSecrets();vaultState();});
   $('vaultDelete').addEventListener('click',()=>{if(confirm('暗号化した保存情報を削除しますか？')){try{localStorage.removeItem(vaultKey);lockSecrets();vaultState();}catch{$('vaultState').textContent='削除できませんでした。ブラウザ設定を確認してください。';}}});
-  chapterUI=new LiveChapterUI({log,onSync:()=>operation(async signal=>{await chapterUI.linkYouTube(youtubeCredential(),$('youtubeChannelId').value.trim(),signal,setStatus);}),onResync:()=>operation(async signal=>{setStatus('YouTube開始時刻を取得中');await chapterUI.syncYouTube(youtubeCredential(),signal);}),onUnlink:()=>operation(async signal=>{await chapterUI.unlinkYouTube(signal);}),onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);}),onSummarize:()=>operation(async signal=>{await chapterUI.summarize(summaryKey(),signal,reserve);})});
+  chapterUI=new LiveChapterUI({log,onSync:()=>operation(async signal=>{await chapterUI.linkYouTube(youtubeCredential(),$('youtubeChannelId').value.trim(),signal,setStatus);}),onResync:()=>operation(async signal=>{setStatus('YouTube開始時刻を取得中');await chapterUI.syncYouTube(youtubeCredential(),signal);}),onUnlink:()=>operation(async signal=>{await chapterUI.unlinkYouTube(signal);}),onSelectTab:()=>selectTab('chapters'),onGenerate:()=>operation(async signal=>{await chapterUI.generate(requireKey(),signal,reserve);}),onDescriptionLoad:()=>operation(async signal=>{await chapterUI.loadDescription(youtubeWriteCredential(),signal);}),onDescriptionSave:()=>operation(async signal=>{await chapterUI.saveDescription(youtubeWriteCredential(),signal);})});
   contentLibrary=loadContentLibrary();contentKnowledge=loadContentKnowledge();renderContentOptions('');
   fontLibrary=loadFontLibrary();
   let stored={};try{stored=JSON.parse(localStorage.getItem(storageKey)||'{}')||{};}catch{}

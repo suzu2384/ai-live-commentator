@@ -70,6 +70,74 @@
     // Some finished archives remain accessible through the uploads playlist.
     return uploadCandidates('');
   }
+
+  function editCredential(key){
+    if(!key||typeof key.accessToken!=='string'||!key.accessToken||!/^UC[\w-]{22}$/.test(key.channelId||''))
+      throw new Error('概要欄の編集にはYouTubeのGoogle認証が必要です。ブランドチャンネルに接続してください。');
+    return key;
+  }
+  function validateDescription(description){
+    if(typeof description!=='string'||/[<>]/.test(description)||new TextEncoder().encode(description).length>5000)
+      throw new Error('概要欄はUTF-8で5000バイト以内にしてください。< と > は使用できません。');
+  }
+  async function loadDescription(videoId,key,signal,fetcher=fetch){
+    editCredential(key);
+    if(!validId(videoId))throw new Error('YouTube動画IDが正しくありません。');
+    const response=await request('videos',{part:'snippet',id:videoId},key,signal,fetcher);
+    const item=response.items.find(v=>v.id===videoId);
+    if(!item?.snippet||item.snippet.channelId!==key.channelId)
+      throw new Error('選択した動画とGoogle認証済みのYouTubeチャンネルが一致しません。');
+    if(typeof item.snippet.title!=='string'||!item.snippet.title||typeof item.snippet.categoryId!=='string'||!item.snippet.categoryId)
+      throw new Error('YouTubeの動画情報にタイトルまたはカテゴリがありません。');
+    return {videoId,channelId:item.snippet.channelId,title:item.snippet.title,
+      description:typeof item.snippet.description==='string'?item.snippet.description:'',
+      categoryId:item.snippet.categoryId,
+      ...(Array.isArray(item.snippet.tags)?{tags:item.snippet.tags}:{}),
+      ...(typeof item.snippet.defaultLanguage==='string'?{defaultLanguage:item.snippet.defaultLanguage}:{})};
+  }
+  async function updateDescription(videoId,description,originalDescription,key,signal,fetcher=fetch){
+    editCredential(key);validateDescription(description);
+    if(typeof originalDescription!=='string')throw new Error('先に現在の概要欄を取得してください。');
+    const current=await loadDescription(videoId,key,signal,fetcher);
+    if(current.description!==originalDescription)
+      throw new Error('YouTube側の概要欄が取得後に変更されています。上書きを避けるため保存を中止しました。再取得して内容を確認してください。');
+    if(description===current.description)return current;
+    // videos.update(part=snippet) replaces mutable fields. Preserve all
+    // writable existing snippet fields; never update the status/privacy part.
+    const snippet={title:current.title,categoryId:current.categoryId,description};
+    if(current.tags)snippet.tags=current.tags;
+    if(current.defaultLanguage)snippet.defaultLanguage=current.defaultLanguage;
+    let response;
+    try{response=await fetcher('https://www.googleapis.com/youtube/v3/videos?part=snippet',{
+      method:'PUT',headers:{Authorization:'Bearer '+key.accessToken,'Content-Type':'application/json'},
+      body:JSON.stringify({id:videoId,snippet}),signal,credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',cache:'no-store'
+    });}catch(e){C.check(signal);throw new Error('YouTubeへの保存リクエストに失敗しました。概要欄を再取得して反映状況を確認してください。');}
+    C.check(signal);
+    if(!response.ok)throw new Error('YouTube概要欄の保存に失敗しました（HTTP '+response.status+'）。'+
+      (response.status===401?'再認証してください。':response.status===403?'編集権限とブランドチャンネルの選択を確認してください。':'内容を確認して再試行してください。'));
+    let updated;try{updated=await response.json();}catch{throw new Error('保存応答が不正です。概要欄を再取得して反映状況を確認してください。');}
+    C.check(signal);
+    if(updated?.id!==videoId||updated?.snippet?.description!==description)
+      throw new Error('YouTubeの保存応答を確認できませんでした。再取得して反映状況を確認してください。');
+    return {...current,description};
+  }
+  const CHAPTER_START='【チャプター】',CHAPTER_END='【/チャプター】';
+  function mergeDescriptionChapters(description,chapterText){
+    if(typeof description!=='string'||typeof chapterText!=='string'||!chapterText.trim())throw new Error('挿入するチャプターがありません。');
+    const block=CHAPTER_START+'\n'+chapterText.trim()+'\n'+CHAPTER_END;
+    const start=description.indexOf(CHAPTER_START),end=description.indexOf(CHAPTER_END);
+    if(start!==-1||end!==-1){
+      if(start===-1||end<start||description.indexOf(CHAPTER_START,start+1)!==-1||description.indexOf(CHAPTER_END,end+1)!==-1)
+        throw new Error('既存のチャプター範囲が不正です。概要欄を確認してください。');
+      const merged=description.slice(0,start)+block+description.slice(end+CHAPTER_END.length);
+      validateDescription(merged);return merged;
+    }
+    if(/^(?:\d{1,3}:)?\d{2}:\d{2}\s+\S/m.test(description))
+      throw new Error('既存の時刻付きチャプターがあるため、自動挿入を中止しました。内容を確認して手動編集してください。');
+    const merged=description+(description?(description.endsWith('\n')?'\n':'\n\n'):'')+block;
+    validateDescription(merged);return merged;
+  }
+
   function parseVideoId(value){
     const input=String(value||'').trim();if(validId(input))return input;
     let url;try{url=new URL(input);}catch{throw new Error('YouTube動画URLまたは11文字の動画IDを入力してください。');}
@@ -99,5 +167,5 @@
     const diff=at-sync.actualStartTimeMs,seconds=Math.floor(Math.abs(diff)/1000),h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60),s=seconds%60;
     return `${diff<0?'配信開始前 −':''}${h?`${String(h).padStart(2,'0')}:`:''}${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   }
-  const api={candidates,synchronize,relative,timestamp,parseVideoId,sortCandidates};root.LiveYouTube=api;if(typeof module!=='undefined')module.exports=api;
+  const api={candidates,synchronize,relative,timestamp,parseVideoId,sortCandidates,loadDescription,updateDescription,mergeDescriptionChapters,validateDescription};root.LiveYouTube=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);
