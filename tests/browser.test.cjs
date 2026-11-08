@@ -1023,7 +1023,7 @@ const results=[];
   await p.waitForFunction(()=>document.getElementById('descriptionText').value.includes('【チャプター】'));
   await x.close();
  });
- await test('description editor refuses an external metadata change without erasing user edits',async()=>{
+ await test('YouTube description editor refuses an external metadata change without erasing user edits',async()=>{
   const x=await editorFixture({httpEntry:true}),p=x.page;
   await openConnect(p);await p.locator('#youtubeConnect').click();
   await p.waitForFunction(()=>document.getElementById('youtubeAuthState').textContent.includes('接続済み'));
