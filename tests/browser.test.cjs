@@ -966,7 +966,16 @@ const results=[];
   assert.ok(metrics.nameHeight>=40,'text inputs use the shared 40px control height');
   assert.equal(metrics.primaryMin,'36px');assert.equal(metrics.buttonMin,'36px');
   assert.ok(metrics.startHeight>=36);
-  assert.equal(metrics.sectionBg,'rgb(21, 29, 33)');assert.equal(metrics.surface,'#151d21');
+  assert.equal(metrics.sectionBg,'rgba(0, 0, 0, 0)');assert.equal(metrics.surface,'#151d21');
+  await x.close();
+ });
+ await test('preview placeholder offers the video check action in place',async()=>{
+  const x=await setup();const p=x.page;
+  assert.equal(await p.locator('#placeholderCapture').isVisible(),true);
+  await p.locator('#placeholderCapture').click();await stopped(p);
+  assert.equal(x.events.images,1);assert.equal(x.events.identifies,1);assert.equal(x.events.api,0);
+  assert.equal(await p.locator('#preview').isVisible(),true);
+  assert.equal(await p.locator('#placeholder').isVisible(),false);
   await x.close();
  });
  await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await setOutput(x.page,'voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await openConnect(x.page);await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});

@@ -1457,6 +1457,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     log(`映像ソース「${s.sourceName}」を再取得し、映像を確認しました。`);
   }
   $('testObs').addEventListener('click',()=>operation(async signal=>{const s=settings();await connectObs(s,signal);setStatus('OBSの画像取得中');await getFrame(s,signal);log('映像確認完了。Geminiへの送信はありません。');}));
+  $('placeholderCapture').addEventListener('click',()=>$('testObs').click());
   $('resetObsSource').addEventListener('click',async()=>{
     if(streaming&&controller){
       const button=$('resetObsSource');button.disabled=true;
