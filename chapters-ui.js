@@ -4,8 +4,8 @@
   const date=ms=>Number.isFinite(ms)?new Date(ms).toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'—';
   const names={scene:'場面',progress:'進行',battle:'戦闘',result:'結果',menu:'メニュー',other:'その他'};
   class ChapterUI{
-    constructor({log,onGenerate,onSummarize,onSelectTab,onSync,onResync,onUnlink}){
-      this.log=log;this.onSelectTab=onSelectTab;this.onSummarize=onSummarize;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.summarizing=false;this.summaryShownKey=null;this.page=0;this.generationId=null;this.view='chapters';this.warnedObservation=false;this.imageDialogUrl=null;this.imageRetentionSessions=10;this.pendingImageSaves=new Set();this.thumbnailReferenceUrls=[];this.thumbnailPickerUrls=[];this.thumbnailRenderToken=0;this.thumbnailTextTouched=false;
+    constructor({log,onGenerate,onDescriptionLoad,onDescriptionSave,onSelectTab,onSync,onResync,onUnlink}){
+      this.log=log;this.onSelectTab=onSelectTab;this.onDescriptionLoad=onDescriptionLoad;this.onDescriptionSave=onDescriptionSave;this.active=null;this.selected=null;this.busy=false;this.generating=false;this.descriptionVideoId='';this.descriptionBaseline=null;this.page=0;this.generationId=null;this.view='chapters';this.warnedObservation=false;this.imageDialogUrl=null;this.imageRetentionSessions=10;this.pendingImageSaves=new Set();this.thumbnailReferenceUrls=[];this.thumbnailPickerUrls=[];this.thumbnailRenderToken=0;this.thumbnailTextTouched=false;
       try{const stored=Number(localStorage.getItem('minkome-image-retention-sessions-v1'));if(Number.isInteger(stored)&&stored>=1&&stored<=100)this.imageRetentionSessions=stored;}catch{} $('chapterImageRetention').value=String(this.imageRetentionSessions);this.store=new H.Store(()=>{$('chapterStorageWarning').hidden=false;});
       this.ready=this.store.ready.then(async()=>{await this.store.pruneRepresentativeImages(this.imageRetentionSessions);this.selected=[...this.store.records.values()].sort((a,b)=>b.startedAtMs-a.startedAtMs)[0]?.id||null;$('chapterStatus').textContent=this.selected?'保存済みの記録を復元しました。生成・再生成できます。':'イベントを蓄積すると生成できます。';this.render();});
       try{$('chapterAuto').checked=localStorage.getItem('minkome-chapter-auto-v1')!=='false';}catch{}
@@ -26,9 +26,11 @@
       $('youtubeResync').addEventListener('click',()=>onResync());
       $('youtubeUnlink').addEventListener('click',()=>onUnlink());
       $('chapterGenerate').addEventListener('click',()=>onGenerate());
-      $('summaryGenerate').addEventListener('click',()=>this.onSummarize?.());
-      $('summaryCopy').addEventListener('click',()=>void this.copySummary());
-      $('summaryOutput').addEventListener('input',()=>this.controls());
+      $('descriptionLoad').addEventListener('click',()=>this.onDescriptionLoad?.());
+      $('descriptionSave').addEventListener('click',()=>this.onDescriptionSave?.());
+      $('descriptionInsertChapters').addEventListener('click',()=>this.insertChaptersIntoDescription());
+      $('descriptionCopy').addEventListener('click',()=>void this.copyDescription());
+      $('descriptionText').addEventListener('input',()=>this.controls());
       $('chapterPrev').addEventListener('click',()=>{this.page--;this.renderEvents();});
       $('chapterNext').addEventListener('click',()=>{this.page++;this.renderEvents();});
       $('chapterImageRetention').addEventListener('change',()=>void this.changeImageRetention());
@@ -174,7 +176,12 @@
       }
     }
     setBusy(value){this.busy=value;this.controls();}
-    controls(){const s=this.current(),T=root.LiveThumbnailMaterials,ids=s?T.selectedReferenceIds(s,this.generationId):[],usable=!!s&&this.active!==s.id&&ids.length>0;$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('summaryGenerate').disabled=this.busy||this.summarizing||!s?.events.length||!H.summaryBase(s).synced;$('summaryCopy').disabled=this.busy||!$('summaryOutput').value;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;$('chapterImageRetention').disabled=this.busy;$('chapterImagesDelete').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailAutoSelect').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailCopyPrompt').disabled=this.busy||!usable;$('thumbnailDownloadPackage').disabled=this.busy||!usable;$('thumbnailTextEnabled').disabled=this.busy||!s||this.active===s?.id;$('thumbnailText').disabled=this.busy||!s||this.active===s?.id||!$('thumbnailTextEnabled').checked;this.editor?.controls();}
+    controls(){const s=this.current(),T=root.LiveThumbnailMaterials,ids=s?T.selectedReferenceIds(s,this.generationId):[],usable=!!s&&this.active!==s.id&&ids.length>0;$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('descriptionLoad').disabled=this.busy||!s?.youtubeSync?.videoId;$('descriptionText').disabled=this.busy||!this.descriptionBaseline;
+      const draft=$('descriptionText').value;
+      $('descriptionLength').textContent=`${new TextEncoder().encode(draft).length} / 5000 バイト`;
+      $('descriptionInsertChapters').disabled=this.busy||!this.descriptionBaseline||!s?.youtubeSync?.videoId;
+      $('descriptionSave').disabled=this.busy||!this.descriptionBaseline||draft===this.descriptionBaseline.description;
+      $('descriptionCopy').disabled=this.busy||!this.descriptionBaseline;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;$('chapterImageRetention').disabled=this.busy;$('chapterImagesDelete').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailAutoSelect').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailCopyPrompt').disabled=this.busy||!usable;$('thumbnailDownloadPackage').disabled=this.busy||!usable;$('thumbnailTextEnabled').disabled=this.busy||!s||this.active===s?.id;$('thumbnailText').disabled=this.busy||!s||this.active===s?.id||!$('thumbnailTextEnabled').checked;this.editor?.controls();}
     async begin(contentName){
       await this.ready;const s=H.session(contentName);this.active=s.id;this.selected=s.id;this.page=0;this.generationId=null;this.warnedObservation=false;
       await this.store.save(s);$('chapterStatus').textContent='実況の解析と一緒にイベントを記録しています。';this.render();
@@ -237,44 +244,63 @@
         if(!signal.aborted)this.log('チャプター生成: '+e.message,'warn');
       }finally{this.generating=false;this.render();}
     }
-    async summarize(key,signal,onRequest){
-      const s=this.current();if(!s||this.summarizing)return;
-      if(!H.summaryBase(s).synced){
-        $('summaryStatus').textContent='YouTubeと同期してから作成してください。動画の開始時刻が分からないと、時刻つきのまとめは作れません。';
+    async loadDescription(key,signal){
+      const s=this.current(),videoId=s?.youtubeSync?.videoId;
+      if(!videoId)return;
+      if(this.descriptionVideoId===videoId&&this.descriptionBaseline&&$('descriptionText').value!==this.descriptionBaseline.description){
+        if(!confirm('未反映の概要欄編集があります。YouTubeから再取得すると破棄されます。続けますか？'))return;
+      }
+      $('descriptionStatus').textContent='YouTubeから概要欄を取得中です。';
+      try{
+        const metadata=await root.LiveYouTube.loadDescription(videoId,key,signal);C.check(signal);
+        if(this.current()?.youtubeSync?.videoId!==videoId)return;
+        this.descriptionVideoId=videoId;this.descriptionBaseline=metadata;
+        $('descriptionText').value=metadata.description;
+        $('descriptionStatus').textContent='現在の概要欄を取得しました。編集後に「YouTubeに反映」を押してください。';
+        this.render();
+      }catch(e){
+        $('descriptionStatus').textContent=e.message||'概要欄の取得に失敗しました。';
+        this.log('YouTube概要欄取得: '+$('descriptionStatus').textContent,'warn');
+      }finally{this.controls();}
+    }
+    insertChaptersIntoDescription(){
+      const s=this.current(),generation=s?.generations.find(g=>g.id===this.generationId);
+      if(!this.descriptionBaseline||!s||!generation)return;
+      const exported=root.LiveChapterEditor.exportText(s,generation);
+      if(!exported.canCopy){
+        $('descriptionStatus').textContent='チャプターの出力を確認してください。'+exported.errors.join(' ');
         return;
       }
-      const generation=s.generations.find(g=>g.id===this.generationId)||s.generations.at(-1);
-      const draftChapters=generation?root.LiveChapterEditor.draft(s,generation).chapters:[];
-      this.summarizing=true;this.controls();
       try{
-        let data=null,aiUsed=false;
-        if(key){
-          try{
-            data=await H.generateSummary(s,{signal,chapters:draftChapters,model:key===C.EMBEDDED_CREDENTIAL?root.MINKOME_AI_CONFIG?.model:C.MODEL,onProgress:text=>{$('summaryStatus').textContent=text;},request:async(payload,token)=>{
-              onRequest();return C.deadline(t=>C.gemini(key,payload,t),120000,token,'まとめ生成がタイムアウトしました。記録は残っているので再作成できます。');
-            }});
-            aiUsed=true;
-          }catch(e){C.check(signal);data=null;}
-        }
-        if(!data)data=H.fallbackSummary(s,draftChapters);
-        const text=H.summaryText(s,data,draftChapters,generation);
-        const synced=H.summaryBase(s).synced;
-        s.streamSummary={text,createdAtMs:Date.now(),aiUsed,synced,generationId:generation?.id||null};
-        await this.store.save(s);
-        this.summaryShownKey=s.id+':'+s.streamSummary.createdAtMs;
-        $('summaryOutput').value=text;
-        $('summaryStatus').textContent=(aiUsed?'AIでまとめを作成しました。内容を確認してから使ってください。':'AIを使わず、記録からまとめを作成しました。')
-          +' 時刻はYouTubeの開始時刻に合わせています。';
-        this.log(aiUsed?'配信のまとめをAIで作成。':'配信のまとめを記録から作成（AIなし）。');
-      }catch(e){
-        $('summaryStatus').textContent=signal.aborted?'まとめの作成を中止しました。':(e.message||'まとめを作成できませんでした。');
-        if(!signal.aborted)this.log('まとめ生成: '+e.message,'warn');
-      }finally{this.summarizing=false;this.controls();}
+        $('descriptionText').value=root.LiveYouTube.mergeDescriptionChapters($('descriptionText').value,exported.text);
+        $('descriptionStatus').textContent='概要欄のチャプター部分を挿入・更新しました。YouTubeへの反映はまだです。';
+      }catch(e){$('descriptionStatus').textContent=e.message;}
+      this.controls();
     }
-    async copySummary(){
-      const text=$('summaryOutput').value;if(!text)return;
-      try{await navigator.clipboard.writeText(text);$('summaryStatus').textContent='まとめをコピーしました。';}
-      catch{const output=$('summaryOutput');output.focus();output.select();$('summaryStatus').textContent='コピーできなかったため、まとめを選択しました。Ctrl+Cでコピーしてください。';}
+    async saveDescription(key,signal){
+      const s=this.current(),videoId=s?.youtubeSync?.videoId;
+      if(!this.descriptionBaseline||videoId!==this.descriptionVideoId)return;
+      const draft=$('descriptionText').value;
+      try{root.LiveYouTube.validateDescription(draft);}
+      catch(e){$('descriptionStatus').textContent=e.message;return;}
+      if(draft===this.descriptionBaseline.description)return;
+      if(!confirm('選択したYouTube動画の概要欄を更新します。既存の概要欄が書き換わるため、内容を確認してから実行してください。'))return;
+      $('descriptionStatus').textContent='YouTubeに概要欄を保存中です。';
+      try{
+        const saved=await root.LiveYouTube.updateDescription(videoId,draft,this.descriptionBaseline.description,key,signal);C.check(signal);
+        this.descriptionBaseline=saved;
+        $('descriptionStatus').textContent='YouTubeの概要欄に反映しました。';
+        this.log('YouTubeの概要欄を更新しました。');
+      }catch(e){
+        $('descriptionStatus').textContent=e.message||'YouTube概要欄の更新に失敗しました。';
+        this.log('YouTube概要欄更新: '+$('descriptionStatus').textContent,'warn');
+      }finally{this.controls();}
+    }
+    async copyDescription(){
+      if(!this.descriptionBaseline)return;
+      const text=$('descriptionText').value;
+      try{await navigator.clipboard.writeText(text);$('descriptionStatus').textContent='概要欄をコピーしました。';}
+      catch{const field=$('descriptionText');field.focus();field.select();$('descriptionStatus').textContent='コピーできなかったため文章を選択しました。Ctrl+Cでコピーしてください。';}
     }
     render(){
       const select=$('chapterSession');select.replaceChildren();
@@ -293,11 +319,14 @@
       if(!s?.generations.some(g=>g.id===this.generationId))this.generationId=s?.generations.at(-1)?.id||null;
       if(this.generationId)genSelect.value=this.generationId;
       const generation=s?.generations.find(g=>g.id===this.generationId);
-      const summaryKey=s?s.id+':'+(s.streamSummary?.createdAtMs||0):'';
-      if(this.summaryShownKey!==summaryKey){
-        this.summaryShownKey=summaryKey;
-        $('summaryOutput').value=s?.streamSummary?.text||'';
-        $('summaryStatus').textContent=s?.streamSummary?`${date(s.streamSummary.createdAtMs)}に作成済みです。再作成で更新できます。`:'';
+      const selectedVideoId=s?.youtubeSync?.videoId||'';
+      $('descriptionVideo').textContent=selectedVideoId
+        ?'対象動画：'+(s.youtubeSync.title||selectedVideoId)
+        :'YouTubeと同期すると概要欄を取得・編集できます。';
+      if(this.descriptionVideoId!==selectedVideoId){
+        this.descriptionVideoId=selectedVideoId;this.descriptionBaseline=null;
+        $('descriptionText').value='';
+        $('descriptionStatus').textContent=selectedVideoId?'「概要欄を取得・再取得」を押してください。':'';
       }
       this.editor.render(s,generation);
       this.renderEvents();void this.renderThumbnailPanel();this.controls();
