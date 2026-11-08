@@ -97,6 +97,11 @@ const results=[];
    if(!r.request().url().startsWith('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent')){events.unexpected.push(r.request().url());return r.abort();}
    events.api++;assert.equal(r.request().headers()['x-goog-api-key'],'fake.test-key');
    const requestBody=JSON.parse(r.request().postData()||'{}');
+   if(requestBody.generationConfig?.responseSchema?.properties?.overview){
+    if(config.summaryStatus)return r.fulfill({status:config.summaryStatus,contentType:'application/json',body:'{}'});
+    const items=JSON.parse(requestBody.contents[0].parts[0].text).items;
+    return r.fulfill({contentType:'application/json',body:JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({overview:'探索からボス戦まで進んだ配信でした。',highlightIds:[items[0].id]})}]}}]})});
+   }
    if(requestBody.generationConfig?.responseSchema?.properties?.chapters){
     if(config.holdChapter){held=r;return;}
     if(config.chapterStatus)return r.fulfill({status:config.chapterStatus,contentType:'application/json',body:'{}'});
@@ -982,6 +987,30 @@ const results=[];
   await p.waitForTimeout(200);
   const stuck2=await p.evaluate(()=>{const ps=document.querySelector('.panel-scroll');const head=ps.querySelectorAll('#panel-live .card-head')[1];return {psTop:ps.getBoundingClientRect().top,headTop:head.getBoundingClientRect().top}});
   assert.ok(Math.abs(stuck2.headTop-stuck2.psTop)<=24,'a section heading sticks to the panel top');
+  await x.close();
+ });
+ await test('stream summary generates an AI overview with highlights and persists',async()=>{
+  const x=await recorded(),p=x.page;
+  await chapterView(p,'chapters');
+  await p.locator('#summaryGenerate').click();
+  await p.waitForFunction(()=>document.getElementById('summaryOutput').value.includes('探索からボス戦まで進んだ配信でした'));
+  const text=await p.locator('#summaryOutput').inputValue();
+  assert.ok(text.includes('【配信のまとめ】'));assert.ok(text.includes('■ ハイライト'));assert.ok(text.includes('■ チャプター'));assert.ok(text.includes('新しいエリアを探索'));
+  assert.match(await p.locator('#summaryStatus').textContent(),/AIでまとめを作成/);
+  const saved=(await chapterRecords(p))[0];assert.equal(saved.streamSummary.aiUsed,true);assert.equal(saved.streamSummary.text,text);
+  await p.reload();await chapterView(p,'chapters');
+  await p.waitForFunction(()=>document.getElementById('summaryOutput').value.includes('探索からボス戦まで進んだ配信でした'));
+  await x.close();
+ });
+ await test('stream summary falls back to the record when AI is unavailable',async()=>{
+  const x=await recorded({summaryStatus:500}),p=x.page;
+  await chapterView(p,'chapters');
+  await p.locator('#summaryGenerate').click();
+  await p.waitForFunction(()=>document.getElementById('summaryOutput').value.includes('【配信のまとめ】'));
+  const text=await p.locator('#summaryOutput').inputValue();
+  assert.ok(text.includes('新しいエリアを探索'));assert.ok(!text.includes('探索からボス戦まで進んだ配信でした'));
+  assert.match(await p.locator('#summaryStatus').textContent(),/AIを使わず/);
+  const saved=(await chapterRecords(p))[0];assert.equal(saved.streamSummary.aiUsed,false);
   await x.close();
  });
  await test('comment overlay stays on the video and the compact placeholder fits between the overlays on narrow screens',async()=>{
