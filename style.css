@@ -1111,11 +1111,18 @@ details.advanced-settings{border:0!important;border-bottom:1px solid var(--line)
 #panel-connect .panel-intro{padding-top:var(--space-4)}
 .panel-scroll{mask-image:linear-gradient(to bottom,#000 calc(100% - 18px),transparent);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 18px),transparent)}
 
-/* v4.54.21: on stacked layouts the comment card hangs below the video frame
-   instead of covering the placeholder and the lower part of the video. */
-@media(max-width:900px){
- .preview-sticky .preview{overflow:visible}
- .preview img{border-radius:10px}
- .preview .preview-comment-overlay{top:calc(100% + 8px);bottom:auto;max-height:132px}
- .preview-card .preview-sticky{margin-bottom:156px}
+/* v4.54.22: on small stacked screens the placeholder compacts into the free band
+   between the metrics chip and the comment overlay, which stays on the video. */
+@media(max-width:640px){
+ #placeholder{position:absolute;left:8px;right:8px;top:68px;bottom:78px;padding:8px;justify-content:center}
+ #placeholder>span{display:none}
+ #placeholder p{margin:4px 0}
+ #placeholder button{margin-top:8px}
 }
+@media(min-width:521px) and (max-width:640px){
+ #placeholder{top:88px;bottom:92px}
+}
+
+/* v4.54.22: the theme picker lives in the settings panel, not the header. */
+#panel-connect .theme-picker{display:block;margin:0 0 12px;color:var(--label);font-size:var(--fs-label)}
+#panel-connect .theme-picker select{width:100%;min-width:0;max-width:none;margin:6px 0 0;padding:9px 11px;font-size:var(--fs-body);min-height:var(--control-height)}

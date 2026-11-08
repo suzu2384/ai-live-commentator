@@ -189,6 +189,7 @@ const results=[];
  async function next(x,ms){await x.page.clock.fastForward(ms);await idle(x.page);await x.page.clock.fastForward(4100);}
  async function stopped(p){await p.waitForFunction(()=>!document.getElementById('start').disabled);}
  async function openConnect(p){await p.locator('#tab-connect').click();await p.locator('details.setting-section').evaluateAll(ds=>ds.forEach(d=>d.open=true));}
+ async function setThemeValue(p,value){await p.evaluate(v=>{const s=document.querySelector('#theme');s.value=v;s.dispatchEvent(new Event('change',{bubbles:true}));},value);}
  async function setOutput(p,value){await openConnect(p);await p.locator('#output').selectOption(value);}
  async function selectParticipants(p,ids){
   await p.locator('#tab-live').click();const selected=new Set(ids);
@@ -508,8 +509,8 @@ const results=[];
  });
  await test('Google Drive saves normal settings and plaintext secrets as separate files, restores both and deletes both',async()=>{
   const x=await setup({httpEntry:true}),p=x.page;
-  await p.locator('#tab-live').click();await p.locator('#persona').fill('Drive保存前の雰囲気');await p.locator('#theme').selectOption('sage');
-  await p.locator('#tab-connect').click();await p.locator('#youtubeApiKey').fill('youtube-test-key');
+  await p.locator('#tab-live').click();await p.locator('#persona').fill('Drive保存前の雰囲気');
+  await p.locator('#tab-connect').click();await p.locator('#theme').selectOption('sage');await p.locator('#youtubeApiKey').fill('youtube-test-key');
   assert.equal(await p.evaluate(()=>globalThis.MINKOME_GOOGLE_OAUTH_CLIENT_ID),'123456789-test.apps.googleusercontent.com');
   assert.equal(await p.locator('#driveClientId').count(),0);
   await p.locator('#driveConnect').click();await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('接続しました')&&document.getElementById('summary-drive').textContent==='接続済み');
@@ -558,8 +559,8 @@ const results=[];
   assert.equal(await p.locator('#persona').inputValue(),'Drive保存前の雰囲気');
   await p.locator('#tab-connect').click();
   await p.locator('#apiKey').fill('changed-key');await p.locator('#obsPassword').fill('changed-obs');await p.locator('#youtubeApiKey').fill('changed-youtube');
-  await p.locator('#tab-live').click();await p.locator('#persona').fill('変更後');await p.locator('#theme').selectOption('rose');
-  await p.locator('#tab-connect').click();p.once('dialog',d=>d.accept());await p.locator('#driveRestore').click();
+  await p.locator('#tab-live').click();await p.locator('#persona').fill('変更後');
+  await p.locator('#tab-connect').click();await p.locator('#theme').selectOption('rose');p.once('dialog',d=>d.accept());await p.locator('#driveRestore').click();
   await p.waitForFunction(()=>document.getElementById('driveState').textContent.startsWith('Google Driveから')&&document.getElementById('apiKey').value==='fake.test-key');
   assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');assert.equal(await p.locator('#youtubeApiKey').inputValue(),'youtube-test-key');assert.equal(await p.locator('#freeTier').isChecked(),false);
   await p.locator('#tab-live').click();assert.equal(await p.locator('#persona').inputValue(),'Drive保存前の雰囲気');assert.equal(await p.locator('#theme').inputValue(),'sage');
@@ -571,11 +572,12 @@ const results=[];
  await test('color themes apply immediately, persist and default old settings to midnight',async()=>{
   const x=await setup();const p=x.page;
   assert.equal(await p.locator('#theme').inputValue(),'midnight');assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'midnight');
-  await p.locator('#theme').selectOption('daylight');
+  await openConnect(p);await p.locator('#theme').selectOption('daylight');
   assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'daylight');
   assert.equal(await p.locator('meta[name="theme-color"]').getAttribute('content'),'#f3f6f9');
   let stored=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1')));assert.equal(stored.theme,'daylight');
   await p.reload();assert.equal(await p.locator('#theme').inputValue(),'daylight');assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'daylight');
+  await openConnect(p);
   for(const [value,color] of [['aurora','#111326'],['crimson','#1b1014'],['forest','#0f1813'],['amber','#1b1710'],['mist','#f2f3f4'],['lavender','#f3f0fb'],['rose','#fbf0f3'],['sage','#eef5ef']]){
     await p.locator('#theme').selectOption(value);assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),value);
     assert.equal(await p.locator('meta[name="theme-color"]').getAttribute('content'),color);
@@ -590,7 +592,7 @@ const results=[];
     const x=await setup(),p=x.page;
     await p.locator('#tab-chapters').click();
     for(const theme of ['midnight','amber','mist','lavender','rose','sage','daylight','sand']){
-      await p.locator('#theme').selectOption(theme);
+      await setThemeValue(p,theme);
       const colors=await p.evaluate(()=>{
         const root=document.querySelector('#chapterSectionThumbnail');
         const nodes=['thumbnail-reference-card','thumbnail-picker-card','thumbnail-picker-card selected'].map(name=>{
@@ -614,7 +616,7 @@ const results=[];
   await p.locator('#manageContents').click();
   await p.locator('#newContentName').fill('ゲーム：Theme Test');await p.locator('#addContent').click();
   for(const theme of ['midnight','crimson','forest','amber','mist','lavender','rose','sage','daylight','sand']){
-    await p.locator('#theme').selectOption(theme);
+    await setThemeValue(p,theme);
     const colors=await p.locator('.content-manage-group').evaluate(group=>{
       const root=document.documentElement,probe=document.createElement('span');
       probe.style.cssText='position:absolute;background:var(--surface);color:var(--muted);border-color:var(--line)';
@@ -632,7 +634,7 @@ const results=[];
  await test('six friend cards keep unique visible colors across dark and light themes',async()=>{
   const x=await setup();const p=x.page;await p.locator('#tab-friends').click();
   for(const theme of ['midnight','crimson','forest','amber','daylight','rose','sage','sand']){
-    await p.locator('#theme').selectOption(theme);
+    await setThemeValue(p,theme);
     const colors=await p.locator('#profiles .friend').evaluateAll(cards=>cards.map(card=>getComputedStyle(card).borderLeftColor));
     assert.equal(colors.length,6);assert.equal(new Set(colors).size,6);
     for(const color of colors)assert.notEqual(color,'rgba(0, 0, 0, 0)');
@@ -642,7 +644,7 @@ const results=[];
  await test('selected participant border and checkbox follow every theme accent',async()=>{
   const x=await setup();const p=x.page;
   for(const theme of ['midnight','graphite','aurora','crimson','forest','amber','mist','lavender','rose','sage','daylight','sand']){
-    await p.locator('#theme').selectOption(theme);
+    await setThemeValue(p,theme);
     const colors=await p.locator('#participant-p1').evaluate(input=>{
       const choice=input.closest('.participant-choice');
       const probe=document.createElement('span');probe.style.color='var(--accent)';document.body.append(probe);
@@ -767,27 +769,25 @@ const results=[];
   assert.equal(desktop.taglineDisplay,'none');
   await x.close();
  });
- await test('mobile header shows version under theme without increasing header content height',async()=>{
+ await test('mobile header keeps only the version badge and the theme select lives in settings',async()=>{
   const x=await setup();const p=x.page;
   await p.setViewportSize({width:390,height:844});
   const mobile=await p.evaluate(()=>{
-    const header=document.querySelector('header'),tools=document.querySelector('.header-tools'),logo=document.querySelector('.brand-logo'),badge=document.querySelector('.header-tools>.badge'),theme=document.querySelector('.theme-picker');
-    const tb=theme.getBoundingClientRect(),bb=badge.getBoundingClientRect();
+    const header=document.querySelector('header'),tools=document.querySelector('.header-tools'),logo=document.querySelector('.brand-logo'),badge=document.querySelector('.header-tools>.badge');
     return {
       version:badge.textContent.trim(),
       badgeDisplay:getComputedStyle(badge).display,
-      toolsDirection:getComputedStyle(tools).flexDirection,
       toolsHeight:tools.getBoundingClientRect().height,
       logoHeight:logo.getBoundingClientRect().height,
       headerHeight:header.getBoundingClientRect().height,
-      themeTop:tb.top,
-      badgeTop:bb.top
+      themeInHeader:!!header.querySelector('#theme'),
+      themeInSettings:!!document.querySelector('#panel-connect #theme')
     };
   });
   assert.ok(mobile.version.includes('v4.'));
   assert.notEqual(mobile.badgeDisplay,'none');
-  assert.equal(mobile.toolsDirection,'column');
-  assert.ok(mobile.badgeTop>mobile.themeTop);
+  assert.equal(mobile.themeInHeader,false);
+  assert.equal(mobile.themeInSettings,true);
   assert.ok(mobile.toolsHeight<=mobile.logoHeight+1);
   assert.ok(mobile.headerHeight<=mobile.logoHeight+30);
   await x.close();
@@ -984,16 +984,17 @@ const results=[];
   assert.ok(Math.abs(stuck2.headTop-stuck2.psTop)<=24,'a section heading sticks to the panel top');
   await x.close();
  });
- await test('comment overlay hangs below the video frame on narrow screens without covering the placeholder',async()=>{
+ await test('comment overlay stays on the video and the compact placeholder fits between the overlays on narrow screens',async()=>{
   const x=await setup();const p=x.page;
   await p.setViewportSize({width:390,height:844});
   const narrow=await p.evaluate(()=>{
    const q=s=>document.querySelector(s).getBoundingClientRect();
-   const ph=q('#placeholder'),note=q('#placeholder small'),ov=q('.preview-comment-overlay'),pv=q('.preview');
-   return {noteBottom:note.bottom,overlayTop:ov.top,previewBottom:pv.bottom,overlayBottom:ov.bottom};
+   const note=q('#placeholder small'),ov=q('.preview-comment-overlay'),pv=q('.preview');
+   return {noteBottom:note.bottom,overlayTop:ov.top,overlayBottom:ov.bottom,previewBottom:pv.bottom,iconDisplay:getComputedStyle(document.querySelector('#placeholder>span')).display};
   });
-  assert.ok(narrow.overlayTop>=narrow.previewBottom+4,'overlay starts below the frame');
+  assert.ok(narrow.overlayBottom<=narrow.previewBottom+1,'overlay stays inside the frame on narrow screens');
   assert.ok(narrow.noteBottom<=narrow.overlayTop,'placeholder note is not covered');
+  assert.equal(narrow.iconDisplay,'none');
   await p.setViewportSize({width:1440,height:900});
   const wide=await p.evaluate(()=>{
    const q=s=>document.querySelector(s).getBoundingClientRect();
