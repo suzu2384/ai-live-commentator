@@ -1135,4 +1135,7 @@ details.advanced-settings{border:0!important;border-bottom:1px solid var(--line)
 }
 
 /* v4.54.24: stream summary block inside the chapters view. */
-.chapter-summary{margin-top:var(--space-4)}
+.chapter-description{margin-top:var(--space-4)}
+.chapter-description textarea{width:100%;min-height:190px;resize:vertical}
+.chapter-description #descriptionLength{font-variant-numeric:tabular-nums}
+.chapter-description .actions{margin:var(--space-2) 0}
