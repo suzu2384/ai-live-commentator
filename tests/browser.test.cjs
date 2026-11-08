@@ -577,6 +577,7 @@ const results=[];
   assert.equal(await p.locator('#apiKey').inputValue(),'fake.test-key');assert.equal(await p.locator('#obsPassword').inputValue(),'obs-secret');assert.equal(await p.locator('#youtubeApiKey').inputValue(),'youtube-test-key');assert.equal(await p.locator('#freeTier').isChecked(),false);
   await p.locator('#tab-live').click();assert.equal(await p.locator('#persona').inputValue(),'Drive保存前の雰囲気');assert.equal(await p.locator('#theme').inputValue(),'sage');
   await p.locator('#tab-connect').click();p.once('dialog',d=>d.accept());await p.locator('#driveDelete').click();await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('削除しました'));
+  await p.waitForFunction(()=>document.getElementById('driveSettingsState').textContent==='なし'&&document.getElementById('driveSecretsState').textContent==='なし');
   assert.equal(x.driveFiles.size,0);assert.equal(await p.locator('#driveSettingsState').textContent(),'なし');assert.equal(await p.locator('#driveSecretsState').textContent(),'なし');
   await p.locator('#driveDisconnect').click();await p.waitForFunction(()=>document.getElementById('driveState').textContent.includes('接続を切りました'));assert.equal(await p.locator('#summary-drive').textContent(),'未接続');
   await x.close();
