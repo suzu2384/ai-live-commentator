@@ -116,6 +116,7 @@ const results=[];
   });
   await page.route(`http://${host}:50021/**`,async r=>{
    const u=new URL(r.request().url());
+   if(u.pathname==='/speakers')return r.fulfill({contentType:'application/json',body:JSON.stringify([{name:'テスト話者',styles:[{id:42,name:'ノーマル',type:'talk'}]}])});
    if(u.pathname==='/audio_query'){events.queries++;events.voiceTexts.push(u.searchParams.get('text'));events.voices.push(u.searchParams.get('speaker'));return r.fulfill({contentType:'application/json',body:'{}'});}
    if(u.pathname==='/synthesis'){
     events.synths++;events.speeds.push(JSON.parse(r.request().postData()||'{}').speedScale);if(config.holdSynth || events.synths===config.holdSynthAt){held=r;return;}
@@ -929,7 +930,24 @@ const results=[];
   await stop(p);await x.close();
  });
  await test('Bouyomi audio test sends speech only',async()=>{const x=await setup();await openConnect(x.page);await x.page.locator('#testVoice').click();await stopped(x.page);assert.deepEqual(x.events.talks,['こんにちは。音声テストです。']);assert.equal(x.events.api,0);await x.close();});
- await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await setOutput(x.page,'voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
+ await test('VOICEVOX speaker is chosen by name from the engine speaker list and speed by slider',async()=>{
+  const x=await setup();const p=x.page;await setOutput(p,'voicevox');
+  await p.locator('#refreshSpeakers').click();await p.waitForFunction(()=>document.getElementById('speakerListState').textContent.includes('取得しました'));
+  await p.locator('#tab-friends').click();
+  const speaker=p.locator('#p1-speaker');assert.equal(await speaker.evaluate(el=>el.tagName),'SELECT');
+  assert.ok((await speaker.locator('option').allTextContents()).some(t=>t.includes('テスト話者（ノーマル）')));
+  assert.ok((await p.locator('#p2-speaker option').allTextContents()).some(t=>t.includes('テスト話者（ノーマル）')));
+  await speaker.selectOption('42');
+  await p.locator('#p1-speedScale').fill('1.25');assert.equal(await p.locator('#p1-speedScale').inputValue(),'1.25');
+  await p.locator('#profiles .friend').first().getByRole('button',{name:'この友達の音声テスト'}).click();
+  await p.waitForFunction(()=>document.getElementById('log').textContent.includes('の音声テスト完了'));
+  assert.deepEqual(x.events.voices,['42']);assert.deepEqual(x.events.speeds,[1.25]);
+  await p.locator('#tab-live').click();await p.locator('#save').click();
+  const saved=JSON.parse(await p.evaluate(()=>localStorage.getItem('ai-live-commentator-browser-v1')));
+  assert.equal(saved.profiles[0].speaker,42);assert.equal(saved.profiles[0].speedScale,1.25);
+  await x.close();
+ });
+ await test('VOICEVOX direct applies per-friend speech speed and plays WAV',async()=>{const x=await setup();await setOutput(x.page,'voicevox');await x.page.locator('#tab-friends').click();await x.page.locator('#p1-speedScale').fill('1.25');await openConnect(x.page);await x.page.locator('#testVoice').click();await stopped(x.page);assert.equal(x.events.queries,1);assert.equal(x.events.synths,1);assert.deepEqual(x.events.speeds,[1.25]);assert.ok((await x.page.locator('#log').innerText()).includes('音声テスト再生完了'));await x.close();});
  await test('Bouyomi prefers speechText even when it still contains kanji and shows both texts in the UI',async()=>{
   const reading={candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({speak:true,summary:'読み上げ',turns:[{speakerId:'p1',text:'この性は変わらないね？',speechText:'この性質は変わらないね？'}]})}]}}]};
   const x=await setup({answer:reading});await start(x);await idle(x.page);

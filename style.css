@@ -100,9 +100,13 @@ button:focus-visible,summary:focus-visible{outline-color:var(--accent)}
 #profiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px;align-items:start}
 @media(max-width:900px){#profiles{grid-template-columns:1fr}}
 #profiles .friend{margin:0!important;min-width:0}
-#profiles .friend-voice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:6px 0 12px}
+#profiles .friend-voice-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 12px}
 #profiles .friend-voice-grid label{margin:0;min-width:0}
 #profiles .friend-voice-grid input{width:100%;max-width:140px;min-width:0}
+#profiles .friend-voice-grid .friend-voice-wide{grid-column:1/-1}
+#profiles .friend-voice-grid select{width:100%;min-width:0}
+#profiles .friend-voice-grid input[type=range]{max-width:none;padding:0}
+#profiles .friend-voice-grid .speed-value{display:block;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:2px}
 @media(max-width:1180px){
   .compact-setting-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}
   .speaker-weight-grid{grid-template-columns:repeat(3,minmax(70px,1fr))}

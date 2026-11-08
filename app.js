@@ -477,7 +477,7 @@
     renderFontOptions(bundle.data.obsOverlayFont===undefined?$('obsOverlayFont').value:String(bundle.data.obsOverlayFont));
     applyTheme($('theme').value);
     renderContentOptions(bundle.data.contentName);
-    $('profiles').replaceChildren();buildProfiles(bundle.data.profiles);renderParticipantSelection(bundle.data.selectedProfileIds);
+    $('profiles').replaceChildren();buildProfiles(bundle.data.profiles);renderParticipantSelection(bundle.data.selectedProfileIds);void refreshVoicevoxSpeakers();
     if(preserveLocalChoice&&rememberedGeminiChoice())$('geminiProvider').value=rememberedGeminiChoice();
     outputFields();overlayFields();updateGeminiProviderFields();
     if(!preserveLocalChoice)persistGeminiChoice();
@@ -698,6 +698,8 @@
     catch{$('voicevoxSettingsLink').removeAttribute('href');}
   }
   $('voicevoxUrl').addEventListener('input',voicevoxSettingsLink);
+  $('voicevoxUrl').addEventListener('change',()=>void refreshVoicevoxSpeakers());
+  $('refreshSpeakers').addEventListener('click',()=>void refreshVoicevoxSpeakers(true));
   function outputFields() { voicevoxSettingsLink(); $('bouyomiFields').hidden = $('output').value !== 'bouyomi'; $('voicevoxFields').hidden = $('output').value !== 'voicevox'; updateSettingSummaries(); }
   function overlayFields(){ $('obsOverlayFields').hidden=!$('obsOverlayEnabled').checked; updateSettingSummaries(); }
   function requireKey() {
@@ -1563,18 +1565,56 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
     });
   }
   function defaultProfile(i){return {id:`p${i+1}`,name:`友達${i+1}`,personality:['気さくで明るい。感想と応援が多い。','落ち着いていて、軽いツッコミが得意。','好奇心旺盛。景色や細部に気づく。','リアクションが大きくノリがいい。驚きや盛り上がりを素直に出す。','冷静な分析好き。状況整理や先の予想を短く口にする。','マイペースで少し天然。独特な着眼点で一言を挟む。'][i],speaker:i%2===0?3:2,speedScale:1.0,bouyomiVoice:0};}
+  // Built-in fallback shown until the live speaker list is fetched from the VOICEVOX engine.
+  const VOICEVOX_SPEAKER_PRESETS=[[0,'四国めたん（あまあま）'],[1,'ずんだもん（あまあま）'],[2,'四国めたん（ノーマル）'],[3,'ずんだもん（ノーマル）'],[4,'四国めたん（セクシー）'],[5,'ずんだもん（セクシー）'],[6,'四国めたん（ツンツン）'],[7,'ずんだもん（ツンツン）'],[8,'春日部つむぎ（ノーマル）'],[9,'波音リツ（ノーマル）'],[10,'雨晴はう（ノーマル）'],[11,'玄野武宏（ノーマル）'],[12,'白上虎太郎（ふつう）'],[13,'青山龍星（ノーマル）'],[14,'冥鳴ひまり（ノーマル）'],[15,'九州そら（あまあま）'],[16,'九州そら（ノーマル）'],[17,'九州そら（セクシー）'],[18,'九州そら（ツンツン）'],[19,'九州そら（ささやき）'],[20,'もち子さん（ノーマル）'],[21,'剣崎雌雄（ノーマル）'],[22,'ずんだもん（ささやき）'],[23,'WhiteCUL（ノーマル）'],[36,'四国めたん（ささやき）'],[37,'四国めたん（ヒソヒソ）'],[38,'ずんだもん（ヒソヒソ）']];
+  function fillSpeakerSelect(select,options,selected){
+    const current=Number(selected);select.replaceChildren();
+    if(!options.some(([id])=>id===current)){const o=document.createElement('option');o.value=String(current);o.textContent=`スタイルID ${current}（現在の設定）`;select.append(o);}
+    for(const [id,label] of options){const o=document.createElement('option');o.value=String(id);o.textContent=label;select.append(o);}
+    select.value=String(current);
+  }
+  async function refreshVoicevoxSpeakers(manual=false){
+    const state=$('speakerListState');
+    try{
+      const base=C.localUrl($('voicevoxUrl').value,'http:');
+      const response=await fetch(`${base}/speakers`);
+      if(!response.ok)throw new Error('speakers');
+      const speakers=await response.json(),options=[];
+      for(const s of Array.isArray(speakers)?speakers:[])for(const style of s.styles||[])if(Number.isInteger(style.id)&&(!style.type||style.type==='talk'))options.push([style.id,`${s.name}（${style.name}）`]);
+      if(!options.length)throw new Error('speakers');
+      for(let i=1;i<=6;i++){const select=$(`p${i}-speaker`);if(select)fillSpeakerSelect(select,options,select.value);}
+      if(state)state.textContent=`VOICEVOXから話者一覧を取得しました（${options.length}件）。友達の声は名前で選べます。`;
+      return true;
+    }catch{
+      if(manual&&state)state.textContent='話者一覧を取得できませんでした。VOICEVOXの起動・URL・CORS設定を確認してください。内蔵の一覧はそのまま使えます。';
+      return false;
+    }
+  }
   function buildProfiles(saved=[]){
     for(let i=0;i<6;i++){
       const d={...defaultProfile(i),...saved[i]},section=document.createElement('section');section.className='card friend';section.dataset.index=i;
       const heading=document.createElement('h2');heading.textContent=`友達 ${i+1}`;section.append(heading);
-      const voiceGrid=document.createElement('div');voiceGrid.className='friend-voice-grid';
-      for(const [field,label,type,min,max,step] of [['name','呼び名','text',null,40,null],['personality','性格・話し方','text',null,300,null],['speaker','VOICEVOX スタイルID','number',0,99999,1],['speedScale','VOICEVOX 話速','number',0.5,2,0.05],['bouyomiVoice','棒読みちゃん 声ID','number',0,65535,1]]){
-        const l=document.createElement('label');l.textContent=label;const input=document.createElement('input');input.id=`p${i+1}-${field}`;input.type=type;input.setAttribute('form','settings');
-        if(type==='number'){input.min=min;input.max=max;input.step=step;}else input.maxLength=max;
-        input.value=typeof d[field]==='string'||typeof d[field]==='number'?d[field]:defaultProfile(i)[field];
+      for(const [field,label,max] of [['name','呼び名',40],['personality','性格・話し方',300]]){
+        const l=document.createElement('label');l.textContent=label;const input=document.createElement('input');input.id=`p${i+1}-${field}`;input.type='text';input.setAttribute('form','settings');input.maxLength=max;
+        input.value=typeof d[field]==='string'?d[field]:defaultProfile(i)[field];
         if(field==='name')input.addEventListener('input',updateParticipantNames);
-        l.append(input);(type==='number'?voiceGrid:section).append(l);
+        l.append(input);section.append(l);
       }
+      const voiceGrid=document.createElement('div');voiceGrid.className='friend-voice-grid';
+      const speakerLabel=document.createElement('label');speakerLabel.className='friend-voice-wide';speakerLabel.textContent='VOICEVOX 話者';
+      const speakerSelect=document.createElement('select');speakerSelect.id=`p${i+1}-speaker`;speakerSelect.setAttribute('form','settings');
+      fillSpeakerSelect(speakerSelect,VOICEVOX_SPEAKER_PRESETS,typeof d.speaker==='number'?d.speaker:defaultProfile(i).speaker);
+      speakerLabel.append(speakerSelect);voiceGrid.append(speakerLabel);
+      const speedLabel=document.createElement('label');speedLabel.textContent='VOICEVOX 話速';
+      const speed=document.createElement('input');speed.id=`p${i+1}-speedScale`;speed.type='range';speed.min='0.5';speed.max='2';speed.step='0.05';speed.setAttribute('form','settings');
+      speed.value=typeof d.speedScale==='number'?d.speedScale:defaultProfile(i).speedScale;
+      const speedValue=document.createElement('span');speedValue.className='speed-value';speedValue.textContent=Number(speed.value).toFixed(2);
+      speed.addEventListener('input',()=>{speedValue.textContent=Number(speed.value).toFixed(2);});
+      speedLabel.append(speed,speedValue);voiceGrid.append(speedLabel);
+      const bouyomiLabel=document.createElement('label');bouyomiLabel.textContent='棒読みちゃん 声ID';
+      const bouyomi=document.createElement('input');bouyomi.id=`p${i+1}-bouyomiVoice`;bouyomi.type='number';bouyomi.min='0';bouyomi.max='65535';bouyomi.step='1';bouyomi.setAttribute('form','settings');
+      bouyomi.value=typeof d.bouyomiVoice==='number'?d.bouyomiVoice:defaultProfile(i).bouyomiVoice;
+      bouyomiLabel.append(bouyomi);voiceGrid.append(bouyomiLabel);
       section.append(voiceGrid);
       const button=document.createElement('button');button.type='button';button.textContent='この友達の音声テスト';
       button.addEventListener('click',()=>operation(async signal=>{const s=settings(),profile=readProfiles()[i];lastSettings=s;await unlockAudio(s);setStatus('音声テスト中');await speak(`${profile.name}です。よろしくね。`,{...s,...profile},null,signal);log(`${profile.name}の音声テスト完了。`);}));
@@ -1671,7 +1711,7 @@ body{box-sizing:border-box;padding:30px 10px 52px;display:flex;align-items:${ver
   const selectedIds=storedSelected.length?storedSelected:Array.from({length:legacyCount},(_,i)=>`p${i+1}`);
   const profiles=Array.isArray(stored.profiles)?stored.profiles:[];
   if(!profiles.length)profiles.push({...defaultProfile(0),speaker:stored.speaker??3,bouyomiVoice:stored.bouyomiVoice??0});
-  buildProfiles(profiles);renderParticipantSelection(selectedIds);
+  buildProfiles(profiles);renderParticipantSelection(selectedIds);void refreshVoicevoxSpeakers();
   vaultState();googleControls();outputFields();overlayFields();updateGeminiProviderFields();initSettingSections();updateStats();
   void restoreRememberedGeminiKey();
   if(driveOriginAllowed()&&!googleReady)void loadGoogleIdentity().then(()=>{googleReady=true;googleControls();}).catch(e=>{$('googleAccountState').textContent=e.message||'Google認証を読み込めませんでした。';});
