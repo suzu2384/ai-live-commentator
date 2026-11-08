@@ -174,7 +174,7 @@
       }
     }
     setBusy(value){this.busy=value;this.controls();}
-    controls(){const s=this.current(),T=root.LiveThumbnailMaterials,ids=s?T.selectedReferenceIds(s,this.generationId):[],usable=!!s&&this.active!==s.id&&ids.length>0;$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('summaryGenerate').disabled=this.busy||this.summarizing||!s?.events.length;$('summaryCopy').disabled=this.busy||!$('summaryOutput').value;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;$('chapterImageRetention').disabled=this.busy;$('chapterImagesDelete').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailAutoSelect').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailCopyPrompt').disabled=this.busy||!usable;$('thumbnailDownloadPackage').disabled=this.busy||!usable;$('thumbnailTextEnabled').disabled=this.busy||!s||this.active===s?.id;$('thumbnailText').disabled=this.busy||!s||this.active===s?.id||!$('thumbnailTextEnabled').checked;this.editor?.controls();}
+    controls(){const s=this.current(),T=root.LiveThumbnailMaterials,ids=s?T.selectedReferenceIds(s,this.generationId):[],usable=!!s&&this.active!==s.id&&ids.length>0;$('youtubeSync').disabled=this.busy||!(s?.generations.length||s?.youtubeSync);$('youtubeSync').textContent=s?.youtubeSync?'同期先を変更':'YouTubeと同期';$('youtubeUnlink').disabled=this.busy||!s?.youtubeSync;$('youtubeResync').disabled=this.busy||!s?.youtubeSync;$('chapterGenerate').disabled=this.busy||this.generating||!s?.events.length;$('summaryGenerate').disabled=this.busy||this.summarizing||!s?.events.length||!H.summaryBase(s).synced;$('summaryCopy').disabled=this.busy||!$('summaryOutput').value;$('chapterAuto').disabled=this.busy;$('chapterSession').disabled=this.busy||this.generating;$('chapterGeneration').disabled=this.busy||this.generating;$('chapterImageRetention').disabled=this.busy;$('chapterImagesDelete').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailAutoSelect').disabled=this.busy||!s?.representativeImageIds?.length||this.active===s?.id;$('thumbnailCopyPrompt').disabled=this.busy||!usable;$('thumbnailDownloadPackage').disabled=this.busy||!usable;$('thumbnailTextEnabled').disabled=this.busy||!s||this.active===s?.id;$('thumbnailText').disabled=this.busy||!s||this.active===s?.id||!$('thumbnailTextEnabled').checked;this.editor?.controls();}
     async begin(contentName){
       await this.ready;const s=H.session(contentName);this.active=s.id;this.selected=s.id;this.page=0;this.generationId=null;this.warnedObservation=false;
       await this.store.save(s);$('chapterStatus').textContent='実況の解析と一緒にイベントを記録しています。';this.render();
@@ -239,6 +239,10 @@
     }
     async summarize(key,signal,onRequest){
       const s=this.current();if(!s||this.summarizing)return;
+      if(!H.summaryBase(s).synced){
+        $('summaryStatus').textContent='YouTubeと同期してから作成してください。動画の開始時刻が分からないと、時刻つきのまとめは作れません。';
+        return;
+      }
       const generation=s.generations.find(g=>g.id===this.generationId)||s.generations.at(-1);
       const draftChapters=generation?root.LiveChapterEditor.draft(s,generation).chapters:[];
       this.summarizing=true;this.controls();
@@ -253,12 +257,14 @@
           }catch(e){C.check(signal);data=null;}
         }
         if(!data)data=H.fallbackSummary(s,draftChapters);
-        const text=H.summaryText(s,data,draftChapters);
-        s.streamSummary={text,createdAtMs:Date.now(),aiUsed,generationId:generation?.id||null};
+        const text=H.summaryText(s,data,draftChapters,generation);
+        const synced=H.summaryBase(s).synced;
+        s.streamSummary={text,createdAtMs:Date.now(),aiUsed,synced,generationId:generation?.id||null};
         await this.store.save(s);
         this.summaryShownKey=s.id+':'+s.streamSummary.createdAtMs;
         $('summaryOutput').value=text;
-        $('summaryStatus').textContent=aiUsed?'AIでまとめを作成しました。内容を確認してから使ってください。':'AIを使わず、記録からまとめを作成しました。';
+        $('summaryStatus').textContent=(aiUsed?'AIでまとめを作成しました。内容を確認してから使ってください。':'AIを使わず、記録からまとめを作成しました。')
+          +' 時刻はYouTubeの開始時刻に合わせています。';
         this.log(aiUsed?'配信のまとめをAIで作成。':'配信のまとめを記録から作成（AIなし）。');
       }catch(e){
         $('summaryStatus').textContent=signal.aborted?'まとめの作成を中止しました。':(e.message||'まとめを作成できませんでした。');
