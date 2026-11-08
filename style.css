@@ -1096,3 +1096,17 @@ details.advanced-settings{border:0!important;border-bottom:1px solid var(--line)
 #placeholder button{margin-top:var(--space-3)}
 #placeholder small{font-size:var(--fs-caption)}
 #placeholder{display:flex;flex-direction:column;align-items:center}
+
+/* v4.54.20 phase 3: compact desktop bottom nav and sticky panel headings. */
+@media(min-width:901px){
+ .tabs{padding-top:var(--space-1);padding-bottom:var(--space-1)}
+ .tabs button,.tabs .help-tab-button{min-height:44px;font-size:var(--fs-label);border-radius:var(--radius-s)}
+ .tabs button:hover{background:var(--surface)}
+ .tabs button[aria-selected="true"]:hover{background:var(--tab-active-bg)}
+}
+#panel-live .card-head,#panel-history .card-head,#panel-connect .panel-intro{
+ position:sticky;top:calc(var(--space-4) * -1);z-index:3;background:var(--card);
+ border-bottom:1px solid var(--line);
+}
+#panel-connect .panel-intro{padding-top:var(--space-4)}
+.panel-scroll{mask-image:linear-gradient(to bottom,#000 calc(100% - 18px),transparent);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 18px),transparent)}

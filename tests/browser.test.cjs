@@ -969,6 +969,21 @@ const results=[];
   assert.equal(metrics.sectionBg,'rgba(0, 0, 0, 0)');assert.equal(metrics.surface,'#151d21');
   await x.close();
  });
+ await test('desktop nav is compact and panel section headings stick while scrolling',async()=>{
+  const x=await setup();const p=x.page;
+  const nav=await p.evaluate(()=>{const n=document.querySelector('.tabs').getBoundingClientRect();return {h:n.height,label:getComputedStyle(document.querySelector('#tab-live')).fontSize,mask:getComputedStyle(document.querySelector('.panel-scroll')).maskImage}});
+  assert.ok(nav.h<=56);assert.equal(nav.label,'12px');assert.notEqual(nav.mask,'none');
+  const stuck=await p.evaluate(()=>{
+   const ps=document.querySelector('.panel-scroll');
+   const head=ps.querySelectorAll('#panel-live .card-head')[1];
+   ps.scrollTop+=head.getBoundingClientRect().top-ps.getBoundingClientRect().top+120;
+   return {psTop:ps.getBoundingClientRect().top,headTop:head.getBoundingClientRect().top};
+  });
+  await p.waitForTimeout(200);
+  const stuck2=await p.evaluate(()=>{const ps=document.querySelector('.panel-scroll');const head=ps.querySelectorAll('#panel-live .card-head')[1];return {psTop:ps.getBoundingClientRect().top,headTop:head.getBoundingClientRect().top}});
+  assert.ok(Math.abs(stuck2.headTop-stuck2.psTop)<=24,'a section heading sticks to the panel top');
+  await x.close();
+ });
  await test('preview placeholder offers the video check action in place',async()=>{
   const x=await setup();const p=x.page;
   assert.equal(await p.locator('#placeholderCapture').isVisible(),true);
