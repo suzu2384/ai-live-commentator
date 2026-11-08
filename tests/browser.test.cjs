@@ -989,9 +989,10 @@ const results=[];
   await p.setViewportSize({width:390,height:844});
   const narrow=await p.evaluate(()=>{
    const q=s=>document.querySelector(s).getBoundingClientRect();
-   const note=q('#placeholder small'),ov=q('.preview-comment-overlay'),pv=q('.preview');
-   return {noteBottom:note.bottom,overlayTop:ov.top,overlayBottom:ov.bottom,previewBottom:pv.bottom,iconDisplay:getComputedStyle(document.querySelector('#placeholder>span')).display};
+   const note=q('#placeholder small'),ov=q('.preview-comment-overlay'),pv=q('.preview'),card=q('#panel-live .card');
+   return {noteBottom:note.bottom,overlayTop:ov.top,overlayBottom:ov.bottom,previewBottom:pv.bottom,cardTop:card.top,iconDisplay:getComputedStyle(document.querySelector('#placeholder>span')).display};
   });
+  assert.ok(narrow.cardTop-narrow.previewBottom<=28,'panel follows the preview without a stacked-margin gap');
   assert.ok(narrow.overlayBottom<=narrow.previewBottom+1,'overlay stays inside the frame on narrow screens');
   assert.ok(narrow.noteBottom<=narrow.overlayTop,'placeholder note is not covered');
   assert.equal(narrow.iconDisplay,'none');

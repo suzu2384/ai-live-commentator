@@ -1126,3 +1126,10 @@ details.advanced-settings{border:0!important;border-bottom:1px solid var(--line)
 /* v4.54.22: the theme picker lives in the settings panel, not the header. */
 #panel-connect .theme-picker{display:block;margin:0 0 12px;color:var(--label);font-size:var(--fs-label)}
 #panel-connect .theme-picker select{width:100%;min-width:0;max-width:none;margin:6px 0 0;padding:9px 11px;font-size:var(--fs-body);min-height:var(--control-height)}
+
+/* v4.54.23: stacked layout closes the stacked margins above the panel
+   (preview margin 16 + workspace gap 24 + panel padding 16) down to one rhythm step. */
+@media(max-width:900px){
+ .workspace{row-gap:8px}
+ .panel-scroll{padding-top:0}
+}
